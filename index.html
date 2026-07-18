@@ -320,6 +320,35 @@
 
   .loading{ text-align:center; padding:80px 20px; color:var(--text-muted); font-size:15px; }
 
+  /* ---------- Reading progress bar ---------- */
+  .fullscreen-progress{
+    position:fixed; top:0; right:0; left:0; height:3px; z-index:999;
+    background:transparent; pointer-events:none;
+  }
+  .fullscreen-progress__bar{
+    height:100%; width:0%;
+    background:linear-gradient(90deg, var(--accent), var(--accent-soft));
+    transition:width .1s linear;
+  }
+
+  /* ---------- Scroll to top button ---------- */
+  .scroll-top-btn{
+    position:fixed; bottom:26px; left:26px; z-index:998;
+    width:46px; height:46px; border-radius:50%;
+    background:var(--accent); color:#fff; border:none;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 6px 18px rgba(0,0,0,.28);
+    opacity:0; visibility:hidden; transform:translateY(10px);
+    transition:opacity .2s ease, transform .2s ease, visibility .2s ease;
+  }
+  .scroll-top-btn.visible{ opacity:1; visibility:visible; transform:translateY(0); }
+  .scroll-top-btn:hover{ filter:brightness(1.08); }
+  .scroll-top-btn svg{ width:19px; height:19px; }
+
+  @media (max-width:600px){
+    .scroll-top-btn{ bottom:18px; left:18px; width:42px; height:42px; }
+  }
+
   @media (max-width:600px){
     .ayah-card{ padding:18px; flex-direction:column-reverse; align-items:flex-end; }
     .top-header{ align-items:stretch; }
@@ -327,6 +356,14 @@
 </style>
 </head>
 <body>
+
+<div class="fullscreen-progress" id="reading-progress">
+  <div class="fullscreen-progress__bar" id="reading-progress-bar" style="width: 0%"></div>
+</div>
+
+<button class="scroll-top-btn" id="scroll-top-btn" onclick="scrollToSurahTop()" title="العودة لأعلى السورة" aria-label="العودة لأعلى السورة">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
+</button>
 
 <div class="wrap">
 
@@ -522,6 +559,34 @@ function dismissContinueBanner(){
   renderContinueBanner();
 }
 
+function updateReadingProgress(){
+  const readView = document.getElementById('read-view');
+  const progressWrap = document.getElementById('reading-progress');
+  const bar = document.getElementById('reading-progress-bar');
+  const btn = document.getElementById('scroll-top-btn');
+
+  if(readView.style.display === 'none'){
+    bar.style.width = '0%';
+    btn.classList.remove('visible');
+    return;
+  }
+
+  const scrollTop = window.scrollY || document.documentElement.scrollTop;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const pct = docHeight > 0 ? Math.min(100, Math.max(0, (scrollTop / docHeight) * 100)) : 0;
+  bar.style.width = pct + '%';
+
+  if(scrollTop > 400){ btn.classList.add('visible'); }
+  else{ btn.classList.remove('visible'); }
+}
+
+function scrollToSurahTop(){
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+window.addEventListener('scroll', updateReadingProgress, { passive:true });
+window.addEventListener('resize', updateReadingProgress);
+
 function handleReadScroll(){
   if(scrollSaveTimer) clearTimeout(scrollSaveTimer);
   scrollSaveTimer = setTimeout(() => {
@@ -586,6 +651,7 @@ function showList(){
   document.getElementById('list-view').style.display = 'block';
   renderContinueBanner();
   window.scrollTo(0,0);
+  updateReadingProgress();
 }
 
 function openSurah(id, scrollToAyah){
@@ -595,6 +661,7 @@ function openSurah(id, scrollToAyah){
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'block';
   window.scrollTo(0,0);
+  updateReadingProgress();
 
   document.getElementById('surah-title').textContent = `سورة ${surah.name} (${surah.transliteration})`;
   document.getElementById('surah-sub').innerHTML =
