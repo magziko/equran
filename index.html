@@ -6,7 +6,7 @@
 <title>القرآن الكريم</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:wght@400;700&family=Scheherazade+New:wght@400;700&family=Lateef&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg: #0a0b14;
@@ -267,6 +267,13 @@
   .font-controls .size-display{
     min-width:40px; text-align:center; font-size:13px; color:var(--text-muted); font-weight:700;
   }
+  .font-select{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    font-family:'Cairo', sans-serif; font-size:13.5px; font-weight:600;
+    padding:8px 12px; border-radius:9px; outline:none; cursor:pointer;
+  }
+  .font-select:hover, .font-select:focus{ border-color:var(--accent); }
+  .font-select option{ background:var(--surface); color:var(--text); }
 
   /* ayat list */
   .ayat-list{ display:flex; flex-direction:column; gap:12px; }
@@ -277,9 +284,14 @@
   }
   .ayah-card:hover{ border-color:var(--accent); background:var(--surface-2); }
   .ayah-text{
-    flex:1; font-family:'Amiri Quran', serif; direction:rtl; text-align:right;
+    flex:1; direction:rtl; text-align:right;
     line-height:2.3; color:var(--text);
+    font-family:'Amiri Quran', serif;
   }
+  html[data-font="amiri"] .ayah-text{ font-family:'Amiri', serif; }
+  html[data-font="scheherazade"] .ayah-text{ font-family:'Scheherazade New', serif; }
+  html[data-font="lateef"] .ayah-text{ font-family:'Lateef', serif; }
+  html[data-font="noto"] .ayah-text{ font-family:'Noto Naskh Arabic', serif; }
   .ayah-num{
     flex-shrink:0; min-width:40px; height:40px; padding:0 4px; border-radius:50%;
     background:var(--accent-bg); color:var(--accent-soft); border:1px solid var(--ring);
@@ -373,6 +385,16 @@
           </div>
         </div>
         <div class="control-group">
+          <span class="label">نوع الخط</span>
+          <select id="font-family-select" class="font-select" onchange="changeFontFamily(this.value)">
+            <option value="amiri-quran">الخط العثماني (Amiri Quran)</option>
+            <option value="scheherazade">شهرزاد (واضح للقراءة)</option>
+            <option value="noto">نوتو نسخ (عصري وواضح)</option>
+            <option value="amiri">أميري (نسخي تقليدي)</option>
+            <option value="lateef">لطيف (بسيط)</option>
+          </select>
+        </div>
+        <div class="control-group">
           <span class="label">المظهر</span>
           <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري">
             <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
@@ -407,11 +429,20 @@ let fontSize = (function(){
 })();
 let currentSurahId = null;
 let scrollSaveTimer = null;
+let fontFamily = (function(){
+  try{
+    const saved = localStorage.getItem('quran-font-family');
+    if(saved) return saved;
+  }catch(e){}
+  return 'amiri-quran';
+})();
 
 async function init(){
   QURAN = QURAN_DATA;
   document.getElementById('loading').style.display = 'none';
   document.getElementById('font-size-display').textContent = fontSize;
+  document.documentElement.setAttribute('data-font', fontFamily);
+  document.getElementById('font-family-select').value = fontFamily;
   renderGrid('');
   renderContinueBanner();
 }
@@ -608,6 +639,12 @@ function changeFont(delta){
   document.getElementById('font-size-display').textContent = fontSize;
   document.querySelectorAll('.ayah-text').forEach(el => el.style.fontSize = fontSize + 'px');
   try{ localStorage.setItem('quran-font-size', fontSize); }catch(e){}
+}
+
+function changeFontFamily(value){
+  fontFamily = value;
+  document.documentElement.setAttribute('data-font', value);
+  try{ localStorage.setItem('quran-font-family', value); }catch(e){}
 }
 
 function applyTheme(theme){
