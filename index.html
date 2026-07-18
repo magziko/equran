@@ -594,10 +594,11 @@ function openSurah(id, scrollToAyah){
 
   location.hash = `surah-${id}`;
 
-  if(scrollToAyah){
+  const target = scrollToAyah || (saved && saved.surahId === id ? saved.ayahId : null);
+  if(target){
     setTimeout(() => {
-      const target = document.getElementById('ayah-' + scrollToAyah);
-      if(target) target.scrollIntoView({ behavior:'smooth', block:'center' });
+      const el = document.getElementById('ayah-' + target);
+      if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
     }, 60);
   }
 }
