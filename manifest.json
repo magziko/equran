@@ -1,0 +1,14 @@
+{
+  "name": "القرآن الكريم",
+  "short_name": "القرآن",
+  "description": "تطبيق لقراءة القرآن الكريم يعمل بدون إنترنت",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f4c3a",
+  "theme_color": "#0f4c3a",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": []
+}
