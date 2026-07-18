@@ -398,13 +398,20 @@ const QURAN_DATA = [{"id":1,"name":"الفاتحة","transliteration":"Al-Fatiha
 </script>
 <script>
 let QURAN = [];
-let fontSize = 28;
+let fontSize = (function(){
+  try{
+    const saved = parseInt(localStorage.getItem('quran-font-size'));
+    if(!isNaN(saved) && saved >= 18 && saved <= 48) return saved;
+  }catch(e){}
+  return 28;
+})();
 let currentSurahId = null;
 let scrollSaveTimer = null;
 
 async function init(){
   QURAN = QURAN_DATA;
   document.getElementById('loading').style.display = 'none';
+  document.getElementById('font-size-display').textContent = fontSize;
   renderGrid('');
   renderContinueBanner();
 }
@@ -599,6 +606,7 @@ function changeFont(delta){
   fontSize = Math.min(48, Math.max(18, fontSize + delta * 2));
   document.getElementById('font-size-display').textContent = fontSize;
   document.querySelectorAll('.ayah-text').forEach(el => el.style.fontSize = fontSize + 'px');
+  try{ localStorage.setItem('quran-font-size', fontSize); }catch(e){}
 }
 
 function applyTheme(theme){
