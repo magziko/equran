@@ -1,12 +1,16 @@
 // اسم الكاش — غيّره (مثلاً v2, v3) في كل مرة تحدّث فيها محتوى الملف
 // حتى يتم تحميل النسخة الجديدة للمستخدمين بدل النسخة القديمة المخزنة
-const CACHE_NAME = 'quran-app-cache-v1';
+const CACHE_NAME = 'quran-app-cache-v2';
 
 // الملفات الأساسية للتطبيق (الصفحة نفسها تكفي لأنها تحتوي كل شيء)
 const APP_SHELL = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-192-maskable.png',
+  './icon-512-maskable.png'
 ];
 
 // عند التثبيت: خزّن نسخة من التطبيق فوراً
