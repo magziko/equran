@@ -421,10 +421,18 @@
   }
 
   .surah-nav-footer{
-    display:flex; justify-content:space-between; align-items:center;
+    display:flex; justify-content:flex-start; align-items:center;
     margin-top:28px; padding-top:20px; border-top:1px solid var(--border);
   }
   .surah-nav-footer a{
+    font-size:14px; font-weight:700; color:var(--accent-soft);
+    display:flex; align-items:center; gap:6px;
+  }
+  .surah-nav-top{
+    display:flex; justify-content:flex-start; align-items:center;
+    margin-bottom:18px; padding-bottom:14px; border-bottom:1px solid var(--border);
+  }
+  .surah-nav-top a{
     font-size:14px; font-weight:700; color:var(--accent-soft);
     display:flex; align-items:center; gap:6px;
   }
@@ -547,6 +555,10 @@
       رجوع إلى الفهرس
     </a>
 
+    <div class="surah-nav-top">
+      <a href="#" id="prev-surah-link" style="visibility:hidden;">السورة السابقة</a>
+    </div>
+
     <div class="surah-header">
       <h2>
         <span class="badge-icon">
@@ -607,7 +619,6 @@
 
     <div class="surah-nav-footer">
       <a href="#" id="next-surah-link">السورة التالية <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></a>
-      <a href="#" id="prev-surah-link" style="visibility:hidden;">السورة السابقة</a>
     </div>
   </div>
 
