@@ -1411,7 +1411,7 @@ function attachSwipeNavigation(){
     const dt = Date.now() - startTime;
     if(Math.abs(dx) < MIN_DIST || Math.abs(dy) > MAX_OFF_AXIS || dt > MAX_TIME) return;
 
-    if(dx < 0){
+    if(dx > 0){
       const nextLink = document.getElementById('next-surah-link');
       if(nextLink && nextLink.style.visibility !== 'hidden' && typeof nextLink.onclick === 'function'){
         nextLink.onclick({ preventDefault(){} });
