@@ -342,6 +342,12 @@
   .font-controls .size-display{
     min-width:40px; text-align:center; font-size:13px; color:var(--text-muted); font-weight:700;
   }
+  .font-controls .font-reset-btn{
+    width:auto; height:34px; padding:0 12px; gap:5px;
+    font-family:'Cairo', sans-serif; font-size:12.5px; font-weight:700;
+    margin-inline-start:4px;
+  }
+  .font-controls .font-reset-btn svg{ flex-shrink:0; }
   .font-select{
     background:var(--surface-2); border:1px solid var(--border); color:var(--text);
     font-family:'Cairo', sans-serif; font-size:13.5px; font-weight:600;
@@ -357,7 +363,16 @@
     padding:22px 24px; display:flex; flex-direction:column; align-items:stretch; gap:8px;
     transition:border-color .15s ease, background .15s ease;
   }
-  .ayah-card:hover{ border-color:var(--accent); background:var(--surface-2); }
+  .ayah-card:hover{ border-color:var(--accent); background:var(--surface-2); cursor:pointer; }
+  .ayah-card.is-playing{ border-color:var(--accent); background:var(--accent-bg); }
+  .ayah-card.is-playing .ayah-text{ color:var(--accent-soft); }
+  .ayah-audio-icon{
+    flex-shrink:0; width:26px; height:26px; border-radius:50%;
+    background:var(--accent-bg); color:var(--accent-soft); border:1px solid var(--ring);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .ayah-audio-icon svg{ width:13px; height:13px; }
+  .ayah-card.is-playing .ayah-audio-icon{ background:var(--accent); color:#fff; }
   .ayah-text{
     direction:rtl; text-align:right;
     line-height:2.3; color:var(--text);
@@ -397,9 +412,12 @@
   .ayat-list.continuous-mode .ayah-card{
     display:inline; background:none; border:none; padding:0; margin:0;
   }
-  .ayat-list.continuous-mode .ayah-card:hover{ background:none; border-color:transparent; }
+  .ayat-list.continuous-mode .ayah-card:hover{ background:none; border-color:transparent; cursor:pointer; }
   .ayat-list.continuous-mode .ayah-card.is-saved{
     background:none; border-color:transparent;
+  }
+  .ayat-list.continuous-mode .ayah-card.is-playing .ayah-text{
+    color:var(--accent-soft);
   }
   .ayat-list.continuous-mode .ayah-card.is-saved .ayah-text{
     color:var(--accent-soft);
@@ -591,6 +609,10 @@
             <button onclick="changeFont(-1)">−</button>
             <span class="size-display" id="font-size-display">28</span>
             <button onclick="changeFont(1)">+</button>
+            <button class="font-reset-btn" onclick="resetFontSize()" title="استعادة حجم الخط الافتراضي">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+              إعادة تعيين
+            </button>
           </div>
         </div>
         <div class="control-group">
@@ -630,12 +652,13 @@ const QURAN_DATA = [{"id":1,"name":"الفاتحة","transliteration":"Al-Fatiha
 </script>
 <script>
 let QURAN = [];
+const DEFAULT_FONT_SIZE = 28;
 let fontSize = (function(){
   try{
     const saved = parseInt(localStorage.getItem('quran-font-size'));
-    if(!isNaN(saved) && saved >= 18 && saved <= 48) return saved;
+    if(!isNaN(saved) && saved >= 18 && saved <= 72) return saved;
   }catch(e){}
-  return 28;
+  return DEFAULT_FONT_SIZE;
 })();
 let currentSurahId = null;
 let currentJuzId = null;
@@ -781,6 +804,48 @@ function markPosition(surahId, ayahId, surahName){
     btn.classList.add('active');
     btn.querySelector('svg').setAttribute('fill', 'currentColor');
   }
+}
+
+/* ---------- تشغيل صوت الآية بصوت الشيخ الحصري (رواية المعلم بمد واضح) ---------- */
+let ayahAudioPlayer = null;
+let ayahAudioPlayingCardId = null;
+
+function playAyahAudio(surahId, ayahId, cardId){
+  const surahPart = String(surahId).padStart(3, '0');
+  const ayahPart = String(ayahId).padStart(3, '0');
+  const audioUrl = `https://everyayah.com/data/Husary_Muallim_128kbps/${surahPart}${ayahPart}.mp3`;
+
+  // إذا كانت نفس الآية قيد التشغيل، أوقفها
+  if(ayahAudioPlayingCardId === cardId && ayahAudioPlayer && !ayahAudioPlayer.paused){
+    ayahAudioPlayer.pause();
+    stopAyahAudioUI();
+    return;
+  }
+
+  stopAyahAudioUI();
+
+  if(!ayahAudioPlayer){
+    ayahAudioPlayer = new Audio();
+    ayahAudioPlayer.addEventListener('ended', stopAyahAudioUI);
+    ayahAudioPlayer.addEventListener('error', () => {
+      console.warn('تعذر تحميل تلاوة هذه الآية.');
+      stopAyahAudioUI();
+    });
+  }
+
+  ayahAudioPlayer.src = audioUrl;
+  ayahAudioPlayingCardId = cardId;
+  const card = document.getElementById(cardId);
+  if(card) card.classList.add('is-playing');
+  ayahAudioPlayer.play().catch(() => {
+    console.warn('تعذر تشغيل الصوت.');
+    stopAyahAudioUI();
+  });
+}
+
+function stopAyahAudioUI(){
+  document.querySelectorAll('.ayah-card.is-playing').forEach(el => el.classList.remove('is-playing'));
+  ayahAudioPlayingCardId = null;
 }
 
 function renderContinueBanner(){
@@ -1110,11 +1175,14 @@ function openSurah(id, scrollToAyah){
   currentSurahId = id;
   const saved = getSavedPosition();
   list.innerHTML = surah.verses.map(v => `
-    <div class="ayah-card${saved && saved.surahId === id && saved.ayahId === v.id ? ' is-saved' : ''}" id="ayah-${v.id}" data-ayah="${v.id}" data-surah="${id}">
+    <div class="ayah-card${saved && saved.surahId === id && saved.ayahId === v.id ? ' is-saved' : ''}" id="ayah-${v.id}" data-ayah="${v.id}" data-surah="${id}" onclick="playAyahAudio(${id}, ${v.id}, 'ayah-${v.id}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
       <div class="ayah-text" style="font-size:${fontSize}px;">${v.text}</div>
       <div class="ayah-meta">
+        <div class="ayah-audio-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
         <div class="ayah-num">${v.id}</div>
-        <button class="ayah-bookmark-btn${saved && saved.surahId === id && saved.ayahId === v.id ? ' active' : ''}" onclick="markPosition(${id}, ${v.id}, '${surah.name}')" title="حفظ موضع التوقف هنا">
+        <button class="ayah-bookmark-btn${saved && saved.surahId === id && saved.ayahId === v.id ? ' active' : ''}" onclick="event.stopPropagation(); markPosition(${id}, ${v.id}, '${surah.name}')" title="حفظ موضع التوقف هنا">
           <svg viewBox="0 0 24 24" fill="${saved && saved.surahId === id && saved.ayahId === v.id ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
@@ -1190,11 +1258,14 @@ function openJuz(juzNum, scrollToSurahAyah){
     }
     const isSaved = saved && saved.surahId === v.surahId && saved.ayahId === v.ayahId;
     return `${divider}
-    <div class="ayah-card${isSaved ? ' is-saved' : ''}" id="jayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}">
+    <div class="ayah-card${isSaved ? ' is-saved' : ''}" id="jayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'jayah-${v.surahId}-${v.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
       <div class="ayah-text" style="font-size:${fontSize}px;">${v.text}</div>
       <div class="ayah-meta">
+        <div class="ayah-audio-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
         <div class="ayah-num">${v.ayahId}</div>
-        <button class="ayah-bookmark-btn${isSaved ? ' active' : ''}" onclick="markPosition(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="حفظ موضع التوقف هنا">
+        <button class="ayah-bookmark-btn${isSaved ? ' active' : ''}" onclick="event.stopPropagation(); markPosition(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="حفظ موضع التوقف هنا">
           <svg viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
@@ -1235,7 +1306,14 @@ function openJuz(juzNum, scrollToSurahAyah){
 }
 
 function changeFont(delta){
-  fontSize = Math.min(48, Math.max(18, fontSize + delta * 2));
+  fontSize = Math.min(72, Math.max(18, fontSize + delta * 2));
+  document.getElementById('font-size-display').textContent = fontSize;
+  document.querySelectorAll('.ayah-text').forEach(el => el.style.fontSize = fontSize + 'px');
+  try{ localStorage.setItem('quran-font-size', fontSize); }catch(e){}
+}
+
+function resetFontSize(){
+  fontSize = DEFAULT_FONT_SIZE;
   document.getElementById('font-size-display').textContent = fontSize;
   document.querySelectorAll('.ayah-text').forEach(el => el.style.fontSize = fontSize + 'px');
   try{ localStorage.setItem('quran-font-size', fontSize); }catch(e){}
@@ -1282,6 +1360,62 @@ function toggleTheme(){
   applyTheme(saved);
 })();
 
+function attachSwipeNavigation(){
+  const container = document.getElementById('read-view');
+  if(!container) return;
+  let startX = 0, startY = 0, startTime = 0, tracking = false;
+
+  const MIN_DIST = 65;
+  const MAX_OFF_AXIS = 70;
+  const MAX_TIME = 700;
+
+  container.addEventListener('touchstart', function(e){
+    if(e.touches.length !== 1) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    startTime = Date.now();
+    tracking = true;
+  }, { passive: true });
+
+  container.addEventListener('touchend', function(e){
+    if(!tracking) return;
+    tracking = false;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+    const dt = Date.now() - startTime;
+    if(Math.abs(dx) < MIN_DIST || Math.abs(dy) > MAX_OFF_AXIS || dt > MAX_TIME) return;
+
+    if(dx < 0){
+      const nextLink = document.getElementById('next-surah-link');
+      if(nextLink && nextLink.style.visibility !== 'hidden' && typeof nextLink.onclick === 'function'){
+        nextLink.onclick({ preventDefault(){} });
+      }
+    } else {
+      const prevLink = document.getElementById('prev-surah-link');
+      if(prevLink && prevLink.style.visibility !== 'hidden' && typeof prevLink.onclick === 'function'){
+        prevLink.onclick({ preventDefault(){} });
+      }
+    }
+  }, { passive: true });
+}
+
+function attachDisplayModeShortcuts(){
+  document.addEventListener('keydown', function(e){
+    if(e.ctrlKey || e.metaKey || e.altKey) return;
+    const tag = (e.target && e.target.tagName) || '';
+    if(tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+    if(document.getElementById('read-view').style.display === 'none') return;
+
+    const key = e.key.toLowerCase();
+    if(key === 's'){
+      setDisplayMode('cards');
+    } else if(key === 'c'){
+      setDisplayMode('continuous');
+    }
+  });
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   init().then(() => {
     const surahHash = location.hash.match(/^#surah-(\d+)$/);
@@ -1289,6 +1423,8 @@ window.addEventListener('DOMContentLoaded', () => {
     if(surahHash) openSurah(parseInt(surahHash[1]));
     else if(juzHash) openJuz(parseInt(juzHash[1]));
   });
+  attachSwipeNavigation();
+  attachDisplayModeShortcuts();
 });
 
 // تفعيل العمل بدون إنترنت (Service Worker)
