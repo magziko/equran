@@ -429,6 +429,25 @@
     display:flex; align-items:center; gap:6px;
   }
 
+  /* ---------- Basmala ---------- */
+  .basmala{
+    text-align:center; direction:rtl;
+    font-family:'Amiri Quran', serif;
+    font-size:clamp(22px, 4.5vw, 32px);
+    color:var(--text);
+    margin:4px 0 22px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--border);
+  }
+  html[data-font="amiri"] .basmala{ font-family:'Amiri', serif; }
+  html[data-font="scheherazade"] .basmala{ font-family:'Scheherazade New', serif; }
+  html[data-font="lateef"] .basmala{ font-family:'Lateef', serif; }
+  html[data-font="noto"] .basmala{ font-family:'Noto Naskh Arabic', serif; }
+  html[data-font="madinah"] .basmala{ font-family:'UthmanicHafs Madinah', serif; }
+  .juz-surah-divider + .basmala{
+    margin-top:-4px; margin-bottom:18px; border-bottom:none; padding-bottom:0;
+  }
+
   .loading{ text-align:center; padding:80px 20px; color:var(--text-muted); font-size:15px; }
 
   /* ---------- Reading progress bar ---------- */
@@ -583,6 +602,7 @@
       </div>
     </details>
 
+    <div class="basmala" id="basmala-block" style="display:none;"></div>
     <div class="ayat-list" id="ayat-list"></div>
 
     <div class="surah-nav-footer">
@@ -1066,6 +1086,15 @@ function openSurah(id, scrollToAyah){
   document.getElementById('surah-sub').innerHTML =
     `قراءة سورة ${surah.name} <b>من الآية 1 إلى الآية ${surah.total_verses}</b> — سورة ${typeLabel(surah.type)}، اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.`;
 
+  const basmalaBlock = document.getElementById('basmala-block');
+  if(surah.id !== 9 && surah.id !== 1){
+    basmalaBlock.style.display = 'block';
+    basmalaBlock.textContent = 'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ';
+  } else {
+    basmalaBlock.style.display = 'none';
+    basmalaBlock.textContent = '';
+  }
+
   const list = document.getElementById('ayat-list');
   currentSurahId = id;
   const saved = getSavedPosition();
@@ -1136,6 +1165,8 @@ function openJuz(juzNum, scrollToSurahAyah){
       : `من سورة ${first.surahName} <b>الآية ${first.ayahId}</b> إلى سورة ${last.surahName} <b>الآية ${last.ayahId}</b>`
     ) + `، اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.`;
 
+  document.getElementById('basmala-block').style.display = 'none';
+
   const list = document.getElementById('ayat-list');
   const saved = getSavedPosition();
   let lastSurahId = null;
@@ -1143,7 +1174,8 @@ function openJuz(juzNum, scrollToSurahAyah){
     let divider = '';
     if(v.surahId !== lastSurahId){
       lastSurahId = v.surahId;
-      divider = `<div class="juz-surah-divider">سورة ${v.surahName}</div>`;
+      const showBasmala = v.surahId !== 9 && v.surahId !== 1;
+      divider = `<div class="juz-surah-divider">سورة ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
     }
     const isSaved = saved && saved.surahId === v.surahId && saved.ayahId === v.ayahId;
     return `${divider}
