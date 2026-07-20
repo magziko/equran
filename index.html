@@ -558,6 +558,7 @@
       <div class="browse-tabs">
         <button class="browse-tab active" id="tab-surah-btn" onclick="switchBrowseMode('surah')">تصفح بالسور</button>
         <button class="browse-tab" id="tab-juz-btn" onclick="switchBrowseMode('juz')">تصفح بالأجزاء</button>
+        <button class="browse-tab" id="tab-hizb-btn" onclick="switchBrowseMode('hizb')">تصفح بالأحزاب</button>
       </div>
       <div class="toolbar-actions">
         <div class="search-box">
@@ -581,6 +582,7 @@
 
     <div class="surah-grid" id="surah-grid"></div>
     <div class="surah-grid" id="juz-grid" style="display:none;"></div>
+    <div class="surah-grid" id="hizb-grid" style="display:none;"></div>
     <div class="no-results" id="no-results" style="display:none;">لا توجد نتائج مطابقة.</div>
   </div>
 
@@ -687,6 +689,7 @@ let fontSize = (function(){
 })();
 let currentSurahId = null;
 let currentJuzId = null;
+let currentHizbId = null;
 let currentMode = 'surah';
 let browseMode = 'surah';
 let scrollSaveTimer = null;
@@ -708,6 +711,40 @@ const JUZ_START = [
   { juz:25, surah:41, ayah:47 }, { juz:26, surah:46, ayah:1   },
   { juz:27, surah:51, ayah:31 }, { juz:28, surah:58, ayah:1   },
   { juz:29, surah:67, ayah:1  }, { juz:30, surah:78, ayah:1   }
+];
+
+// نقاط بداية كل حزب من أحزاب القرآن الستين (سورة:آية) — كل جزء ينقسم لحزبين
+const HIZB_START = [
+  { hizb:1,  surah:1,  ayah:1   }, { hizb:2,  surah:2,  ayah:75  },
+  { hizb:3,  surah:2,  ayah:142 }, { hizb:4,  surah:2,  ayah:203 },
+  { hizb:5,  surah:2,  ayah:253 }, { hizb:6,  surah:3,  ayah:15  },
+  { hizb:7,  surah:3,  ayah:93  }, { hizb:8,  surah:3,  ayah:171 },
+  { hizb:9,  surah:4,  ayah:24  }, { hizb:10, surah:4,  ayah:88  },
+  { hizb:11, surah:4,  ayah:148 }, { hizb:12, surah:5,  ayah:27  },
+  { hizb:13, surah:5,  ayah:82  }, { hizb:14, surah:6,  ayah:36  },
+  { hizb:15, surah:6,  ayah:111 }, { hizb:16, surah:7,  ayah:1   },
+  { hizb:17, surah:7,  ayah:88  }, { hizb:18, surah:7,  ayah:171 },
+  { hizb:19, surah:8,  ayah:41  }, { hizb:20, surah:9,  ayah:34  },
+  { hizb:21, surah:9,  ayah:93  }, { hizb:22, surah:10, ayah:26  },
+  { hizb:23, surah:11, ayah:6   }, { hizb:24, surah:11, ayah:84  },
+  { hizb:25, surah:12, ayah:53  }, { hizb:26, surah:13, ayah:19  },
+  { hizb:27, surah:15, ayah:1   }, { hizb:28, surah:16, ayah:51  },
+  { hizb:29, surah:17, ayah:1   }, { hizb:30, surah:17, ayah:99  },
+  { hizb:31, surah:18, ayah:75  }, { hizb:32, surah:20, ayah:1   },
+  { hizb:33, surah:21, ayah:1   }, { hizb:34, surah:22, ayah:1   },
+  { hizb:35, surah:23, ayah:1   }, { hizb:36, surah:24, ayah:21  },
+  { hizb:37, surah:25, ayah:21  }, { hizb:38, surah:26, ayah:111 },
+  { hizb:39, surah:27, ayah:56  }, { hizb:40, surah:28, ayah:51  },
+  { hizb:41, surah:29, ayah:46  }, { hizb:42, surah:31, ayah:22  },
+  { hizb:43, surah:33, ayah:31  }, { hizb:44, surah:34, ayah:24  },
+  { hizb:45, surah:36, ayah:28  }, { hizb:46, surah:37, ayah:145 },
+  { hizb:47, surah:39, ayah:32  }, { hizb:48, surah:40, ayah:41  },
+  { hizb:49, surah:41, ayah:47  }, { hizb:50, surah:43, ayah:24  },
+  { hizb:51, surah:46, ayah:1   }, { hizb:52, surah:48, ayah:18  },
+  { hizb:53, surah:51, ayah:31  }, { hizb:54, surah:55, ayah:1   },
+  { hizb:55, surah:58, ayah:1   }, { hizb:56, surah:62, ayah:1   },
+  { hizb:57, surah:67, ayah:1   }, { hizb:58, surah:72, ayah:1   },
+  { hizb:59, surah:78, ayah:1   }, { hizb:60, surah:87, ayah:1   }
 ];
 let fontFamily = (function(){
   try{
@@ -736,6 +773,7 @@ async function init(){
   document.getElementById('font-family-select').value = fontFamily;
   renderGrid('');
   renderJuzGrid('');
+  renderHizbGrid('');
   renderContinueBanner();
   buildAyahSearchIndex();
 }
@@ -937,6 +975,7 @@ function handleReadScroll(){
   scrollSaveTimer = setTimeout(() => {
     if(currentMode === 'surah' && !currentSurahId) return;
     if(currentMode === 'juz' && !currentJuzId) return;
+    if(currentMode === 'hizb' && !currentHizbId) return;
     const cards = document.querySelectorAll('#ayat-list .ayah-card');
     let closest = null, closestDist = Infinity;
     cards.forEach(card => {
@@ -981,21 +1020,44 @@ function getJuzVerses(juzNum){
   return items;
 }
 
+// يعيد كل آيات حزب معيّن (قد يمتد عبر أكثر من سورة) مرتبة بالترتيب الصحيح
+function getHizbVerses(hizbNum){
+  const start = HIZB_START.find(h => h.hizb === hizbNum);
+  const nextStart = HIZB_START.find(h => h.hizb === hizbNum + 1);
+  if(!start) return [];
+  const items = [];
+  let collecting = false;
+  outer:
+  for(const surah of QURAN){
+    for(const v of surah.verses){
+      if(!collecting && surah.id === start.surah && v.id === start.ayah) collecting = true;
+      if(collecting){
+        if(nextStart && surah.id === nextStart.surah && v.id === nextStart.ayah) break outer;
+        items.push({ surahId: surah.id, surahName: surah.name, ayahId: v.id, text: v.text });
+      }
+    }
+  }
+  return items;
+}
+
 function switchBrowseMode(mode){
   browseMode = mode;
   document.getElementById('tab-surah-btn').classList.toggle('active', mode === 'surah');
   document.getElementById('tab-juz-btn').classList.toggle('active', mode === 'juz');
+  document.getElementById('tab-hizb-btn').classList.toggle('active', mode === 'hizb');
   document.getElementById('surah-grid').style.display = mode === 'surah' ? '' : 'none';
   document.getElementById('juz-grid').style.display = mode === 'juz' ? '' : 'none';
+  document.getElementById('hizb-grid').style.display = mode === 'hizb' ? '' : 'none';
   const input = document.getElementById('search-input');
-  input.placeholder = mode === 'surah' ? 'ابحث عن سورة...' : 'ابحث برقم الجزء...';
+  input.placeholder = mode === 'surah' ? 'ابحث عن سورة...' : (mode === 'juz' ? 'ابحث برقم الجزء...' : 'ابحث برقم الحزب...');
   input.value = '';
   onSearchInput('');
 }
 
 function onSearchInput(value){
   if(browseMode === 'surah') renderGrid(value);
-  else renderJuzGrid(value);
+  else if(browseMode === 'juz') renderJuzGrid(value);
+  else renderHizbGrid(value);
 }
 
 function renderJuzGrid(query){
@@ -1023,6 +1085,36 @@ function renderJuzGrid(query){
         <div class="meta">يبدأ من سورة ${startLabel}</div>
       </div>
       <div class="num">${j.juz}</div>
+    </a>
+  `;
+  }).join('');
+}
+
+function renderHizbGrid(query){
+  const grid = document.getElementById('hizb-grid');
+  const noRes = document.getElementById('no-results');
+  const q = (query || '').trim();
+  const filtered = HIZB_START.filter(h => !q || String(h.hizb) === q);
+
+  document.getElementById('count-pill').textContent = q ? `${filtered.length} نتيجة` : '1-60';
+
+  if(filtered.length === 0){
+    grid.innerHTML = '';
+    noRes.style.display = 'block';
+    return;
+  }
+  noRes.style.display = 'none';
+
+  grid.innerHTML = filtered.map(h => {
+    const startSurah = QURAN.find(s => s.id === h.surah);
+    const startLabel = startSurah ? `${startSurah.name} : ${h.ayah}` : '';
+    return `
+    <a class="surah-card" href="#" onclick="openHizb(${h.hizb}); return false;">
+      <div class="info">
+        <div class="name">الحزب ${h.hizb}</div>
+        <div class="meta">يبدأ من سورة ${startLabel}</div>
+      </div>
+      <div class="num">${h.hizb}</div>
     </a>
   `;
   }).join('');
@@ -1157,6 +1249,11 @@ function goToFirstMatch(){
   if(browseMode === 'juz'){
     const match = JUZ_START.find(j => String(j.juz) === q);
     if(match) openJuz(match.juz);
+    return;
+  }
+  if(browseMode === 'hizb'){
+    const match = HIZB_START.find(h => String(h.hizb) === q);
+    if(match) openHizb(match.hizb);
     return;
   }
   const match = QURAN.find(s => s.name.includes(q) || String(s.id) === q);
@@ -1330,6 +1427,90 @@ function openJuz(juzNum, scrollToSurahAyah){
   }
 }
 
+function openHizb(hizbNum, scrollToSurahAyah){
+  const verses = getHizbVerses(hizbNum);
+  if(!verses.length) return;
+
+  currentMode = 'hizb';
+  currentHizbId = hizbNum;
+  currentJuzId = null;
+  currentSurahId = null;
+
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('read-view').style.display = 'block';
+  window.scrollTo(0,0);
+  updateReadingProgress();
+
+  const first = verses[0];
+  const last = verses[verses.length - 1];
+  document.getElementById('surah-title').textContent = `الحزب ${hizbNum}`;
+  document.getElementById('surah-sub').innerHTML =
+    (first.surahId === last.surahId
+      ? `من سورة ${first.surahName} <b>من الآية ${first.ayahId} إلى الآية ${last.ayahId}</b>`
+      : `من سورة ${first.surahName} <b>الآية ${first.ayahId}</b> إلى سورة ${last.surahName} <b>الآية ${last.ayahId}</b>`
+    ) + `، اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.`;
+
+  document.getElementById('basmala-block').style.display = 'none';
+
+  const list = document.getElementById('ayat-list');
+  const saved = getSavedPosition();
+  let lastSurahId = null;
+  list.innerHTML = verses.map(v => {
+    let divider = '';
+    if(v.surahId !== lastSurahId){
+      lastSurahId = v.surahId;
+      const showBasmala = v.surahId !== 9 && v.surahId !== 1;
+      divider = `<div class="juz-surah-divider">سورة ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
+    }
+    const isSaved = saved && saved.surahId === v.surahId && saved.ayahId === v.ayahId;
+    return `${divider}
+    <div class="ayah-card${isSaved ? ' is-saved' : ''}" id="hayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'hayah-${v.surahId}-${v.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
+      <div class="ayah-text" style="font-size:${fontSize}px;">${v.text}</div>
+      <div class="ayah-meta">
+        <div class="ayah-audio-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+        <div class="ayah-num">${v.ayahId}</div>
+        <button class="ayah-bookmark-btn${isSaved ? ' active' : ''}" onclick="event.stopPropagation(); markPosition(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="حفظ موضع التوقف هنا">
+          <svg viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
+  }).join('');
+  applyDisplayMode();
+
+  const nextLink = document.getElementById('next-surah-link');
+  const prevLink = document.getElementById('prev-surah-link');
+  const hasNext = hizbNum < 60;
+  const hasPrev = hizbNum > 1;
+
+  if(hasNext){
+    nextLink.style.visibility = 'visible';
+    nextLink.onclick = (e)=>{ e.preventDefault(); openHizb(hizbNum + 1); };
+    nextLink.innerHTML = `الحزب التالي: ${hizbNum + 1} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
+  } else {
+    nextLink.style.visibility = 'hidden';
+  }
+
+  if(hasPrev){
+    prevLink.style.visibility = 'visible';
+    prevLink.onclick = (e)=>{ e.preventDefault(); openHizb(hizbNum - 1); };
+    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> الحزب السابق: ${hizbNum - 1}`;
+  } else {
+    prevLink.style.visibility = 'hidden';
+  }
+
+  location.hash = `hizb-${hizbNum}`;
+
+  if(scrollToSurahAyah){
+    setTimeout(() => {
+      const el = document.getElementById('hayah-' + scrollToSurahAyah.surahId + '-' + scrollToSurahAyah.ayahId);
+      if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+    }, 60);
+  }
+}
+
 function changeFont(delta){
   fontSize = Math.min(72, Math.max(18, fontSize + delta * 2));
   document.getElementById('font-size-display').textContent = fontSize;
@@ -1445,8 +1626,10 @@ window.addEventListener('DOMContentLoaded', () => {
   init().then(() => {
     const surahHash = location.hash.match(/^#surah-(\d+)$/);
     const juzHash = location.hash.match(/^#juz-(\d+)$/);
+    const hizbHash = location.hash.match(/^#hizb-(\d+)$/);
     if(surahHash) openSurah(parseInt(surahHash[1]));
     else if(juzHash) openJuz(parseInt(juzHash[1]));
+    else if(hizbHash) openHizb(parseInt(hizbHash[1]));
   });
   attachSwipeNavigation();
   attachDisplayModeShortcuts();
