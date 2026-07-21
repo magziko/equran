@@ -170,6 +170,25 @@
   .juz-surah-divider::after{
     content:''; flex:1; height:1px; background:var(--border);
   }
+  .rub-hizb-marker{
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    margin:20px 0; text-align:center;
+  }
+  .rub-hizb-marker::before, .rub-hizb-marker::after{
+    content:''; flex:1; height:1px; background:var(--border);
+  }
+  .rub-hizb-marker span{
+    display:inline-block; padding:5px 14px; border-radius:999px;
+    background:var(--accent-bg); color:var(--accent-soft);
+    font-size:12.5px; font-weight:700; white-space:nowrap;
+  }
+  .hizb-quarter-jumps{ display:flex; gap:4px; margin-top:6px; }
+  .hizb-quarter-jumps button{
+    flex:1; border:1px solid var(--border); background:var(--surface-2); color:var(--text-faint);
+    border-radius:6px; font-size:11px; font-weight:700; padding:4px 0; cursor:pointer;
+    font-family:inherit; transition:background .12s ease, color .12s ease;
+  }
+  .hizb-quarter-jumps button:hover{ background:var(--accent-bg); color:var(--accent-soft); }
 
   /* ---------- Ayah text search ---------- */
   .ayah-search-section{ margin:-6px 0 22px; }
@@ -746,6 +765,133 @@ const HIZB_START = [
   { hizb:57, surah:67, ayah:1   }, { hizb:58, surah:72, ayah:1   },
   { hizb:59, surah:78, ayah:1   }, { hizb:60, surah:87, ayah:1   }
 ];
+// نقاط بداية كل ربع حزب (240 ربعاً = 60 حزب × 4 أرباع)، لتقسيم كل حزب إلى أربعة أرباع كما في مصحف المدينة
+const RUB_START = [
+  { hizb:1, quarter:1, surah:1, ayah:1 }, { hizb:1, quarter:2, surah:2, ayah:26 },
+  { hizb:1, quarter:3, surah:2, ayah:44 }, { hizb:1, quarter:4, surah:2, ayah:60 },
+  { hizb:2, quarter:1, surah:2, ayah:75 }, { hizb:2, quarter:2, surah:2, ayah:92 },
+  { hizb:2, quarter:3, surah:2, ayah:106 }, { hizb:2, quarter:4, surah:2, ayah:124 },
+  { hizb:3, quarter:1, surah:2, ayah:142 }, { hizb:3, quarter:2, surah:2, ayah:158 },
+  { hizb:3, quarter:3, surah:2, ayah:177 }, { hizb:3, quarter:4, surah:2, ayah:189 },
+  { hizb:4, quarter:1, surah:2, ayah:203 }, { hizb:4, quarter:2, surah:2, ayah:219 },
+  { hizb:4, quarter:3, surah:2, ayah:233 }, { hizb:4, quarter:4, surah:2, ayah:243 },
+  { hizb:5, quarter:1, surah:2, ayah:253 }, { hizb:5, quarter:2, surah:2, ayah:263 },
+  { hizb:5, quarter:3, surah:2, ayah:272 }, { hizb:5, quarter:4, surah:2, ayah:283 },
+  { hizb:6, quarter:1, surah:3, ayah:15 }, { hizb:6, quarter:2, surah:3, ayah:33 },
+  { hizb:6, quarter:3, surah:3, ayah:52 }, { hizb:6, quarter:4, surah:3, ayah:75 },
+  { hizb:7, quarter:1, surah:3, ayah:93 }, { hizb:7, quarter:2, surah:3, ayah:113 },
+  { hizb:7, quarter:3, surah:3, ayah:133 }, { hizb:7, quarter:4, surah:3, ayah:153 },
+  { hizb:8, quarter:1, surah:3, ayah:171 }, { hizb:8, quarter:2, surah:3, ayah:186 },
+  { hizb:8, quarter:3, surah:4, ayah:1 }, { hizb:8, quarter:4, surah:4, ayah:12 },
+  { hizb:9, quarter:1, surah:4, ayah:24 }, { hizb:9, quarter:2, surah:4, ayah:36 },
+  { hizb:9, quarter:3, surah:4, ayah:58 }, { hizb:9, quarter:4, surah:4, ayah:74 },
+  { hizb:10, quarter:1, surah:4, ayah:88 }, { hizb:10, quarter:2, surah:4, ayah:100 },
+  { hizb:10, quarter:3, surah:4, ayah:114 }, { hizb:10, quarter:4, surah:4, ayah:135 },
+  { hizb:11, quarter:1, surah:4, ayah:148 }, { hizb:11, quarter:2, surah:4, ayah:163 },
+  { hizb:11, quarter:3, surah:5, ayah:1 }, { hizb:11, quarter:4, surah:5, ayah:12 },
+  { hizb:12, quarter:1, surah:5, ayah:27 }, { hizb:12, quarter:2, surah:5, ayah:41 },
+  { hizb:12, quarter:3, surah:5, ayah:51 }, { hizb:12, quarter:4, surah:5, ayah:67 },
+  { hizb:13, quarter:1, surah:5, ayah:82 }, { hizb:13, quarter:2, surah:5, ayah:97 },
+  { hizb:13, quarter:3, surah:5, ayah:109 }, { hizb:13, quarter:4, surah:6, ayah:13 },
+  { hizb:14, quarter:1, surah:6, ayah:36 }, { hizb:14, quarter:2, surah:6, ayah:59 },
+  { hizb:14, quarter:3, surah:6, ayah:74 }, { hizb:14, quarter:4, surah:6, ayah:95 },
+  { hizb:15, quarter:1, surah:6, ayah:111 }, { hizb:15, quarter:2, surah:6, ayah:127 },
+  { hizb:15, quarter:3, surah:6, ayah:141 }, { hizb:15, quarter:4, surah:6, ayah:151 },
+  { hizb:16, quarter:1, surah:7, ayah:1 }, { hizb:16, quarter:2, surah:7, ayah:31 },
+  { hizb:16, quarter:3, surah:7, ayah:47 }, { hizb:16, quarter:4, surah:7, ayah:65 },
+  { hizb:17, quarter:1, surah:7, ayah:88 }, { hizb:17, quarter:2, surah:7, ayah:117 },
+  { hizb:17, quarter:3, surah:7, ayah:142 }, { hizb:17, quarter:4, surah:7, ayah:156 },
+  { hizb:18, quarter:1, surah:7, ayah:171 }, { hizb:18, quarter:2, surah:7, ayah:189 },
+  { hizb:18, quarter:3, surah:8, ayah:1 }, { hizb:18, quarter:4, surah:8, ayah:22 },
+  { hizb:19, quarter:1, surah:8, ayah:41 }, { hizb:19, quarter:2, surah:8, ayah:61 },
+  { hizb:19, quarter:3, surah:9, ayah:1 }, { hizb:19, quarter:4, surah:9, ayah:19 },
+  { hizb:20, quarter:1, surah:9, ayah:34 }, { hizb:20, quarter:2, surah:9, ayah:46 },
+  { hizb:20, quarter:3, surah:9, ayah:60 }, { hizb:20, quarter:4, surah:9, ayah:75 },
+  { hizb:21, quarter:1, surah:9, ayah:93 }, { hizb:21, quarter:2, surah:9, ayah:111 },
+  { hizb:21, quarter:3, surah:9, ayah:122 }, { hizb:21, quarter:4, surah:10, ayah:11 },
+  { hizb:22, quarter:1, surah:10, ayah:26 }, { hizb:22, quarter:2, surah:10, ayah:53 },
+  { hizb:22, quarter:3, surah:10, ayah:71 }, { hizb:22, quarter:4, surah:10, ayah:90 },
+  { hizb:23, quarter:1, surah:11, ayah:6 }, { hizb:23, quarter:2, surah:11, ayah:24 },
+  { hizb:23, quarter:3, surah:11, ayah:41 }, { hizb:23, quarter:4, surah:11, ayah:61 },
+  { hizb:24, quarter:1, surah:11, ayah:84 }, { hizb:24, quarter:2, surah:11, ayah:108 },
+  { hizb:24, quarter:3, surah:12, ayah:7 }, { hizb:24, quarter:4, surah:12, ayah:30 },
+  { hizb:25, quarter:1, surah:12, ayah:53 }, { hizb:25, quarter:2, surah:12, ayah:77 },
+  { hizb:25, quarter:3, surah:12, ayah:101 }, { hizb:25, quarter:4, surah:13, ayah:5 },
+  { hizb:26, quarter:1, surah:13, ayah:19 }, { hizb:26, quarter:2, surah:13, ayah:35 },
+  { hizb:26, quarter:3, surah:14, ayah:10 }, { hizb:26, quarter:4, surah:14, ayah:28 },
+  { hizb:27, quarter:1, surah:15, ayah:1 }, { hizb:27, quarter:2, surah:15, ayah:49 },
+  { hizb:27, quarter:3, surah:16, ayah:1 }, { hizb:27, quarter:4, surah:16, ayah:30 },
+  { hizb:28, quarter:1, surah:16, ayah:51 }, { hizb:28, quarter:2, surah:16, ayah:75 },
+  { hizb:28, quarter:3, surah:16, ayah:90 }, { hizb:28, quarter:4, surah:16, ayah:111 },
+  { hizb:29, quarter:1, surah:17, ayah:1 }, { hizb:29, quarter:2, surah:17, ayah:23 },
+  { hizb:29, quarter:3, surah:17, ayah:50 }, { hizb:29, quarter:4, surah:17, ayah:70 },
+  { hizb:30, quarter:1, surah:17, ayah:99 }, { hizb:30, quarter:2, surah:18, ayah:17 },
+  { hizb:30, quarter:3, surah:18, ayah:32 }, { hizb:30, quarter:4, surah:18, ayah:51 },
+  { hizb:31, quarter:1, surah:18, ayah:75 }, { hizb:31, quarter:2, surah:18, ayah:99 },
+  { hizb:31, quarter:3, surah:19, ayah:22 }, { hizb:31, quarter:4, surah:19, ayah:59 },
+  { hizb:32, quarter:1, surah:20, ayah:1 }, { hizb:32, quarter:2, surah:20, ayah:55 },
+  { hizb:32, quarter:3, surah:20, ayah:83 }, { hizb:32, quarter:4, surah:20, ayah:111 },
+  { hizb:33, quarter:1, surah:21, ayah:1 }, { hizb:33, quarter:2, surah:21, ayah:29 },
+  { hizb:33, quarter:3, surah:21, ayah:51 }, { hizb:33, quarter:4, surah:21, ayah:83 },
+  { hizb:34, quarter:1, surah:22, ayah:1 }, { hizb:34, quarter:2, surah:22, ayah:19 },
+  { hizb:34, quarter:3, surah:22, ayah:38 }, { hizb:34, quarter:4, surah:22, ayah:60 },
+  { hizb:35, quarter:1, surah:23, ayah:1 }, { hizb:35, quarter:2, surah:23, ayah:36 },
+  { hizb:35, quarter:3, surah:23, ayah:75 }, { hizb:35, quarter:4, surah:24, ayah:1 },
+  { hizb:36, quarter:1, surah:24, ayah:21 }, { hizb:36, quarter:2, surah:24, ayah:35 },
+  { hizb:36, quarter:3, surah:24, ayah:53 }, { hizb:36, quarter:4, surah:25, ayah:1 },
+  { hizb:37, quarter:1, surah:25, ayah:21 }, { hizb:37, quarter:2, surah:25, ayah:53 },
+  { hizb:37, quarter:3, surah:26, ayah:1 }, { hizb:37, quarter:4, surah:26, ayah:52 },
+  { hizb:38, quarter:1, surah:26, ayah:111 }, { hizb:38, quarter:2, surah:26, ayah:181 },
+  { hizb:38, quarter:3, surah:27, ayah:1 }, { hizb:38, quarter:4, surah:27, ayah:27 },
+  { hizb:39, quarter:1, surah:27, ayah:56 }, { hizb:39, quarter:2, surah:27, ayah:82 },
+  { hizb:39, quarter:3, surah:28, ayah:12 }, { hizb:39, quarter:4, surah:28, ayah:29 },
+  { hizb:40, quarter:1, surah:28, ayah:51 }, { hizb:40, quarter:2, surah:28, ayah:76 },
+  { hizb:40, quarter:3, surah:29, ayah:1 }, { hizb:40, quarter:4, surah:29, ayah:26 },
+  { hizb:41, quarter:1, surah:29, ayah:46 }, { hizb:41, quarter:2, surah:30, ayah:1 },
+  { hizb:41, quarter:3, surah:30, ayah:31 }, { hizb:41, quarter:4, surah:30, ayah:54 },
+  { hizb:42, quarter:1, surah:31, ayah:22 }, { hizb:42, quarter:2, surah:32, ayah:11 },
+  { hizb:42, quarter:3, surah:33, ayah:1 }, { hizb:42, quarter:4, surah:33, ayah:18 },
+  { hizb:43, quarter:1, surah:33, ayah:31 }, { hizb:43, quarter:2, surah:33, ayah:51 },
+  { hizb:43, quarter:3, surah:33, ayah:60 }, { hizb:43, quarter:4, surah:34, ayah:10 },
+  { hizb:44, quarter:1, surah:34, ayah:24 }, { hizb:44, quarter:2, surah:34, ayah:46 },
+  { hizb:44, quarter:3, surah:35, ayah:15 }, { hizb:44, quarter:4, surah:35, ayah:41 },
+  { hizb:45, quarter:1, surah:36, ayah:28 }, { hizb:45, quarter:2, surah:36, ayah:60 },
+  { hizb:45, quarter:3, surah:37, ayah:22 }, { hizb:45, quarter:4, surah:37, ayah:83 },
+  { hizb:46, quarter:1, surah:37, ayah:145 }, { hizb:46, quarter:2, surah:38, ayah:21 },
+  { hizb:46, quarter:3, surah:38, ayah:52 }, { hizb:46, quarter:4, surah:39, ayah:8 },
+  { hizb:47, quarter:1, surah:39, ayah:32 }, { hizb:47, quarter:2, surah:39, ayah:53 },
+  { hizb:47, quarter:3, surah:40, ayah:1 }, { hizb:47, quarter:4, surah:40, ayah:21 },
+  { hizb:48, quarter:1, surah:40, ayah:41 }, { hizb:48, quarter:2, surah:40, ayah:66 },
+  { hizb:48, quarter:3, surah:41, ayah:9 }, { hizb:48, quarter:4, surah:41, ayah:25 },
+  { hizb:49, quarter:1, surah:41, ayah:47 }, { hizb:49, quarter:2, surah:42, ayah:13 },
+  { hizb:49, quarter:3, surah:42, ayah:27 }, { hizb:49, quarter:4, surah:42, ayah:51 },
+  { hizb:50, quarter:1, surah:43, ayah:24 }, { hizb:50, quarter:2, surah:43, ayah:57 },
+  { hizb:50, quarter:3, surah:44, ayah:17 }, { hizb:50, quarter:4, surah:45, ayah:12 },
+  { hizb:51, quarter:1, surah:46, ayah:1 }, { hizb:51, quarter:2, surah:46, ayah:21 },
+  { hizb:51, quarter:3, surah:47, ayah:10 }, { hizb:51, quarter:4, surah:47, ayah:33 },
+  { hizb:52, quarter:1, surah:48, ayah:18 }, { hizb:52, quarter:2, surah:49, ayah:1 },
+  { hizb:52, quarter:3, surah:49, ayah:14 }, { hizb:52, quarter:4, surah:50, ayah:27 },
+  { hizb:53, quarter:1, surah:51, ayah:31 }, { hizb:53, quarter:2, surah:52, ayah:24 },
+  { hizb:53, quarter:3, surah:53, ayah:26 }, { hizb:53, quarter:4, surah:54, ayah:9 },
+  { hizb:54, quarter:1, surah:55, ayah:1 }, { hizb:54, quarter:2, surah:56, ayah:1 },
+  { hizb:54, quarter:3, surah:56, ayah:75 }, { hizb:54, quarter:4, surah:57, ayah:16 },
+  { hizb:55, quarter:1, surah:58, ayah:1 }, { hizb:55, quarter:2, surah:58, ayah:14 },
+  { hizb:55, quarter:3, surah:59, ayah:11 }, { hizb:55, quarter:4, surah:60, ayah:7 },
+  { hizb:56, quarter:1, surah:62, ayah:1 }, { hizb:56, quarter:2, surah:63, ayah:4 },
+  { hizb:56, quarter:3, surah:65, ayah:1 }, { hizb:56, quarter:4, surah:66, ayah:1 },
+  { hizb:57, quarter:1, surah:67, ayah:1 }, { hizb:57, quarter:2, surah:68, ayah:1 },
+  { hizb:57, quarter:3, surah:69, ayah:1 }, { hizb:57, quarter:4, surah:70, ayah:19 },
+  { hizb:58, quarter:1, surah:72, ayah:1 }, { hizb:58, quarter:2, surah:73, ayah:20 },
+  { hizb:58, quarter:3, surah:75, ayah:1 }, { hizb:58, quarter:4, surah:76, ayah:19 },
+  { hizb:59, quarter:1, surah:78, ayah:1 }, { hizb:59, quarter:2, surah:80, ayah:1 },
+  { hizb:59, quarter:3, surah:82, ayah:1 }, { hizb:59, quarter:4, surah:84, ayah:1 },
+  { hizb:60, quarter:1, surah:87, ayah:1 }, { hizb:60, quarter:2, surah:90, ayah:1 },
+  { hizb:60, quarter:3, surah:94, ayah:1 }, { hizb:60, quarter:4, surah:100, ayah:9 }
+];
+const RUB_LABELS = { 1:'بداية الحزب', 2:'ربع الحزب', 3:'نصف الحزب', 4:'ثلاثة أرباع الحزب' };
+function getRubStartsForHizb(hizbNum){
+  return RUB_START.filter(r => r.hizb === hizbNum).sort((a,b) => a.quarter - b.quarter);
+}
 let fontFamily = (function(){
   try{
     const saved = localStorage.getItem('quran-font-family');
@@ -1108,11 +1254,13 @@ function renderHizbGrid(query){
   grid.innerHTML = filtered.map(h => {
     const startSurah = QURAN.find(s => s.id === h.surah);
     const startLabel = startSurah ? `${startSurah.name} : ${h.ayah}` : '';
+    const quarterBtns = [1,2,3,4].map(q => `<button onclick="event.preventDefault(); event.stopPropagation(); openHizb(${h.hizb}, null, ${q});" title="${RUB_LABELS[q]} (${h.hizb})">${q===1?'الحزب':q===2?'¼':q===3?'½':'¾'}</button>`).join('');
     return `
     <a class="surah-card" href="#" onclick="openHizb(${h.hizb}); return false;">
       <div class="info">
         <div class="name">الحزب ${h.hizb}</div>
         <div class="meta">يبدأ من سورة ${startLabel}</div>
+        <div class="hizb-quarter-jumps" onclick="event.preventDefault();">${quarterBtns}</div>
       </div>
       <div class="num">${h.hizb}</div>
     </a>
@@ -1427,9 +1575,14 @@ function openJuz(juzNum, scrollToSurahAyah){
   }
 }
 
-function openHizb(hizbNum, scrollToSurahAyah){
+function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   const verses = getHizbVerses(hizbNum);
   if(!verses.length) return;
+  const rubStarts = getRubStartsForHizb(hizbNum);
+  if(jumpToQuarter && !scrollToSurahAyah){
+    const target = rubStarts.find(r => r.quarter === jumpToQuarter);
+    if(target) scrollToSurahAyah = { surahId: target.surah, ayahId: target.ayah };
+  }
 
   currentMode = 'hizb';
   currentHizbId = hizbNum;
@@ -1462,8 +1615,10 @@ function openHizb(hizbNum, scrollToSurahAyah){
       const showBasmala = v.surahId !== 9 && v.surahId !== 1;
       divider = `<div class="juz-surah-divider">سورة ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
     }
+    const rub = rubStarts.find(r => r.quarter > 1 && r.surah === v.surahId && r.ayah === v.ayahId);
+    const rubMarker = rub ? `<div class="rub-hizb-marker" id="rub-${hizbNum}-${rub.quarter}"><span>${RUB_LABELS[rub.quarter]} (${hizbNum})</span></div>` : '';
     const isSaved = saved && saved.surahId === v.surahId && saved.ayahId === v.ayahId;
-    return `${divider}
+    return `${divider}${rubMarker}
     <div class="ayah-card${isSaved ? ' is-saved' : ''}" id="hayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'hayah-${v.surahId}-${v.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
       <div class="ayah-text" style="font-size:${fontSize}px;">${v.text}</div>
       <div class="ayah-meta">
