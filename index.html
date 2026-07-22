@@ -570,6 +570,97 @@
     margin-top:-4px; margin-bottom:18px; border-bottom:none; padding-bottom:0;
   }
 
+  /* ---------- Mushaf page jump panel (inside read-view controls) ---------- */
+  .page-jump-panel{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:22px 24px; display:flex; flex-direction:column; gap:12px;
+  }
+  .page-jump-panel .label{ font-size:14px; color:var(--text-muted); font-weight:700; }
+  .page-jump-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .page-jump-row input[type="number"]{
+    flex:1; min-width:120px; background:var(--surface-2); border:1px solid var(--border);
+    color:var(--text); font-family:inherit; font-size:15px; border-radius:9px; padding:10px 12px;
+  }
+  .page-jump-row input[type="number"]:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
+  .page-jump-row .go-btn.secondary{
+    background:var(--surface-2); color:var(--text-muted); border:1px solid var(--border);
+  }
+  .page-jump-row .go-btn.secondary:hover{ border-color:var(--accent); color:var(--accent-soft); }
+
+  /* ---------- Mushaf page navigation bar (read view, standalone page mode) ---------- */
+  .page-jump-bar{
+    display:none; align-items:center; gap:8px; margin:-4px 0 18px;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:10px 12px;
+  }
+  .page-nav-btn{
+    flex-shrink:0; width:36px; height:36px; border-radius:9px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--text); display:flex; align-items:center; justify-content:center;
+    transition:border-color .15s ease, color .15s ease;
+  }
+  .page-nav-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .page-jump-input-wrap{
+    flex:1; display:flex; align-items:center; gap:6px;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:9px; padding:0 10px;
+  }
+  .page-jump-input-wrap input{
+    flex:1; min-width:0; background:transparent; border:none; color:var(--text);
+    font-family:inherit; font-size:14.5px; padding:9px 0; outline:none;
+  }
+  .page-jump-input-wrap .page-jump-max{ color:var(--text-faint); font-size:13px; flex-shrink:0; }
+  .read-view.mode-page .display-mode-toggle,
+  .read-view.mode-page #ayah-search-section-read,
+  .read-view.mode-page #page-jump-control-row{ display:none; }
+  .page-jump-control-row{ flex-basis:100%; width:100%; }
+  .page-jump-control-row .page-jump-panel{ padding:16px 18px; }
+
+  /* ---------- Mushaf page rendering (Madinah-style layout) ---------- */
+  .mushaf-page-frame{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:30px 26px 20px;
+  }
+  .mushaf-line{
+    direction:rtl; text-align:center; line-height:2.35; color:var(--text);
+    font-family:'Amiri Quran', serif;
+  }
+  html[data-font="amiri"] .mushaf-line{ font-family:'Amiri', serif; }
+  html[data-font="scheherazade"] .mushaf-line{ font-family:'Scheherazade New', serif; }
+  html[data-font="lateef"] .mushaf-line{ font-family:'Lateef', serif; }
+  html[data-font="noto"] .mushaf-line{ font-family:'Noto Naskh Arabic', serif; }
+  html[data-font="madinah"] .mushaf-line{ font-family:'UthmanicHafs Madinah', serif; }
+  .mushaf-line-surah-header{
+    display:flex; align-items:center; gap:10px; margin:14px 0 10px;
+    font-size:0.72em; font-weight:700; color:var(--accent-soft);
+  }
+  .mushaf-line-surah-header::before, .mushaf-line-surah-header::after{
+    content:''; flex:1; height:1px; background:var(--border);
+  }
+  .mushaf-line-basmala{
+    font-size:0.85em; margin:0 0 10px; color:var(--text);
+  }
+  .mushaf-line-text{ font-size:1em; }
+  .mushaf-page-footer{
+    text-align:center; margin-top:18px; padding-top:14px; border-top:1px solid var(--border);
+    color:var(--text-faint); font-family:'Cairo', sans-serif; font-size:13px; font-weight:700;
+  }
+  .mushaf-page-loading, .mushaf-page-error{
+    text-align:center; padding:60px 20px; color:var(--text-muted); font-size:14.5px;
+  }
+  .mushaf-page-error button{
+    display:block; margin:14px auto 0; background:var(--accent); color:#fff; border:none;
+    font-weight:700; font-size:13.5px; padding:10px 18px; border-radius:9px; cursor:pointer;
+  }
+  @media (max-width:600px){
+    .mushaf-page-frame{ padding:22px 16px 16px; }
+  }
+
+  /* فاصل رقم صفحة المصحف داخل وضع العرض المتتالي (كالمصحف) */
+  .mushaf-inline-page-marker{
+    display:block; clear:both; text-align:center; margin:14px 0; padding:6px 0;
+    color:var(--text-faint); font-family:'Cairo', sans-serif; font-size:12.5px; font-weight:700;
+    border-top:1px dashed var(--border); border-bottom:1px dashed var(--border);
+  }
+
   .loading{ text-align:center; padding:80px 20px; color:var(--text-muted); font-size:15px; }
 
   /* ---------- Reading progress bar ---------- */
@@ -690,7 +781,21 @@
     </div>
     <p class="surah-sub" id="surah-sub"></p>
 
-    <div class="ayah-search-section">
+    <div class="page-jump-bar" id="page-jump-bar" style="display:none;">
+      <button type="button" class="page-nav-btn" onclick="openMushafPage(currentPageNum - 1)" id="page-prev-btn" title="الصفحة السابقة" aria-label="الصفحة السابقة">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+      <div class="page-jump-input-wrap">
+        <input type="number" id="page-jump-input" min="1" max="604" placeholder="رقم الصفحة" onkeydown="if(event.key==='Enter'){ event.preventDefault(); jumpToPageFromInput(); }">
+        <span class="page-jump-max">/ ٦٠٤</span>
+      </div>
+      <button type="button" class="go-btn" onclick="jumpToPageFromInput()">اذهب</button>
+      <button type="button" class="page-nav-btn" onclick="openMushafPage(currentPageNum + 1)" id="page-next-btn" title="الصفحة التالية" aria-label="الصفحة التالية">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+    </div>
+
+    <div class="ayah-search-section" id="ayah-search-section-read">
       <div class="ayah-search-box" id="ayah-search-box-read">
         <input type="text" id="ayah-search-input-read" placeholder="ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)" autocomplete="off" oninput="renderAyahSearchResults(this.value, 'ayah-search-dropdown-read')" onkeydown="onAyahSearchKeydown(event)">
         <div class="ayah-search-dropdown" id="ayah-search-dropdown-read" style="display:none;"></div>
@@ -711,6 +816,16 @@
           <div class="display-mode-toggle">
             <button id="mode-btn-cards" class="mode-btn" onclick="setDisplayMode('cards')">آيات منفصلة</button>
             <button id="mode-btn-continuous" class="mode-btn" onclick="setDisplayMode('continuous')">آيات متتالية (كالمصحف)</button>
+          </div>
+        </div>
+        <div class="page-jump-control-row" id="page-jump-control-row" style="display:none;">
+          <div class="page-jump-panel">
+            <span class="label">اذهب إلى صفحة من صفحات المصحف (١ - ٦٠٤)، بنفس تقسيم أسطر مصحف المدينة</span>
+            <div class="page-jump-row">
+              <input type="number" id="page-panel-input" min="1" max="604" placeholder="رقم الصفحة" onkeydown="if(event.key==='Enter'){ event.preventDefault(); goToPageFromPanel(); }">
+              <button class="go-btn" onclick="goToPageFromPanel()">اذهب</button>
+              <button class="go-btn secondary" onclick="openMushafPage(1)">أول صفحة</button>
+            </div>
           </div>
         </div>
         <div class="control-group">
@@ -819,9 +934,15 @@ let fontSize = (function(){
 let currentSurahId = null;
 let currentJuzId = null;
 let currentHizbId = null;
+let currentPageNum = null;
 let currentMode = 'surah';
 let browseMode = 'surah';
 let scrollSaveTimer = null;
+
+/* ---------- Mushaf page browsing (Madinah-style pages) ---------- */
+const MUSHAF_PAGE_COUNT = 604;
+const MUSHAF_BASE_URL = 'https://raw.githubusercontent.com/zonetecde/mushaf-layout/refs/heads/main/mushaf/';
+const mushafPageCache = {};
 
 // نقاط بداية كل جزء من أجزاء القرآن الثلاثين (سورة:آية)
 const JUZ_START = [
@@ -1092,6 +1213,15 @@ function buildAyahSearchIndex(){
     }
   }
   AYAH_INDEX = index;
+}
+
+function setSavedMushafPage(pageNum){
+  try{ localStorage.setItem('quran-mushaf-page', JSON.stringify({ page: pageNum, ts: Date.now() })); }catch(e){}
+}
+
+function goToPageFromPanel(){
+  const v = parseInt(document.getElementById('page-panel-input').value);
+  if(!isNaN(v)) openMushafPage(v);
 }
 
 function getSavedPosition(){
@@ -1764,6 +1894,10 @@ function openSurah(id, scrollToAyah){
   stopAyahRepeat();
   currentMode = 'surah';
   currentJuzId = null;
+  currentHizbId = null;
+  currentPageNum = null;
+  document.getElementById('read-view').classList.remove('mode-page');
+  document.getElementById('page-jump-bar').style.display = 'none';
 
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'none';
@@ -1805,6 +1939,7 @@ function openSurah(id, scrollToAyah){
   `;
   }).join('');
   applyDisplayMode();
+  injectPageBreaksIfNeeded(id);
 
   const repeatFromEl = document.getElementById('repeat-from');
   const repeatToEl = document.getElementById('repeat-to');
@@ -1855,6 +1990,11 @@ function openJuz(juzNum, scrollToSurahAyah){
   currentMode = 'juz';
   currentJuzId = juzNum;
   currentSurahId = null;
+  currentHizbId = null;
+  currentPageNum = null;
+  document.getElementById('read-view').classList.remove('mode-page');
+  document.getElementById('page-jump-bar').style.display = 'none';
+  document.querySelectorAll('.mushaf-inline-page-marker').forEach(el => el.remove());
 
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'none';
@@ -1945,6 +2085,10 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   currentHizbId = hizbNum;
   currentJuzId = null;
   currentSurahId = null;
+  currentPageNum = null;
+  document.getElementById('read-view').classList.remove('mode-page');
+  document.getElementById('page-jump-bar').style.display = 'none';
+  document.querySelectorAll('.mushaf-inline-page-marker').forEach(el => el.remove());
 
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'none';
@@ -2023,10 +2167,133 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   }
 }
 
+/* ---------- Mushaf page mode: fetch, render, navigate ---------- */
+function getMushafPageCacheKey(n){ return 'quran-mushaf-cache-' + n; }
+
+async function fetchMushafPage(n){
+  if(mushafPageCache[n]) return mushafPageCache[n];
+  try{
+    const cached = localStorage.getItem(getMushafPageCacheKey(n));
+    if(cached){
+      const data = JSON.parse(cached);
+      mushafPageCache[n] = data;
+      return data;
+    }
+  }catch(e){}
+  const padded = String(n).padStart(3, '0');
+  const res = await fetch(MUSHAF_BASE_URL + 'page-' + padded + '.json');
+  if(!res.ok) throw new Error('mushaf page fetch failed: ' + res.status);
+  const data = await res.json();
+  mushafPageCache[n] = data;
+  try{ localStorage.setItem(getMushafPageCacheKey(n), JSON.stringify(data)); }catch(e){ /* التخزين ممتلئ — نكتفي بالتخزين المؤقت بالذاكرة */ }
+  return data;
+}
+
+function renderMushafLine(line){
+  if(line.type === 'surah-header'){
+    const surahNum = parseInt(line.surah, 10);
+    const surah = QURAN.find(s => s.id === surahNum);
+    const name = surah ? surah.name : (line.text || '');
+    return `<div class="mushaf-line mushaf-line-surah-header">سورة ${name}</div>`;
+  }
+  if(line.type === 'basmala'){
+    return `<div class="mushaf-line mushaf-line-basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>`;
+  }
+  return `<div class="mushaf-line mushaf-line-text">${line.text || ''}</div>`;
+}
+
+async function openMushafPage(pageNum){
+  pageNum = parseInt(pageNum, 10);
+  if(isNaN(pageNum) || pageNum < 1 || pageNum > MUSHAF_PAGE_COUNT) return;
+
+  stopAyahRepeat();
+  currentMode = 'page';
+  currentPageNum = pageNum;
+  currentSurahId = null;
+  currentJuzId = null;
+  currentHizbId = null;
+
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('favorites-view').style.display = 'none';
+  document.getElementById('read-view').style.display = 'block';
+  document.getElementById('read-view').classList.add('mode-page');
+  window.scrollTo(0,0);
+  updateReadingProgress();
+
+  document.getElementById('surah-title').textContent = `صفحة ${pageNum}`;
+  document.getElementById('surah-sub').innerHTML =
+    `عرض صفحة ${pageNum} من ٦٠٤ بنفس تقسيم أسطر مصحف المدينة — اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.`;
+  document.getElementById('basmala-block').style.display = 'none';
+
+  const jumpBar = document.getElementById('page-jump-bar');
+  jumpBar.style.display = 'flex';
+  const jumpInput = document.getElementById('page-jump-input');
+  if(jumpInput) jumpInput.value = pageNum;
+
+  const list = document.getElementById('ayat-list');
+  list.classList.remove('continuous-mode');
+  list.innerHTML = `<div class="mushaf-page-loading">جاري تحميل الصفحة...</div>`;
+
+  setSavedMushafPage(pageNum);
+
+  let data;
+  try{
+    data = await fetchMushafPage(pageNum);
+  }catch(e){
+    if(currentPageNum !== pageNum) return;
+    list.innerHTML = `<div class="mushaf-page-error">تعذر تحميل هذه الصفحة، تأكد من الاتصال بالإنترنت.<button onclick="openMushafPage(${pageNum})">إعادة المحاولة</button></div>`;
+    return;
+  }
+  if(currentPageNum !== pageNum) return; // انتقل المستخدم إلى صفحة أخرى أثناء التحميل
+
+  const linesHtml = (data.lines || []).map(renderMushafLine).join('');
+  list.innerHTML = `
+    <div class="mushaf-page-frame" style="font-size:${fontSize}px;">
+      ${linesHtml}
+      <div class="mushaf-page-footer">${pageNum}</div>
+    </div>
+  `;
+
+  const nextLink = document.getElementById('next-surah-link');
+  const prevLink = document.getElementById('prev-surah-link');
+  const hasNext = pageNum < MUSHAF_PAGE_COUNT;
+  const hasPrev = pageNum > 1;
+
+  if(hasNext){
+    nextLink.style.visibility = 'visible';
+    nextLink.onclick = (e)=>{ e.preventDefault(); openMushafPage(pageNum + 1); };
+    nextLink.innerHTML = `الصفحة التالية: ${pageNum + 1} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
+  } else {
+    nextLink.style.visibility = 'hidden';
+  }
+
+  if(hasPrev){
+    prevLink.style.visibility = 'visible';
+    prevLink.onclick = (e)=>{ e.preventDefault(); openMushafPage(pageNum - 1); };
+    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> الصفحة السابقة: ${pageNum - 1}`;
+  } else {
+    prevLink.style.visibility = 'hidden';
+  }
+
+  location.hash = `page-${pageNum}`;
+
+  // تحميل مسبق هادئ للصفحتين المجاورتين لتصفح أسرع
+  if(hasNext) fetchMushafPage(pageNum + 1).catch(()=>{});
+  if(hasPrev) fetchMushafPage(pageNum - 1).catch(()=>{});
+}
+
+function jumpToPageFromInput(){
+  const input = document.getElementById('page-jump-input');
+  const v = parseInt(input.value, 10);
+  if(!isNaN(v)) openMushafPage(v);
+}
+
 function changeFont(delta){
   fontSize = Math.min(72, Math.max(18, fontSize + delta * 2));
   document.getElementById('font-size-display').textContent = fontSize;
   document.querySelectorAll('.ayah-text').forEach(el => el.style.fontSize = fontSize + 'px');
+  const frame = document.querySelector('.mushaf-page-frame');
+  if(frame) frame.style.fontSize = fontSize + 'px';
   try{ localStorage.setItem('quran-font-size', fontSize); }catch(e){}
 }
 
@@ -2034,6 +2301,8 @@ function resetFontSize(){
   fontSize = DEFAULT_FONT_SIZE;
   document.getElementById('font-size-display').textContent = fontSize;
   document.querySelectorAll('.ayah-text').forEach(el => el.style.fontSize = fontSize + 'px');
+  const frame = document.querySelector('.mushaf-page-frame');
+  if(frame) frame.style.fontSize = fontSize + 'px';
   try{ localStorage.setItem('quran-font-size', fontSize); }catch(e){}
 }
 
@@ -2043,6 +2312,84 @@ function changeFontFamily(value){
   try{ localStorage.setItem('quran-font-family', value); }catch(e){}
 }
 
+/* ---------- Real Mushaf page breaks inside continuous ("كالمصحف") view ---------- */
+function verseKey(s, a){ return s * 1000 + a; }
+
+// يبحث بالتجزئة الثنائية عن رقم صفحة المصحف التي تحتوي على آية معيّنة
+async function findPageForVerse(surahId, ayahId){
+  const target = verseKey(surahId, ayahId);
+  let lo = 1, hi = MUSHAF_PAGE_COUNT, best = 1;
+  while(lo <= hi){
+    const mid = Math.floor((lo + hi) / 2);
+    let data;
+    try{ data = await fetchMushafPage(mid); }catch(e){ return best; }
+    const lines = (data.lines || []).filter(l => l.verseRange);
+    if(!lines.length){ lo = mid + 1; continue; }
+    const firstParts = lines[0].verseRange.split('-')[0].split(':').map(Number);
+    const lastStr = lines[lines.length - 1].verseRange;
+    const lastEndStr = lastStr.split('-')[1] || lastStr.split('-')[0];
+    const lastParts = lastEndStr.split(':').map(Number);
+    const startKey = verseKey(firstParts[0], firstParts[1]);
+    const endKey = verseKey(lastParts[0], lastParts[1]);
+    if(target < startKey){ hi = mid - 1; }
+    else if(target > endKey){ lo = mid + 1; best = mid; }
+    else { return mid; }
+  }
+  return Math.min(MUSHAF_PAGE_COUNT, Math.max(1, lo));
+}
+
+// يحسب (ويخزّن مؤقتًا) نقاط فواصل صفحات المصحف لسورة معيّنة، ويضعها في العرض المتتالي أولًا بأول
+async function injectPageBreaksIfNeeded(surahId){
+  if(displayMode !== 'continuous' || currentMode !== 'surah' || currentSurahId !== surahId) return;
+  const list = document.getElementById('ayat-list');
+  if(!list) return;
+  list.querySelectorAll('.mushaf-inline-page-marker').forEach(el => el.remove());
+
+  const stillRelevant = () => displayMode === 'continuous' && currentMode === 'surah' && currentSurahId === surahId;
+  const applyBreak = (b) => {
+    if(!stillRelevant()) return;
+    const card = list.querySelector(`.ayah-card[data-ayah="${b.afterAyah}"]`);
+    if(card && !(card.nextElementSibling && card.nextElementSibling.classList.contains('mushaf-inline-page-marker'))){
+      const marker = document.createElement('div');
+      marker.className = 'mushaf-inline-page-marker';
+      marker.textContent = b.pageNum;
+      card.insertAdjacentElement('afterend', marker);
+    }
+  };
+
+  const cacheKey = 'quran-surah-pagebreaks-' + surahId;
+  try{
+    const cached = localStorage.getItem(cacheKey);
+    if(cached){ JSON.parse(cached).forEach(applyBreak); return; }
+  }catch(e){}
+
+  const surah = QURAN.find(s => s.id === surahId);
+  if(!surah) return;
+  const computed = [];
+  try{
+    let page = await findPageForVerse(surahId, 1);
+    let safety = 0;
+    while(safety++ < 120 && page <= MUSHAF_PAGE_COUNT){
+      if(!stillRelevant()) return;
+      const data = await fetchMushafPage(page);
+      let lastAyahOnPage = null;
+      (data.lines || []).forEach(l => {
+        if(!l.verseRange) return;
+        const endStr = l.verseRange.split('-')[1] || l.verseRange.split('-')[0];
+        const parts = endStr.split(':').map(Number);
+        if(parts[0] === surahId) lastAyahOnPage = parts[1];
+      });
+      if(lastAyahOnPage === null) break;
+      const b = { afterAyah: lastAyahOnPage, pageNum: page };
+      computed.push(b);
+      applyBreak(b);
+      if(lastAyahOnPage >= surah.total_verses) break;
+      page++;
+    }
+    try{ localStorage.setItem(cacheKey, JSON.stringify(computed)); }catch(e){}
+  }catch(e){ /* تعذر الاتصال — نتجاهل فواصل الصفحات بصمت دون كسر العرض */ }
+}
+
 function applyDisplayMode(){
   const list = document.getElementById('ayat-list');
   if(list) list.classList.toggle('continuous-mode', displayMode === 'continuous');
@@ -2050,6 +2397,8 @@ function applyDisplayMode(){
   const contBtn = document.getElementById('mode-btn-continuous');
   if(cardsBtn) cardsBtn.classList.toggle('active', displayMode === 'cards');
   if(contBtn) contBtn.classList.toggle('active', displayMode === 'continuous');
+  const pageJumpRow = document.getElementById('page-jump-control-row');
+  if(pageJumpRow) pageJumpRow.style.display = displayMode === 'continuous' ? '' : 'none';
 }
 
 function setDisplayMode(mode){
@@ -2057,6 +2406,11 @@ function setDisplayMode(mode){
   displayMode = mode;
   try{ localStorage.setItem('quran-display-mode', mode); }catch(e){}
   applyDisplayMode();
+  if(mode === 'continuous' && currentMode === 'surah' && currentSurahId){
+    injectPageBreaksIfNeeded(currentSurahId);
+  } else {
+    document.querySelectorAll('.mushaf-inline-page-marker').forEach(el => el.remove());
+  }
 }
 
 function applyTheme(theme){
@@ -2139,9 +2493,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const surahHash = location.hash.match(/^#surah-(\d+)$/);
     const juzHash = location.hash.match(/^#juz-(\d+)$/);
     const hizbHash = location.hash.match(/^#hizb-(\d+)$/);
+    const pageHash = location.hash.match(/^#page-(\d+)$/);
     if(surahHash) openSurah(parseInt(surahHash[1]));
     else if(juzHash) openJuz(parseInt(juzHash[1]));
     else if(hizbHash) openHizb(parseInt(hizbHash[1]));
+    else if(pageHash) openMushafPage(parseInt(pageHash[1]));
   });
   attachSwipeNavigation();
   attachDisplayModeShortcuts();
