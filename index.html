@@ -476,6 +476,29 @@
   .mode-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
   .mode-btn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
 
+  /* ---------- Ayah repeat (memorization) controls ---------- */
+  .repeat-group{ flex-direction:column; align-items:stretch; gap:10px; width:100%; }
+  .repeat-fields{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .repeat-fields label{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-muted); font-weight:600;
+  }
+  .repeat-fields input[type="number"]{
+    width:56px; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    font-family:'Cairo', sans-serif; font-size:13px; font-weight:700; text-align:center;
+    padding:7px 4px; border-radius:9px; outline:none;
+  }
+  .repeat-fields input[type="number"]:hover, .repeat-fields input[type="number"]:focus{ border-color:var(--accent); }
+  .repeat-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .repeat-btn{
+    display:flex; align-items:center; gap:6px; background:var(--accent); border:1px solid var(--accent);
+    color:#fff; font-family:'Cairo', sans-serif; font-size:13px; font-weight:700;
+    padding:8px 16px; border-radius:9px; cursor:pointer; transition:opacity .15s ease;
+  }
+  .repeat-btn:hover{ opacity:.9; }
+  .repeat-btn.stop-btn{ background:var(--surface-2); border-color:var(--border); color:var(--text); }
+  .repeat-btn.stop-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .repeat-status{ font-size:12.5px; color:var(--text-muted); font-weight:600; min-height:16px; }
+
   /* ---------- Continuous (mushaf-style) ayat display ---------- */
   .ayat-list.continuous-mode{
     display:block;
@@ -719,6 +742,31 @@
             <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
           </button>
+        </div>
+        <div class="control-group repeat-group">
+          <span class="label">تكرار الآيات للحفظ</span>
+          <div class="repeat-fields">
+            <label>من آية
+              <input type="number" id="repeat-from" min="1" value="1">
+            </label>
+            <label>إلى آية
+              <input type="number" id="repeat-to" min="1" value="1">
+            </label>
+            <label>عدد التكرار لكل آية
+              <input type="number" id="repeat-times" min="1" max="50" value="3">
+            </label>
+          </div>
+          <div class="repeat-actions">
+            <button class="repeat-btn" id="repeat-start-btn" onclick="startAyahRepeat()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              ابدأ التكرار
+            </button>
+            <button class="repeat-btn stop-btn" id="repeat-stop-btn" onclick="stopAyahRepeat()" style="display:none;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14"/></svg>
+              إيقاف التكرار
+            </button>
+            <span class="repeat-status" id="repeat-status"></span>
+          </div>
         </div>
       </div>
     </details>
@@ -1139,6 +1187,7 @@ function removeBookmark(surahId, ayahId){
 }
 
 function showFavorites(){
+  stopAyahRepeat();
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'block';
@@ -1187,6 +1236,9 @@ let ayahAudioPlayer = null;
 let ayahAudioPlayingCardId = null;
 
 function playAyahAudio(surahId, ayahId, cardId){
+  // أي ضغط يدوي على آية يوقف وضع التكرار الجاري أولاً
+  if(repeatState.active) stopAyahRepeat();
+
   const surahPart = String(surahId).padStart(3, '0');
   const ayahPart = String(ayahId).padStart(3, '0');
   const audioUrl = `https://everyayah.com/data/Husary_128kbps/${surahPart}${ayahPart}.mp3`;
@@ -1199,15 +1251,7 @@ function playAyahAudio(surahId, ayahId, cardId){
   }
 
   stopAyahAudioUI();
-
-  if(!ayahAudioPlayer){
-    ayahAudioPlayer = new Audio();
-    ayahAudioPlayer.addEventListener('ended', stopAyahAudioUI);
-    ayahAudioPlayer.addEventListener('error', () => {
-      console.warn('تعذر تحميل تلاوة هذه الآية.');
-      stopAyahAudioUI();
-    });
-  }
+  ensureAyahAudioPlayer();
 
   ayahAudioPlayer.src = audioUrl;
   ayahAudioPlayingCardId = cardId;
@@ -1219,9 +1263,137 @@ function playAyahAudio(surahId, ayahId, cardId){
   });
 }
 
+function ensureAyahAudioPlayer(){
+  if(ayahAudioPlayer) return;
+  ayahAudioPlayer = new Audio();
+  ayahAudioPlayer.addEventListener('ended', onAyahAudioEnded);
+  ayahAudioPlayer.addEventListener('error', () => {
+    console.warn('تعذر تحميل تلاوة هذه الآية.');
+    if(repeatState.active) stopAyahRepeat(); else stopAyahAudioUI();
+  });
+}
+
+// يوجّه انتهاء التشغيل: إما استمرار حلقة التكرار أو إيقاف واجهة التشغيل العادية
+function onAyahAudioEnded(){
+  if(repeatState.active){
+    handleRepeatAdvance();
+  } else {
+    stopAyahAudioUI();
+  }
+}
+
 function stopAyahAudioUI(){
   document.querySelectorAll('.ayah-card.is-playing').forEach(el => el.classList.remove('is-playing'));
   ayahAudioPlayingCardId = null;
+}
+
+/* ---------- تكرار الآيات للمساعدة على الحفظ ---------- */
+let repeatState = {
+  active:false,
+  surahId:null,
+  fromAyah:null,
+  toAyah:null,
+  timesEach:1,
+  currentAyah:null,
+  currentCount:0
+};
+
+function startAyahRepeat(){
+  if(currentMode !== 'surah'){
+    updateRepeatStatus('تكرار الآيات متاح فقط أثناء قراءة سورة كاملة.');
+    return;
+  }
+  const surah = QURAN.find(s => s.id === currentSurahId);
+  if(!surah) return;
+
+  const fromInput = document.getElementById('repeat-from');
+  const toInput = document.getElementById('repeat-to');
+  const timesInput = document.getElementById('repeat-times');
+
+  let from = parseInt(fromInput.value, 10) || 1;
+  let to = parseInt(toInput.value, 10) || from;
+  let times = parseInt(timesInput.value, 10) || 1;
+
+  from = Math.min(Math.max(from, 1), surah.total_verses);
+  to = Math.min(Math.max(to, from), surah.total_verses);
+  times = Math.min(Math.max(times, 1), 50);
+
+  fromInput.value = from;
+  toInput.value = to;
+  timesInput.value = times;
+
+  repeatState = {
+    active:true,
+    surahId: currentSurahId,
+    fromAyah: from,
+    toAyah: to,
+    timesEach: times,
+    currentAyah: from,
+    currentCount: 0
+  };
+
+  document.getElementById('repeat-start-btn').style.display = 'none';
+  document.getElementById('repeat-stop-btn').style.display = '';
+
+  playRepeatStep();
+}
+
+function stopAyahRepeat(){
+  repeatState.active = false;
+  if(ayahAudioPlayer) ayahAudioPlayer.pause();
+  stopAyahAudioUI();
+
+  const startBtn = document.getElementById('repeat-start-btn');
+  const stopBtn = document.getElementById('repeat-stop-btn');
+  if(startBtn) startBtn.style.display = '';
+  if(stopBtn) stopBtn.style.display = 'none';
+  updateRepeatStatus('');
+}
+
+function playRepeatStep(){
+  if(!repeatState.active) return;
+  if(repeatState.currentAyah > repeatState.toAyah){
+    stopAyahRepeat();
+    return;
+  }
+
+  const cardId = `ayah-${repeatState.currentAyah}`;
+  stopAyahAudioUI();
+  ayahAudioPlayingCardId = cardId;
+  const card = document.getElementById(cardId);
+  if(card){
+    card.classList.add('is-playing');
+    card.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
+
+  updateRepeatStatus(`جارٍ تكرار الآية ${repeatState.currentAyah} (${repeatState.currentCount + 1} من ${repeatState.timesEach})`);
+
+  const surahPart = String(repeatState.surahId).padStart(3, '0');
+  const ayahPart = String(repeatState.currentAyah).padStart(3, '0');
+  const audioUrl = `https://everyayah.com/data/Husary_128kbps/${surahPart}${ayahPart}.mp3`;
+
+  ensureAyahAudioPlayer();
+  ayahAudioPlayer.src = audioUrl;
+  ayahAudioPlayer.play().catch(() => {
+    console.warn('تعذر تشغيل الصوت.');
+    stopAyahRepeat();
+  });
+}
+
+function handleRepeatAdvance(){
+  repeatState.currentCount++;
+  if(repeatState.currentCount < repeatState.timesEach){
+    playRepeatStep();
+  } else {
+    repeatState.currentCount = 0;
+    repeatState.currentAyah++;
+    playRepeatStep();
+  }
+}
+
+function updateRepeatStatus(text){
+  const el = document.getElementById('repeat-status');
+  if(el) el.textContent = text;
 }
 
 function renderContinueBanner(){
@@ -1576,6 +1748,7 @@ function goToFirstMatch(){
 }
 
 function showList(){
+  stopAyahRepeat();
   document.getElementById('read-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('list-view').style.display = 'block';
@@ -1588,6 +1761,7 @@ function openSurah(id, scrollToAyah){
   const surah = QURAN.find(s => s.id === id);
   if(!surah) return;
 
+  stopAyahRepeat();
   currentMode = 'surah';
   currentJuzId = null;
 
@@ -1632,6 +1806,15 @@ function openSurah(id, scrollToAyah){
   }).join('');
   applyDisplayMode();
 
+  const repeatFromEl = document.getElementById('repeat-from');
+  const repeatToEl = document.getElementById('repeat-to');
+  if(repeatFromEl && repeatToEl){
+    repeatFromEl.max = surah.total_verses;
+    repeatToEl.max = surah.total_verses;
+    repeatFromEl.value = 1;
+    repeatToEl.value = surah.total_verses;
+  }
+
   const nextLink = document.getElementById('next-surah-link');
   const prevLink = document.getElementById('prev-surah-link');
   const next = QURAN.find(s => s.id === id + 1);
@@ -1668,6 +1851,7 @@ function openJuz(juzNum, scrollToSurahAyah){
   const verses = getJuzVerses(juzNum);
   if(!verses.length) return;
 
+  stopAyahRepeat();
   currentMode = 'juz';
   currentJuzId = juzNum;
   currentSurahId = null;
@@ -1750,6 +1934,7 @@ function openJuz(juzNum, scrollToSurahAyah){
 function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   const verses = getHizbVerses(hizbNum);
   if(!verses.length) return;
+  stopAyahRepeat();
   const rubStarts = getRubStartsForHizb(hizbNum);
   if(jumpToQuarter && !scrollToSurahAyah){
     const target = rubStarts.find(r => r.quarter === jumpToQuarter);
