@@ -305,6 +305,43 @@
   .ayah-bookmark-btn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
   .ayah-bookmark-btn svg{ width:12px; height:12px; }
 
+  /* ---------- Favorites button + view ---------- */
+  .favorites-toggle{
+    position:relative; width:40px; height:40px; border-radius:10px; flex-shrink:0;
+    background:var(--surface); border:1px solid var(--border); color:var(--accent-soft);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .favorites-toggle:hover{ border-color:var(--accent); }
+  .favorites-toggle svg{ width:18px; height:18px; }
+  .favorites-toggle .fav-count{
+    position:absolute; top:-6px; left:-6px; min-width:18px; height:18px; padding:0 4px;
+    border-radius:9px; background:var(--accent); color:#fff; font-size:10.5px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; line-height:1;
+  }
+  .favorites-toggle .fav-count.zero{ display:none; }
+
+  .fav-ayah-meta-extra{
+    display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-muted); font-weight:600;
+  }
+  .fav-go-btn{
+    flex-shrink:0; height:26px; padding:0 10px; border-radius:8px;
+    background:transparent; border:1px solid var(--border); color:var(--text-muted);
+    display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; gap:4px;
+  }
+  .fav-go-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .fav-go-btn svg{ width:12px; height:12px; }
+  .fav-remove-btn{
+    flex-shrink:0; width:26px; height:26px; border-radius:8px;
+    background:transparent; border:1px solid var(--border); color:var(--text-faint);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .fav-remove-btn:hover{ border-color:#e05656; color:#e05656; }
+  .fav-remove-btn svg{ width:12px; height:12px; }
+  .favorites-empty{
+    text-align:center; color:var(--text-muted); font-size:14.5px; font-weight:600;
+    padding:60px 20px;
+  }
+
   /* ---------- Theme toggle ---------- */
   .theme-toggle{
     width:40px; height:40px; border-radius:10px; flex-shrink:0;
@@ -585,6 +622,10 @@
         </div>
         <button class="go-btn" onclick="goToFirstMatch()">اذهب</button>
         <div class="count-pill" id="count-pill">1-114</div>
+        <button class="favorites-toggle" onclick="showFavorites()" title="المفضلة" aria-label="المفضلة">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+          <span class="fav-count zero" id="fav-count">0</span>
+        </button>
         <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري">
           <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
@@ -688,6 +729,27 @@
     <div class="surah-nav-footer">
       <a href="#" id="next-surah-link">السورة التالية <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></a>
     </div>
+  </div>
+
+  <!-- ===================== FAVORITES VIEW ===================== -->
+  <div id="favorites-view" style="display:none;">
+    <a href="#" class="back-link" onclick="showList(); return false;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M3 12h18"/></svg>
+      رجوع إلى الفهرس
+    </a>
+
+    <div class="surah-header">
+      <h2>
+        <span class="badge-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        <span>المفضلة</span>
+      </h2>
+    </div>
+    <p class="surah-sub">الآيات التي حفظتها في مفضلتك، اضغط على "الذهاب" للانتقال إليها مباشرة.</p>
+
+    <div class="ayat-list" id="favorites-list"></div>
+    <div class="favorites-empty" id="favorites-empty" style="display:none;">لم تُضِف أي آية إلى المفضلة بعد. اضغط على أيقونة العلامة بجانب أي آية لإضافتها هنا.</div>
   </div>
 
   <div class="loading" id="loading">جاري تحميل بيانات القرآن الكريم...</div>
@@ -917,10 +979,12 @@ async function init(){
   document.getElementById('font-size-display').textContent = fontSize;
   document.documentElement.setAttribute('data-font', fontFamily);
   document.getElementById('font-family-select').value = fontFamily;
+  migrateOldSavedPosition();
   renderGrid('');
   renderJuzGrid('');
   renderHizbGrid('');
   renderContinueBanner();
+  updateFavoritesCount();
   buildAyahSearchIndex();
 }
 
@@ -999,20 +1063,123 @@ function clearSavedPosition(){
   try{ localStorage.removeItem('quran-position'); }catch(e){}
 }
 
-function markPosition(surahId, ayahId, surahName){
-  setSavedPosition(surahId, ayahId, surahName);
-  document.querySelectorAll('.ayah-card').forEach(el => el.classList.remove('is-saved'));
-  document.querySelectorAll('.ayah-bookmark-btn').forEach(el => {
-    el.classList.remove('active');
-    el.querySelector('svg').setAttribute('fill', 'none');
-  });
-  const card = document.querySelector(`.ayah-card[data-surah="${surahId}"][data-ayah="${ayahId}"]`);
-  if(card){
-    card.classList.add('is-saved');
+/* ---------- Favorites (multiple saved ayat) ---------- */
+function getBookmarks(){
+  try{
+    const raw = localStorage.getItem('quran-bookmarks');
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+
+function saveBookmarksList(list){
+  try{ localStorage.setItem('quran-bookmarks', JSON.stringify(list)); }catch(e){}
+}
+
+function isBookmarked(surahId, ayahId){
+  return getBookmarks().some(b => b.surahId === surahId && b.ayahId === ayahId);
+}
+
+// يهاجر أول موضع محفوظ من النظام القديم (موضع واحد فقط) إلى قائمة المفضلة
+// الجديدة، مرة واحدة فقط، حتى لا يفقد المستخدمون القدامى ما كانوا قد حفظوه.
+function migrateOldSavedPosition(){
+  try{
+    if(localStorage.getItem('quran-bookmarks-migrated')) return;
+    localStorage.setItem('quran-bookmarks-migrated', '1');
+    const old = getSavedPosition();
+    if(old && !isBookmarked(old.surahId, old.ayahId)){
+      const list = getBookmarks();
+      list.push({ surahId: old.surahId, ayahId: old.ayahId, surahName: old.surahName, ts: old.ts || Date.now() });
+      saveBookmarksList(list);
+    }
+  }catch(e){}
+}
+
+function updateFavoritesCount(){
+  const badge = document.getElementById('fav-count');
+  if(!badge) return;
+  const count = getBookmarks().length;
+  badge.textContent = count > 99 ? '99+' : String(count);
+  badge.classList.toggle('zero', count === 0);
+}
+
+function setCardBookmarkState(surahId, ayahId, isOn){
+  document.querySelectorAll(`.ayah-card[data-surah="${surahId}"][data-ayah="${ayahId}"]`).forEach(card => {
+    card.classList.toggle('is-saved', isOn);
     const btn = card.querySelector('.ayah-bookmark-btn');
-    btn.classList.add('active');
-    btn.querySelector('svg').setAttribute('fill', 'currentColor');
+    if(!btn) return;
+    btn.classList.toggle('active', isOn);
+    const svg = btn.querySelector('svg');
+    if(svg) svg.setAttribute('fill', isOn ? 'currentColor' : 'none');
+  });
+}
+
+function toggleBookmark(surahId, ayahId, surahName){
+  const list = getBookmarks();
+  const idx = list.findIndex(b => b.surahId === surahId && b.ayahId === ayahId);
+  let isOn;
+  if(idx >= 0){
+    list.splice(idx, 1);
+    isOn = false;
+  } else {
+    list.push({ surahId, ayahId, surahName, ts: Date.now() });
+    isOn = true;
   }
+  saveBookmarksList(list);
+  setCardBookmarkState(surahId, ayahId, isOn);
+  updateFavoritesCount();
+  if(document.getElementById('favorites-view').style.display !== 'none') renderFavoritesView();
+}
+
+function removeBookmark(surahId, ayahId){
+  const list = getBookmarks().filter(b => !(b.surahId === surahId && b.ayahId === ayahId));
+  saveBookmarksList(list);
+  setCardBookmarkState(surahId, ayahId, false);
+  updateFavoritesCount();
+  renderFavoritesView();
+}
+
+function showFavorites(){
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('read-view').style.display = 'none';
+  document.getElementById('favorites-view').style.display = 'block';
+  window.scrollTo(0,0);
+  updateReadingProgress();
+  renderFavoritesView();
+}
+
+function renderFavoritesView(){
+  const list = getBookmarks().slice().sort((a,b) => a.surahId - b.surahId || a.ayahId - b.ayahId);
+  const container = document.getElementById('favorites-list');
+  const empty = document.getElementById('favorites-empty');
+  if(!list.length){
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  container.innerHTML = list.map(b => {
+    const surah = QURAN.find(s => s.id === b.surahId);
+    const verse = surah && surah.verses.find(v => v.id === b.ayahId);
+    if(!verse) return '';
+    return `
+    <div class="ayah-card is-saved" id="fayah-${b.surahId}-${b.ayahId}" data-ayah="${b.ayahId}" data-surah="${b.surahId}" onclick="playAyahAudio(${b.surahId}, ${b.ayahId}, 'fayah-${b.surahId}-${b.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
+      <div class="ayah-text" style="font-size:${fontSize}px;">${verse.text}</div>
+      <div class="ayah-meta">
+        <div class="ayah-audio-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+        <div class="fav-ayah-meta-extra">سورة ${b.surahName} — آية ${b.ayahId}</div>
+        <div class="ayah-num">${b.ayahId}</div>
+        <button class="fav-go-btn" onclick="event.stopPropagation(); openSurah(${b.surahId}, ${b.ayahId})" title="الذهاب إلى الآية">
+          الذهاب
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <button class="fav-remove-btn" onclick="event.stopPropagation(); removeBookmark(${b.surahId}, ${b.ayahId})" title="إزالة من المفضلة">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ---------- تشغيل صوت الآية بصوت الشيخ محمود خليل الحصري (تلاوة مرتلة 128kbps) ---------- */
@@ -1410,6 +1577,7 @@ function goToFirstMatch(){
 
 function showList(){
   document.getElementById('read-view').style.display = 'none';
+  document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('list-view').style.display = 'block';
   renderContinueBanner();
   window.scrollTo(0,0);
@@ -1424,6 +1592,7 @@ function openSurah(id, scrollToAyah){
   currentJuzId = null;
 
   document.getElementById('list-view').style.display = 'none';
+  document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'block';
   window.scrollTo(0,0);
   updateReadingProgress();
@@ -1444,20 +1613,23 @@ function openSurah(id, scrollToAyah){
   const list = document.getElementById('ayat-list');
   currentSurahId = id;
   const saved = getSavedPosition();
-  list.innerHTML = surah.verses.map(v => `
-    <div class="ayah-card${saved && saved.surahId === id && saved.ayahId === v.id ? ' is-saved' : ''}" id="ayah-${v.id}" data-ayah="${v.id}" data-surah="${id}" onclick="playAyahAudio(${id}, ${v.id}, 'ayah-${v.id}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
+  list.innerHTML = surah.verses.map(v => {
+    const fav = isBookmarked(id, v.id);
+    return `
+    <div class="ayah-card${fav ? ' is-saved' : ''}" id="ayah-${v.id}" data-ayah="${v.id}" data-surah="${id}" onclick="playAyahAudio(${id}, ${v.id}, 'ayah-${v.id}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
       <div class="ayah-text" style="font-size:${fontSize}px;">${v.text}</div>
       <div class="ayah-meta">
         <div class="ayah-audio-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.id}</div>
-        <button class="ayah-bookmark-btn${saved && saved.surahId === id && saved.ayahId === v.id ? ' active' : ''}" onclick="event.stopPropagation(); markPosition(${id}, ${v.id}, '${surah.name}')" title="حفظ موضع التوقف هنا">
-          <svg viewBox="0 0 24 24" fill="${saved && saved.surahId === id && saved.ayahId === v.id ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${id}, ${v.id}, '${surah.name}')" title="إضافة إلى المفضلة">
+          <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
   applyDisplayMode();
 
   const nextLink = document.getElementById('next-surah-link');
@@ -1501,6 +1673,7 @@ function openJuz(juzNum, scrollToSurahAyah){
   currentSurahId = null;
 
   document.getElementById('list-view').style.display = 'none';
+  document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'block';
   window.scrollTo(0,0);
   updateReadingProgress();
@@ -1517,7 +1690,6 @@ function openJuz(juzNum, scrollToSurahAyah){
   document.getElementById('basmala-block').style.display = 'none';
 
   const list = document.getElementById('ayat-list');
-  const saved = getSavedPosition();
   let lastSurahId = null;
   list.innerHTML = verses.map(v => {
     let divider = '';
@@ -1526,17 +1698,17 @@ function openJuz(juzNum, scrollToSurahAyah){
       const showBasmala = v.surahId !== 9 && v.surahId !== 1;
       divider = `<div class="juz-surah-divider">سورة ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
     }
-    const isSaved = saved && saved.surahId === v.surahId && saved.ayahId === v.ayahId;
+    const fav = isBookmarked(v.surahId, v.ayahId);
     return `${divider}
-    <div class="ayah-card${isSaved ? ' is-saved' : ''}" id="jayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'jayah-${v.surahId}-${v.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
+    <div class="ayah-card${fav ? ' is-saved' : ''}" id="jayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'jayah-${v.surahId}-${v.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
       <div class="ayah-text" style="font-size:${fontSize}px;">${v.text}</div>
       <div class="ayah-meta">
         <div class="ayah-audio-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.ayahId}</div>
-        <button class="ayah-bookmark-btn${isSaved ? ' active' : ''}" onclick="event.stopPropagation(); markPosition(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="حفظ موضع التوقف هنا">
-          <svg viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="إضافة إلى المفضلة">
+          <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
     </div>
@@ -1590,6 +1762,7 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   currentSurahId = null;
 
   document.getElementById('list-view').style.display = 'none';
+  document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'block';
   window.scrollTo(0,0);
   updateReadingProgress();
@@ -1606,7 +1779,6 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   document.getElementById('basmala-block').style.display = 'none';
 
   const list = document.getElementById('ayat-list');
-  const saved = getSavedPosition();
   let lastSurahId = null;
   list.innerHTML = verses.map(v => {
     let divider = '';
@@ -1617,17 +1789,17 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
     }
     const rub = rubStarts.find(r => r.quarter > 1 && r.surah === v.surahId && r.ayah === v.ayahId);
     const rubMarker = rub ? `<div class="rub-hizb-marker" id="rub-${hizbNum}-${rub.quarter}"><span>${RUB_LABELS[rub.quarter]} (${hizbNum})</span></div>` : '';
-    const isSaved = saved && saved.surahId === v.surahId && saved.ayahId === v.ayahId;
+    const fav = isBookmarked(v.surahId, v.ayahId);
     return `${divider}${rubMarker}
-    <div class="ayah-card${isSaved ? ' is-saved' : ''}" id="hayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'hayah-${v.surahId}-${v.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
+    <div class="ayah-card${fav ? ' is-saved' : ''}" id="hayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'hayah-${v.surahId}-${v.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت الشيخ الحصري">
       <div class="ayah-text" style="font-size:${fontSize}px;">${v.text}</div>
       <div class="ayah-meta">
         <div class="ayah-audio-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.ayahId}</div>
-        <button class="ayah-bookmark-btn${isSaved ? ' active' : ''}" onclick="event.stopPropagation(); markPosition(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="حفظ موضع التوقف هنا">
-          <svg viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="إضافة إلى المفضلة">
+          <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
     </div>
