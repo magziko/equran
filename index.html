@@ -418,9 +418,14 @@
   .back-link{
     display:inline-flex; align-items:center; gap:8px;
     color:var(--accent-soft); font-weight:700; font-size:14px;
-    margin-bottom:18px; padding:8px 4px;
+    padding:8px 4px;
   }
   .back-link svg{ width:16px; height:16px; }
+  .read-view-top{
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+    margin-bottom:18px; flex-wrap:wrap;
+  }
+  .read-view-top .header-actions{ margin:0; }
 
   .surah-header{
     display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;
@@ -457,32 +462,44 @@
   .controls[open] summary .chev{ transform:rotate(180deg); }
 
   .controls-body{
-    padding:6px 18px 18px; border-top:1px solid var(--border);
-    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+    padding:12px 16px 14px; border-top:1px solid var(--border);
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr));
+    align-items:start; gap:12px 18px;
   }
-  .control-group{ display:flex; align-items:center; gap:10px; }
-  .control-group .label{ font-size:13.5px; color:var(--text-muted); font-weight:600; }
-  .font-controls{ display:flex; align-items:center; gap:6px; }
+  .control-group{ display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; }
+  .control-group .label{ font-size:12.5px; color:var(--text-muted); font-weight:600; }
+  .font-controls{ display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
   .font-controls button{
-    width:34px; height:34px; border-radius:9px; border:1px solid var(--border);
-    background:var(--surface-2); color:var(--text); font-size:16px; font-weight:800;
+    width:30px; height:30px; border-radius:8px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--text); font-size:14px; font-weight:800;
     display:flex; align-items:center; justify-content:center;
     transition:border-color .15s ease, color .15s ease;
   }
   .font-controls button:hover{ border-color:var(--accent); color:var(--accent-soft); }
   .font-controls .size-display{
-    min-width:40px; text-align:center; font-size:13px; color:var(--text-muted); font-weight:700;
+    min-width:32px; text-align:center; font-size:12.5px; color:var(--text-muted); font-weight:700;
   }
   .font-controls .font-reset-btn{
-    width:auto; height:34px; padding:0 12px; gap:5px;
-    font-family:'Cairo', sans-serif; font-size:12.5px; font-weight:700;
-    margin-inline-start:4px;
+    width:auto; height:30px; padding:0 10px; gap:4px;
+    font-family:'Cairo', sans-serif; font-size:12px; font-weight:700;
+    margin-inline-start:2px;
   }
   .font-controls .font-reset-btn svg{ flex-shrink:0; }
+  .bold-toggle-btn{
+    width:30px; height:30px; border-radius:8px; border:1px solid var(--border);
+    background:var(--surface-2); color:var(--text); font-size:13px; font-weight:800;
+    font-family:'Cairo', sans-serif;
+    display:flex; align-items:center; justify-content:center;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+    cursor:pointer;
+  }
+  .bold-toggle-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .bold-toggle-btn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
   .font-select{
     background:var(--surface-2); border:1px solid var(--border); color:var(--text);
-    font-family:'Cairo', sans-serif; font-size:13.5px; font-weight:600;
-    padding:8px 12px; border-radius:9px; outline:none; cursor:pointer;
+    font-family:'Cairo', sans-serif; font-size:12.5px; font-weight:600;
+    padding:6px 10px; border-radius:8px; outline:none; cursor:pointer;
+    width:100%;
   }
   .font-select:hover, .font-select:focus{ border-color:var(--accent); }
   .font-select option{ background:var(--surface); color:var(--text); }
@@ -514,6 +531,7 @@
   html[data-font="lateef"] .ayah-text{ font-family:'Lateef', serif; }
   html[data-font="noto"] .ayah-text{ font-family:'Noto Naskh Arabic', serif; }
   html[data-font="madinah"] .ayah-text{ font-family:'UthmanicHafs Madinah', serif; }
+  html[data-bold="on"] .ayah-text{ font-weight:700; }
 
   /* وضع اختبار الحفظ: يخفي نص الآية كله حتى يُكشف بمرور الماوس أو الضغط باللمس */
   html[data-test-mode="on"] .ayah-text .ayah-first-word,
@@ -551,43 +569,58 @@
   }
 
   /* ---------- Display mode toggle ---------- */
-  .display-mode-toggle{ display:flex; gap:6px; }
+  .display-mode-toggle{ display:flex; gap:5px; width:100%; }
   .mode-btn{
-    background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted);
-    font-family:'Cairo', sans-serif; font-size:12.5px; font-weight:700;
-    padding:7px 13px; border-radius:9px; cursor:pointer; transition:border-color .15s ease, color .15s ease, background .15s ease;
+    flex:1; background:var(--surface-2); border:1px solid var(--border); color:var(--text-muted);
+    font-family:'Cairo', sans-serif; font-size:12px; font-weight:700;
+    padding:6px 8px; border-radius:8px; cursor:pointer; transition:border-color .15s ease, color .15s ease, background .15s ease;
+    text-align:center;
   }
   .mode-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
   .mode-btn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
 
   /* ---------- Ayah repeat (memorization) controls ---------- */
-  .repeat-group{ flex-direction:column; align-items:stretch; gap:10px; width:100%; }
-  .repeat-fields{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .repeat-group{ grid-column:1/-1; flex-direction:column; align-items:stretch; gap:8px; width:100%; }
+  .repeat-fields{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .repeat-fields label{
-    display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-muted); font-weight:600;
+    display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-muted); font-weight:600;
   }
   .repeat-fields input[type="number"]{
-    width:56px; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
-    font-family:'Cairo', sans-serif; font-size:13px; font-weight:700; text-align:center;
-    padding:7px 4px; border-radius:9px; outline:none;
+    width:48px; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    font-family:'Cairo', sans-serif; font-size:12.5px; font-weight:700; text-align:center;
+    padding:5px 4px; border-radius:8px; outline:none;
   }
   .repeat-fields input[type="number"]:hover, .repeat-fields input[type="number"]:focus{ border-color:var(--accent); }
-  .repeat-actions{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .repeat-actions{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
   .test-mode-toggle-row{
-    display:flex; align-items:center; gap:8px;
-    font-size:13px; color:var(--text-muted); font-weight:600;
-    margin-top:8px; cursor:pointer;
+    display:flex; align-items:center; gap:7px;
+    font-size:12px; color:var(--text-muted); font-weight:600;
+    margin-top:4px; cursor:pointer;
   }
-  .test-mode-toggle-row input{ width:16px; height:16px; cursor:pointer; }
+  .test-mode-toggle-row input{ width:15px; height:15px; cursor:pointer; }
   .repeat-btn{
-    display:flex; align-items:center; gap:6px; background:var(--accent); border:1px solid var(--accent);
-    color:#fff; font-family:'Cairo', sans-serif; font-size:13px; font-weight:700;
-    padding:8px 16px; border-radius:9px; cursor:pointer; transition:opacity .15s ease;
+    display:flex; align-items:center; gap:5px; background:var(--accent); border:1px solid var(--accent);
+    color:#fff; font-family:'Cairo', sans-serif; font-size:12.5px; font-weight:700;
+    padding:6px 13px; border-radius:8px; cursor:pointer; transition:opacity .15s ease;
   }
   .repeat-btn:hover{ opacity:.9; }
   .repeat-btn.stop-btn{ background:var(--surface-2); border-color:var(--border); color:var(--text); }
   .repeat-btn.stop-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
-  .repeat-status{ font-size:12.5px; color:var(--text-muted); font-weight:600; min-height:16px; }
+  .repeat-status{ font-size:12px; color:var(--text-muted); font-weight:600; min-height:14px; }
+
+  /* ---------- Controls panel: tablet / mobile ---------- */
+  @media (max-width:980px){
+    .controls-body{ grid-template-columns:repeat(2, 1fr); }
+  }
+  @media (max-width:600px){
+    .controls-body{ grid-template-columns:1fr; gap:12px; padding:10px 14px 12px; }
+    .control-group{ width:100%; }
+    .repeat-fields{ gap:8px; }
+    .repeat-fields label{ flex:1 1 45%; }
+    .repeat-fields input[type="number"]{ width:100%; }
+    .repeat-actions{ width:100%; }
+    .repeat-actions .repeat-btn{ flex:1; justify-content:center; }
+  }
 
   /* ---------- Continuous (mushaf-style) ayat display ---------- */
   .ayat-list.continuous-mode{
@@ -708,7 +741,7 @@
   .read-view.mode-page .display-mode-toggle,
   .read-view.mode-page #ayah-search-section-read,
   .read-view.mode-page #page-jump-control-row{ display:none; }
-  .page-jump-control-row{ flex-basis:100%; width:100%; }
+  .page-jump-control-row{ grid-column:1/-1; width:100%; }
   .page-jump-control-row .page-jump-panel{ padding:16px 18px; }
 
   /* ---------- Mushaf page rendering (Madinah-style layout) ---------- */
@@ -725,6 +758,7 @@
   html[data-font="lateef"] .mushaf-line{ font-family:'Lateef', serif; }
   html[data-font="noto"] .mushaf-line{ font-family:'Noto Naskh Arabic', serif; }
   html[data-font="madinah"] .mushaf-line{ font-family:'UthmanicHafs Madinah', serif; }
+  html[data-bold="on"] .mushaf-line{ font-weight:700; }
   .mushaf-line-surah-header{
     display:flex; align-items:center; gap:10px; margin:14px 0 10px;
     font-size:0.72em; font-weight:700; color:var(--accent-soft);
@@ -862,10 +896,18 @@
 
   <!-- ===================== READ VIEW ===================== -->
   <div id="read-view">
-    <a href="#" class="back-link" onclick="showList(); return false;">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M3 12h18"/></svg>
-      رجوع إلى الفهرس
-    </a>
+    <div class="read-view-top">
+      <a href="#" class="back-link" onclick="showList(); return false;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M3 12h18"/></svg>
+        رجوع إلى الفهرس
+      </a>
+      <div class="header-actions">
+        <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+      </div>
+    </div>
 
     <div class="surah-nav-top">
       <a href="#" id="prev-surah-link" style="visibility:hidden;">السورة السابقة</a>
@@ -938,6 +980,7 @@
             <button onclick="changeFont(-1)">−</button>
             <span class="size-display" id="font-size-display">28</span>
             <button onclick="changeFont(1)">+</button>
+            <button class="bold-toggle-btn" id="bold-toggle-btn" onclick="toggleBold()" title="خط عريض" aria-label="خط عريض">B</button>
             <button class="font-reset-btn" onclick="resetFontSize()" title="استعادة حجم الخط الافتراضي">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
               إعادة تعيين
@@ -954,13 +997,6 @@
             <option value="amiri">أميري (نسخي تقليدي)</option>
             <option value="lateef">لطيف (بسيط)</option>
           </select>
-        </div>
-        <div class="control-group">
-          <span class="label">المظهر</span>
-          <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري">
-            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-          </button>
         </div>
         <div class="control-group">
           <span class="label">القارئ</span>
@@ -1285,6 +1321,14 @@ let fontFamily = (function(){
   }catch(e){}
   return 'amiri-quran';
 })();
+let boldActive = (function(){
+  try{
+    const saved = localStorage.getItem('quran-bold-active');
+    if(saved === 'on') return true;
+    if(saved === 'off') return false;
+  }catch(e){}
+  return false;
+})();
 let displayMode = (function(){
   try{
     const saved = localStorage.getItem('quran-display-mode');
@@ -1303,6 +1347,9 @@ async function init(){
   document.getElementById('font-size-display').textContent = fontSize;
   document.documentElement.setAttribute('data-font', fontFamily);
   document.getElementById('font-family-select').value = fontFamily;
+  document.documentElement.setAttribute('data-bold', boldActive ? 'on' : 'off');
+  const boldBtn = document.getElementById('bold-toggle-btn');
+  if(boldBtn) boldBtn.classList.toggle('active', boldActive);
   document.getElementById('reciter-select').value = selectedReciter;
   document.getElementById('test-mode-toggle').checked = testModeActive;
   document.documentElement.setAttribute('data-test-mode', testModeActive ? 'on' : 'off');
@@ -2762,6 +2809,14 @@ function changeFontFamily(value){
   fontFamily = value;
   document.documentElement.setAttribute('data-font', value);
   try{ localStorage.setItem('quran-font-family', value); }catch(e){}
+}
+
+function toggleBold(){
+  boldActive = !boldActive;
+  document.documentElement.setAttribute('data-bold', boldActive ? 'on' : 'off');
+  const btn = document.getElementById('bold-toggle-btn');
+  if(btn) btn.classList.toggle('active', boldActive);
+  try{ localStorage.setItem('quran-bold-active', boldActive ? 'on' : 'off'); }catch(e){}
 }
 
 /* ---------- Real Mushaf page breaks inside continuous ("كالمصحف") view ---------- */
