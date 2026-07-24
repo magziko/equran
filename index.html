@@ -1001,11 +1001,28 @@
         <div class="control-group">
           <span class="label">القارئ</span>
           <select id="reciter-select" class="font-select" onchange="changeReciter(this.value)">
+            <option value="mustafa_ismail">الشيخ مصطفى إسماعيل</option>
             <option value="husary">الشيخ محمود خليل الحصري (مرتل)</option>
+            <option value="husary_mujawwad">الشيخ محمود خليل الحصري (مجود)</option>
+            <option value="husary_muallim">الشيخ محمود خليل الحصري (معلم)</option>
+            <option value="minshawi_mujawwad">الشيخ محمد صديق المنشاوي (مجود)</option>
+            <option value="minshawi_murattal">الشيخ محمد صديق المنشاوي (مرتل)</option>
             <option value="banna">الشيخ محمود علي البنا (مرتل)</option>
             <option value="banna_mujawwad">الشيخ محمود علي البنا (مجود)</option>
             <option value="abdulbasit_mujawwad">الشيخ عبد الباسط عبد الصمد (مجود)</option>
-            <option value="minshawi_mujawwad">الشيخ محمد صديق المنشاوي (مجود)</option>
+            <option value="abdulbasit_murattal">الشيخ عبد الباسط عبد الصمد (مرتل)</option>
+            <option value="tablawi">الشيخ محمد الطبلاوي</option>
+            <option value="hudhaify">الشيخ علي الحذيفي</option>
+            <option value="ayyoub">الشيخ محمد أيوب</option>
+            <option value="ali_jaber">الشيخ علي جابر (إمام الحرم المكي)</option>
+            <option value="shuraim">الشيخ سعود الشريم</option>
+            <option value="ghamadi">الشيخ سعد الغامدي</option>
+            <option value="ajamy">الشيخ أحمد العجمي</option>
+            <option value="maher">الشيخ ماهر المعيقلي</option>
+            <option value="shatri">الشيخ أبو بكر الشاطري</option>
+            <option value="dussary">الشيخ ياسر الدوسري</option>
+            <option value="qatami">الشيخ ناصر القطامي</option>
+            <option value="bukhatir">الشيخ صلاح بوخاطر</option>
           </select>
         </div>
         <div class="control-group repeat-group">
@@ -1571,11 +1588,28 @@ function renderFavoritesView(){
 // type "ayah": ملف مستقل لكل آية (everyayah.com)
 // type "timed": الآية عبارة عن مقطع زمني داخل ملف السورة كاملة (حسب بيانات توقيت من mp3quran.net)
 const RECITERS = {
+  mustafa_ismail: { name: 'الشيخ مصطفى إسماعيل', type: 'ayah', folder: 'Mustafa_Ismail_48kbps' },
   husary: { name: 'الشيخ محمود خليل الحصري', type: 'ayah', folder: 'Husary_128kbps' },
-  banna:  { name: 'الشيخ محمود علي البنا (مرتل)', type: 'ayah', folder: 'mahmoud_ali_al_banna_32kbps' },
-  abdulbasit_mujawwad: { name: 'الشيخ عبد الباسط عبد الصمد (مجود)', type: 'ayah', folder: 'Abdul_Basit_Mujawwad_128kbps' },
+  husary_mujawwad: { name: 'الشيخ محمود خليل الحصري (مجود)', type: 'ayah', folder: 'Husary_128kbps_Mujawwad' },
+  husary_muallim: { name: 'الشيخ محمود خليل الحصري (معلم)', type: 'ayah', folder: 'Husary_Muallim_128kbps' },
   minshawi_mujawwad: { name: 'الشيخ محمد صديق المنشاوي (مجود)', type: 'ayah', folder: 'Minshawy_Mujawwad_192kbps' },
-  banna_mujawwad: { name: 'الشيخ محمود علي البنا (مجود)', type: 'timed', readId: 122, folder: 'https://server8.mp3quran.net/bna/Almusshaf-Al-Mojawwad/' }
+  minshawi_murattal: { name: 'الشيخ محمد صديق المنشاوي (مرتل)', type: 'ayah', folder: 'Minshawy_Murattal_128kbps' },
+  banna:  { name: 'الشيخ محمود علي البنا (مرتل)', type: 'ayah', folder: 'mahmoud_ali_al_banna_32kbps' },
+  banna_mujawwad: { name: 'الشيخ محمود علي البنا (مجود)', type: 'timed', readId: 122, folder: 'https://server8.mp3quran.net/bna/Almusshaf-Al-Mojawwad/' },
+  abdulbasit_mujawwad: { name: 'الشيخ عبد الباسط عبد الصمد (مجود)', type: 'ayah', folder: 'Abdul_Basit_Mujawwad_128kbps' },
+  abdulbasit_murattal: { name: 'الشيخ عبد الباسط عبد الصمد (مرتل)', type: 'ayah', folder: 'Abdul_Basit_Murattal_192kbps' },
+  tablawi: { name: 'الشيخ محمد الطبلاوي', type: 'ayah', folder: 'Mohammad_al_Tablaway_128kbps' },
+  hudhaify: { name: 'الشيخ علي الحذيفي', type: 'ayah', folder: 'Hudhaify_128kbps' },
+  ayyoub: { name: 'الشيخ محمد أيوب', type: 'ayah', folder: 'Muhammad_Ayyoub_128kbps' },
+  ali_jaber: { name: 'الشيخ علي جابر (إمام الحرم المكي)', type: 'timed', readId: 76, folder: 'https://server11.mp3quran.net/a_jbr/' },
+  shuraim: { name: 'الشيخ سعود الشريم', type: 'ayah', folder: 'Saood_ash-Shuraym_128kbps' },
+  ghamadi: { name: 'الشيخ سعد الغامدي', type: 'ayah', folder: 'Ghamadi_40kbps' },
+  ajamy: { name: 'الشيخ أحمد العجمي', type: 'ayah', folder: 'ahmed_ibn_ali_al_ajamy_128kbps' },
+  maher: { name: 'الشيخ ماهر المعيقلي', type: 'ayah', folder: 'MaherAlMuaiqly128kbps' },
+  shatri: { name: 'الشيخ أبو بكر الشاطري', type: 'ayah', folder: 'Abu_Bakr_Ash-Shaatree_128kbps' },
+  dussary: { name: 'الشيخ ياسر الدوسري', type: 'ayah', folder: 'Yasser_Ad-Dussary_128kbps' },
+  qatami: { name: 'الشيخ ناصر القطامي', type: 'ayah', folder: 'Nasser_Alqatami_128kbps' },
+  bukhatir: { name: 'الشيخ صلاح بوخاطر', type: 'ayah', folder: 'Salaah_AbdulRahman_Bukhatir_128kbps' }
 };
 let selectedReciter = localStorage.getItem('selectedReciter') || 'husary';
 if(!RECITERS[selectedReciter]) selectedReciter = 'husary';
