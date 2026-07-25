@@ -386,6 +386,12 @@
     margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);
   }
   .tafsir-modal-title{ font-size:15px; font-weight:700; color:var(--text); }
+  .tafsir-source-select{
+    -webkit-appearance:none; appearance:none; background:transparent; border:none; outline:none;
+    padding:0; cursor:pointer; font-family:inherit; max-width:100%;
+  }
+  .tafsir-source-select:hover{ color:var(--accent-soft); }
+  .tafsir-source-select option{ background:var(--bg-elev); color:var(--text); font-weight:400; }
   .tafsir-modal-subtitle{ font-size:12.5px; color:var(--text-muted); margin-top:2px; }
   .tafsir-modal-close{
     flex-shrink:0; width:30px; height:30px; border-radius:9px;
@@ -1696,60 +1702,210 @@ function toggleBookmark(surahId, ayahId, surahName){
   if(document.getElementById('favorites-view').style.display !== 'none') renderFavoritesView();
 }
 
-// ---------- تفسير الآية (التفسير الميسر) ----------
+// ---------- تفسير الآية ومعاني الكلمات (أهل السنة والجماعة - مصدر مفتوح عبر tafsir_api) ----------
+const TAFSIR_SOURCES_LIST = [
+  { slug: 'al-muyassar-fi-al-gharib',  name: 'معاني الكلمات (الغريب)' },
+  { slug: 'ar-tafsir-muyassar',        name: 'التفسير الميسر' },
+  { slug: 'ar-tafsir-ibn-kathir',      name: 'تفسير ابن كثير' },
+  { slug: 'ar-tafseer-al-qurtubi',     name: 'تفسير القرطبي' },
+  { slug: 'ar-tafseer-al-saddi',       name: 'تفسير السعدي' },
+  { slug: 'ar-tafsir-al-tabari',       name: 'تفسير الطبري' },
+  { slug: 'ar-tafsir-al-baghawi',      name: 'تفسير البغوي' },
+  { slug: 'ar-tafsir-al-wasit',        name: 'التفسير الوسيط' },
+  { slug: 'ar-tafsir-al-mukhtasar',    name: 'المختصر في التفسير' },
+  { slug: 'ar-tafsir-al-jalalayn',     name: 'تفسير الجلالين' },
+  { slug: 'adwa-al-bayan',             name: 'أضواء البيان (الشنقيطي)' },
+  { slug: 'tafsir-ibn-al-qayyim',      name: 'تفسير ابن القيم' },
+  { slug: 'tafsir-ibn-al-jawzi',       name: 'زاد المسير (ابن الجوزي)' },
+  { slug: 'en-tafisr-ibn-kathir',      name: 'ابن كثير (مختصر - إنجليزي)' },
+  { slug: 'en-al-jalalayn',            name: 'الجلالين (إنجليزي)' },
+  { slug: 'en-tafsir-al-mukhtasar',    name: 'المختصر في التفسير (إنجليزي)' },
+  { slug: 'en-tafsir-maarif-ul-quran', name: 'معارف القرآن (إنجليزي - مفتي شفيع)' }
+].map(s => ({ ...s, type: 'tafsir' }));
+
+// ---------- ترجمات معاني القرآن (مترجمون معتمدون - مصدر مفتوح عبر quran-api) ----------
+const TRANSLATION_SOURCES_LIST = [
+  { slug: 'eng-ummmuhammad',        name: 'English (Saheeh International)' },
+  { slug: 'eng-muhammadtaqiudd',    name: 'English (Hilali & Khan)' },
+  { slug: 'eng-mustafakhattaba',    name: 'English (Mustafa Khattab)' },
+  { slug: 'fra-muhammadhamidul',    name: 'Français (Muhammad Hamidullah)' },
+  { slug: 'urd-muhammadjunagar',    name: 'اردو (محمد جوناگڑھی)' },
+  { slug: 'tur-diyanetisleri',      name: 'Türkçe (Diyanet İşleri)' },
+  { slug: 'ind-kingfahdcomplex',    name: 'Bahasa Indonesia (Kompleks Raja Fahd)' },
+  { slug: 'msa-abdullahmuhamma',    name: 'Bahasa Melayu (Abdullah Muhammad Basmeih)' },
+  { slug: 'rus-elmirkuliev',        name: 'Русский (Эльмир Кулиев)' },
+  { slug: 'deu-asfbubenheimand',    name: 'Deutsch (Bubenheim & Elyas)' },
+  { slug: 'spa-muhammadisagarc',    name: 'Español (Muhammad Isa García)' },
+  { slug: 'ben-muhiuddinkhan',      name: 'বাংলা (মুহিউদ্দীন খান)' },
+  { slug: 'fas-islamhousecompe',    name: 'فارسی (تیم اسلام‌هاوس)' },
+  { slug: 'zho-muhammadmakin',      name: '中文 (马坚)' },
+  { slug: 'jpn-ryoichimita',        name: '日本語 (三田了一)' },
+  { slug: 'kor-hamidchoi',          name: '한국어 (Hamid Choi)' },
+  { slug: 'ita-hamzarobertopic',    name: 'Italiano (Hamza Roberto Piccardo)' },
+  { slug: 'nld-sofianssiregar',     name: 'Nederlands (Sofian S. Siregar)' },
+  { slug: 'por-helminasr',          name: 'Português (Helmi Nasr)' },
+  { slug: 'swe-knutbernstrom',      name: 'Svenska (Knut Bernström)' },
+  { slug: 'sqi-sherifahmeti',       name: 'Shqip (Sherif Ahmeti)' },
+  { slug: 'bos-besimkorkut',        name: 'Bosanski (Besim Korkut)' },
+  { slug: 'hau-abubakarmahmoud',    name: 'Hausa (Abubakar Mahmoud Gumi)' },
+  { slug: 'swa-alimuhsinalbarw',    name: 'Kiswahili (Ali Muhsin Al-Barwani)' },
+  { slug: 'som-mahmudmuhammada',    name: 'Soomaali (Mahmud Muhammad Abduh)' },
+  { slug: 'tha-kingfahadquranc',    name: 'ไทย (King Fahad Quran Complex)' },
+  { slug: 'vie-hassanabdulkari',    name: 'Tiếng Việt (Hassan Abdulkarim)' },
+  { slug: 'hin-maulanaazizulha',    name: 'हिन्दी (मौलाना अज़ीज़ुल हक़ उमरी)' },
+  { slug: 'tam-abdulhameedbaqa',    name: 'தமிழ் (Abdul Hameed Baqavi)' },
+  { slug: 'uzb-muhammadsodikmu',    name: 'Oʻzbekcha (Muhammad Sodiq Muhammad Yusuf)' },
+  { slug: 'kaz-khalifahaltai',      name: 'Қазақша (Khalifah Altai)' },
+  { slug: 'aze-vasimmammadaliy',    name: 'Azərbaycanca (Vasim Məmmədəliyev)' },
+  { slug: 'kur-burhanmuhammada',    name: 'کوردی (Burhan Muhammad Amin)' },
+  { slug: 'pus-abdulwalikhan',      name: 'پښتو (Abdulwali Khan)' },
+  { slug: 'sin-naseemismailand',    name: 'සිංහල (Naseem Ismail)' },
+  { slug: 'nep-ahlalhadithcent',    name: 'नेपाली (Ahl Al-Hadith Society)' },
+  { slug: 'fil-abdullatifeduar',    name: 'Filipino (Abdullatif Arceo)' },
+  { slug: 'mal-cheriyamundamab',    name: 'മലയാളം (Cheriyamundam Abdul Hameed)' },
+  { slug: 'guj-rabilaalomari',      name: 'ગુજરાતી (Rabila Al Omari)' },
+  { slug: 'mar-muhammadshafiia',    name: 'मराठी (Muhammad Shafi Ansari)' },
+  { slug: 'asm-shaykhrafeequli',    name: 'অসমীয়া (Shaykh Rafeequl Islam)' },
+  { slug: 'kan-abdussalamputhi',    name: 'ಕನ್ನಡ (Abdussalam Puthige)' },
+  { slug: 'tel-abdulraheemmoha',    name: 'తెలుగు (Abdul Raheem Moulana)' },
+  { slug: 'ukr-mykhayloyakubov',    name: 'Українська (Якубович)' },
+  { slug: 'ces-prekladihrbek',      name: 'Čeština (Hrbek)' },
+  { slug: 'pol-jozefabielawski',    name: 'Polski (Bielawski)' },
+  { slug: 'ron-georgegrigore',      name: 'Română (George Grigore)' },
+  { slug: 'hun-drahmedabdelrah',    name: 'Magyar (Dr. Ahmed Abdel Rahman)' },
+  { slug: 'dan-vandetaal',          name: 'Dansk (Van De Taal)' },
+  { slug: 'nor-einarberg',          name: 'Norsk (Einar Berg)' },
+  { slug: 'heb-darusalamhousei',    name: 'עברית (Darussalam Jerusalem)' },
+  { slug: 'div-officeofthepres',    name: 'ދިވެހި (Office of the President)' },
+  { slug: 'tgk-wwwislamhouseco',    name: 'Тоҷикӣ (IslamHouse.com)' },
+  { slug: 'kir-shamsaldinhakim',    name: 'Кыргызча (Shams Al Din Hakimov)' },
+  { slug: 'mkd-sheikhhassangil',    name: 'Македонски (Sheikh Hassan Gilo)' },
+  { slug: 'bul-tzvetantheophan',    name: 'Български (Tzvetan Theophanov)' },
+  { slug: 'mya-ghazimohammadha',    name: 'မြန်မာ (Ghazi Mohammad Hashim)' },
+  { slug: 'khm-cambodianmuslim',    name: 'ខ្មែរ (Cambodian Muslim Community)' }
+].map(s => ({ ...s, type: 'translation' }));
+
+const ALL_TAFSIR_SOURCES = [...TAFSIR_SOURCES_LIST, ...TRANSLATION_SOURCES_LIST];
+const TAFSIR_DEFAULT_SLUG = 'ar-tafsir-muyassar';
 const tafsirCache = {};
-function getTafsirCacheKey(surahId, ayahId){ return `${surahId}:${ayahId}`; }
-function getStoredTafsir(surahId, ayahId){
+let currentTafsirCtx = null; // { surahId, ayahId }
+
+function getSourceInfo(slug){ return ALL_TAFSIR_SOURCES.find(s => s.slug === slug) || TAFSIR_SOURCES_LIST[1]; }
+function getSelectedTafsirSlug(){
+  try{ return localStorage.getItem('selectedTafsirSlug') || TAFSIR_DEFAULT_SLUG; } catch(e){ return TAFSIR_DEFAULT_SLUG; }
+}
+function setSelectedTafsirSlug(slug){
+  try{ localStorage.setItem('selectedTafsirSlug', slug); } catch(e){ /* تجاهل أخطاء التخزين */ }
+}
+function getTafsirCacheKey(slug, surahId, ayahId){ return `${slug}:${surahId}:${ayahId}`; }
+function getStoredTafsir(slug, surahId, ayahId){
   try{
     const raw = localStorage.getItem('tafsirCache');
     const store = raw ? JSON.parse(raw) : {};
-    return store[getTafsirCacheKey(surahId, ayahId)] || null;
+    return store[getTafsirCacheKey(slug, surahId, ayahId)] || null;
   } catch(e){ return null; }
 }
-function setStoredTafsir(surahId, ayahId, text){
+function setStoredTafsir(slug, surahId, ayahId, text){
   try{
     const raw = localStorage.getItem('tafsirCache');
     const store = raw ? JSON.parse(raw) : {};
-    store[getTafsirCacheKey(surahId, ayahId)] = text;
+    store[getTafsirCacheKey(slug, surahId, ayahId)] = text;
     localStorage.setItem('tafsirCache', JSON.stringify(store));
   } catch(e){ /* تجاهل أخطاء التخزين */ }
 }
 
+function populateTafsirSourceSelect(){
+  const select = document.getElementById('tafsir-source-select');
+  if(!select || select.options.length) return;
+  const tafsirGroup = document.createElement('optgroup');
+  tafsirGroup.label = 'التفسير ومعاني الكلمات';
+  TAFSIR_SOURCES_LIST.forEach(src => {
+    const opt = document.createElement('option');
+    opt.value = src.slug;
+    opt.textContent = src.name;
+    tafsirGroup.appendChild(opt);
+  });
+  const translationGroup = document.createElement('optgroup');
+  translationGroup.label = 'ترجمة المعاني';
+  TRANSLATION_SOURCES_LIST.forEach(src => {
+    const opt = document.createElement('option');
+    opt.value = src.slug;
+    opt.textContent = src.name;
+    translationGroup.appendChild(opt);
+  });
+  select.appendChild(tafsirGroup);
+  select.appendChild(translationGroup);
+}
+
 function showTafsir(surahId, ayahId, surahName){
   const overlay = document.getElementById('tafsir-overlay');
-  const body = document.getElementById('tafsir-modal-body');
   const subtitle = document.getElementById('tafsir-modal-subtitle');
+  const select = document.getElementById('tafsir-source-select');
+  populateTafsirSourceSelect();
   subtitle.textContent = `سورة ${surahName} — الآية ${ayahId}`;
   overlay.classList.add('open');
+  currentTafsirCtx = { surahId, ayahId };
+  select.value = getSelectedTafsirSlug();
+  loadTafsirContent(surahId, ayahId);
+}
 
-  const key = getTafsirCacheKey(surahId, ayahId);
+function onTafsirSourceChange(){
+  const select = document.getElementById('tafsir-source-select');
+  setSelectedTafsirSlug(select.value);
+  if(currentTafsirCtx) loadTafsirContent(currentTafsirCtx.surahId, currentTafsirCtx.ayahId);
+}
+
+function loadTafsirContent(surahId, ayahId){
+  const overlay = document.getElementById('tafsir-overlay');
+  const body = document.getElementById('tafsir-modal-body');
+  const slug = getSelectedTafsirSlug();
+  const sourceInfo = getSourceInfo(slug);
+  const key = getTafsirCacheKey(slug, surahId, ayahId);
+
   if(tafsirCache[key]){
     body.innerHTML = `<div class="tafsir-modal-body">${tafsirCache[key]}</div>`;
     return;
   }
-  const stored = getStoredTafsir(surahId, ayahId);
+  const stored = getStoredTafsir(slug, surahId, ayahId);
   if(stored){
     tafsirCache[key] = stored;
     body.innerHTML = `<div class="tafsir-modal-body">${stored}</div>`;
     return;
   }
 
-  body.innerHTML = `<div class="tafsir-modal-loading">جارٍ تحميل التفسير...</div>`;
-  fetch(`https://api.quran-tafseer.com/tafseer/1/${surahId}/${ayahId}`)
-    .then(res => { if(!res.ok) throw new Error('tafsir fetch failed'); return res.json(); })
-    .then(data => {
-      const text = (data && data.text) ? data.text : null;
-      if(!text) throw new Error('no tafsir text');
-      tafsirCache[key] = text;
-      setStoredTafsir(surahId, ayahId, text);
-      // تأكيد أن المودال لسه مفتوح على نفس الآية قبل الكتابة
-      if(overlay.classList.contains('open')) body.innerHTML = `<div class="tafsir-modal-body">${text}</div>`;
-    })
-    .catch(() => {
-      if(overlay.classList.contains('open')){
+  body.innerHTML = `<div class="tafsir-modal-loading">${sourceInfo.type === 'translation' ? 'جارٍ تحميل الترجمة...' : 'جارٍ تحميل التفسير...'}</div>`;
+  // مصادر مفتوحة عبر jsDelivr CDN - أسرع واكثر ثباتًا، مع نسخة احتياطية عبر GitHub Raw
+  const tafsirSources = sourceInfo.type === 'translation'
+    ? [
+        `https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${slug}/${surahId}/${ayahId}.json`,
+        `https://raw.githubusercontent.com/fawazahmed0/quran-api/1/editions/${slug}/${surahId}/${ayahId}.json`
+      ]
+    : [
+        `https://cdn.jsdelivr.net/gh/spa5k/tafsir_api@main/tafsir/${slug}/${surahId}/${ayahId}.json`,
+        `https://raw.githubusercontent.com/spa5k/tafsir_api/main/tafsir/${slug}/${surahId}/${ayahId}.json`
+      ];
+  function tryFetch(i){
+    if(i >= tafsirSources.length){
+      if(overlay.classList.contains('open') && getSelectedTafsirSlug() === slug){
         body.innerHTML = `<div class="tafsir-modal-error">تعذّر تحميل التفسير حاليًا. يرجى المحاولة لاحقًا.</div>`;
       }
-    });
+      return;
+    }
+    fetch(tafsirSources[i])
+      .then(res => { if(!res.ok) throw new Error('tafsir fetch failed'); return res.json(); })
+      .then(data => {
+        const text = (data && data.text) ? data.text : null;
+        if(!text) throw new Error('no tafsir text');
+        tafsirCache[key] = text;
+        setStoredTafsir(slug, surahId, ayahId, text);
+        // تأكيد أن المودال لسه مفتوح على نفس الآية ونفس التفسير المختار قبل الكتابة
+        if(overlay.classList.contains('open') && getSelectedTafsirSlug() === slug){
+          body.innerHTML = `<div class="tafsir-modal-body">${text}</div>`;
+        }
+      })
+      .catch(() => tryFetch(i + 1));
+  }
+  tryFetch(0);
 }
 
 function closeTafsirModal(){
@@ -3555,7 +3711,7 @@ if('serviceWorker' in navigator){
     <div class="tafsir-modal">
       <div class="tafsir-modal-header">
         <div>
-          <div class="tafsir-modal-title">التفسير الميسر</div>
+          <select class="tafsir-modal-title tafsir-source-select" id="tafsir-source-select" onchange="onTafsirSourceChange()"></select>
           <div class="tafsir-modal-subtitle" id="tafsir-modal-subtitle"></div>
         </div>
         <button class="tafsir-modal-close" onclick="closeTafsirModal()" title="إغلاق">
