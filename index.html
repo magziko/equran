@@ -151,7 +151,8 @@
     padding:6px; border-radius:14px;
   }
   .header-actions .favorites-toggle,
-  .header-actions .theme-toggle{
+  .header-actions .theme-toggle,
+  .header-actions .lang-toggle{
     background:var(--surface-2);
   }
   @media (max-width:480px){
@@ -161,9 +162,11 @@
     .title-block p{ font-size:11.5px; }
     .header-actions{ gap:5px; padding:4px; border-radius:11px; }
     .header-actions .favorites-toggle,
-    .header-actions .theme-toggle{ width:30px; height:30px; border-radius:8px; }
+    .header-actions .theme-toggle,
+    .header-actions .lang-toggle{ width:30px; height:30px; border-radius:8px; }
     .header-actions .favorites-toggle svg,
     .header-actions .theme-toggle svg{ width:14px; height:14px; }
+    .header-actions .lang-toggle{ font-size:10.5px; }
     .header-actions .fav-count{
       min-width:14px; height:14px; font-size:8.5px; top:-4px; left:-4px;
     }
@@ -490,6 +493,15 @@
   .theme-toggle .icon-sun{ display:none; }
   html[data-theme="light"] .theme-toggle .icon-moon{ display:none; }
   html[data-theme="light"] .theme-toggle .icon-sun{ display:block; }
+
+  /* ---------- Language toggle ---------- */
+  .lang-toggle{
+    width:40px; height:40px; border-radius:10px; flex-shrink:0;
+    background:var(--surface); border:1px solid var(--border); color:var(--accent-soft);
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; font-weight:800; letter-spacing:.3px;
+  }
+  .lang-toggle:hover{ border-color:var(--accent); }
 
   /* ---------- Read view ---------- */
   #read-view{ display:none; }
@@ -1006,23 +1018,23 @@
   <div class="fullscreen-progress__bar" id="reading-progress-bar" style="width: 0%"></div>
 </div>
 
-<button class="scroll-top-btn" id="scroll-top-btn" onclick="scrollToSurahTop()" title="العودة لأعلى السورة" aria-label="العودة لأعلى السورة">
+<button class="scroll-top-btn" id="scroll-top-btn" onclick="scrollToSurahTop()" title="العودة لأعلى السورة" aria-label="العودة لأعلى السورة" data-i18n-title="scroll_top">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
 </button>
 
 <div class="page-shell">
 <aside class="surah-side-nav side-nav-hidden" id="surah-side-nav" aria-label="قائمة السور والأجزاء">
   <h3>
-    <span class="side-nav-title-text">الفهرس</span>
-    <button type="button" class="side-nav-collapse-btn" id="side-nav-collapse-btn" onclick="toggleSideNavCollapse()" title="طي/فتح القائمة" aria-label="طي أو فتح القائمة الجانبية">
+    <span class="side-nav-title-text" data-i18n="index">الفهرس</span>
+    <button type="button" class="side-nav-collapse-btn" id="side-nav-collapse-btn" onclick="toggleSideNavCollapse()" title="طي/فتح القائمة" aria-label="طي أو فتح القائمة الجانبية" data-i18n-title="toggle_side_nav">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
     </button>
   </h3>
   <div class="side-nav-tabs">
-    <button type="button" class="side-nav-tab active" id="side-tab-surah-btn" onclick="switchSideNavMode('surah')">السور</button>
-    <button type="button" class="side-nav-tab" id="side-tab-juz-btn" onclick="switchSideNavMode('juz')">الأجزاء</button>
+    <button type="button" class="side-nav-tab active" id="side-tab-surah-btn" onclick="switchSideNavMode('surah')" data-i18n="browse_surah_short">السور</button>
+    <button type="button" class="side-nav-tab" id="side-tab-juz-btn" onclick="switchSideNavMode('juz')" data-i18n="browse_juz_short">الأجزاء</button>
   </div>
-  <input type="text" class="surah-side-nav-search" id="surah-side-nav-search" placeholder="ابحث عن سورة..." oninput="onSideNavSearchInput(this.value)">
+  <input type="text" class="surah-side-nav-search" id="surah-side-nav-search" placeholder="ابحث عن سورة..." oninput="onSideNavSearchInput(this.value)" data-i18n-placeholder="search_surah">
   <div class="surah-side-list" id="surah-side-list"></div>
   <div class="surah-side-list" id="juz-side-list" style="display:none;"></div>
 </aside>
@@ -1035,16 +1047,19 @@
       <div class="title-block">
         <h1>
           <svg class="book-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5A2.5 2.5 0 0 1 4.5 2H12v18H4.5A2.5 2.5 0 0 0 2 22z"/><path d="M22 4.5A2.5 2.5 0 0 0 19.5 2H12v18h7.5a2.5 2.5 0 0 1 2.5 2z"/></svg>
-          القرآن الكريم
+          <span data-i18n="app_title">القرآن الكريم</span>
         </h1>
-        <p>قراءة وتصفح القرآن الكريم برواية حفص</p>
+        <p data-i18n="app_subtitle">قراءة وتصفح القرآن الكريم برواية حفص</p>
       </div>
       <div class="header-actions">
-        <button class="favorites-toggle" onclick="showFavorites()" title="المفضلة" aria-label="المفضلة">
+        <button class="favorites-toggle" onclick="showFavorites()" title="المفضلة" aria-label="المفضلة" data-i18n-title="favorites">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
           <span class="fav-count zero" id="fav-count">0</span>
         </button>
-        <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري">
+        <button class="lang-toggle" id="lang-toggle-btn-1" onclick="toggleLanguage()" title="Switch language / تبديل اللغة" aria-label="Switch language / تبديل اللغة">
+          <span class="lang-toggle-text">EN</span>
+        </button>
+        <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري" data-i18n-title="theme_toggle">
           <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
         </button>
@@ -1055,22 +1070,22 @@
 
     <div class="toolbar">
       <div class="browse-tabs">
-        <button class="browse-tab active" id="tab-surah-btn" onclick="switchBrowseMode('surah')"><span class="tab-full">تصفح بالسور</span><span class="tab-short">السور</span></button>
-        <button class="browse-tab" id="tab-juz-btn" onclick="switchBrowseMode('juz')"><span class="tab-full">تصفح بالأجزاء</span><span class="tab-short">الأجزاء</span></button>
-        <button class="browse-tab" id="tab-hizb-btn" onclick="switchBrowseMode('hizb')"><span class="tab-full">تصفح بالأحزاب</span><span class="tab-short">الأحزاب</span></button>
+        <button class="browse-tab active" id="tab-surah-btn" onclick="switchBrowseMode('surah')"><span class="tab-full" data-i18n="browse_surah_full">تصفح بالسور</span><span class="tab-short" data-i18n="browse_surah_short">السور</span></button>
+        <button class="browse-tab" id="tab-juz-btn" onclick="switchBrowseMode('juz')"><span class="tab-full" data-i18n="browse_juz_full">تصفح بالأجزاء</span><span class="tab-short" data-i18n="browse_juz_short">الأجزاء</span></button>
+        <button class="browse-tab" id="tab-hizb-btn" onclick="switchBrowseMode('hizb')"><span class="tab-full" data-i18n="browse_hizb_full">تصفح بالأحزاب</span><span class="tab-short" data-i18n="browse_hizb_short">الأحزاب</span></button>
       </div>
       <div class="toolbar-actions">
         <div class="search-box">
-          <input type="text" id="search-input" placeholder="ابحث عن سورة..." oninput="onSearchInput(this.value)">
+          <input type="text" id="search-input" placeholder="ابحث عن سورة..." oninput="onSearchInput(this.value)" data-i18n-placeholder="search_surah">
         </div>
-        <button class="go-btn" onclick="goToFirstMatch()">اذهب</button>
+        <button class="go-btn" onclick="goToFirstMatch()" data-i18n="go">اذهب</button>
         <div class="count-pill" id="count-pill">1-114</div>
       </div>
     </div>
 
     <div class="ayah-search-section">
       <div class="ayah-search-box" id="ayah-search-box">
-        <input type="text" id="ayah-search-input" placeholder="ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)" autocomplete="off" oninput="renderAyahSearchResults(this.value)" onkeydown="onAyahSearchKeydown(event)">
+        <input type="text" id="ayah-search-input" placeholder="ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)" autocomplete="off" oninput="renderAyahSearchResults(this.value)" onkeydown="onAyahSearchKeydown(event)" data-i18n-placeholder="search_ayah">
         <div class="ayah-search-dropdown" id="ayah-search-dropdown" style="display:none;"></div>
       </div>
     </div>
@@ -1078,7 +1093,7 @@
     <div class="surah-grid" id="surah-grid"></div>
     <div class="surah-grid" id="juz-grid" style="display:none;"></div>
     <div class="surah-grid" id="hizb-grid" style="display:none;"></div>
-    <div class="no-results" id="no-results" style="display:none;">لا توجد نتائج مطابقة.</div>
+    <div class="no-results" id="no-results" style="display:none;" data-i18n="no_results">لا توجد نتائج مطابقة.</div>
   </div>
 
   <!-- ===================== READ VIEW ===================== -->
@@ -1086,10 +1101,13 @@
     <div class="read-view-top">
       <a href="#" class="back-link" onclick="showList(); return false;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M3 12h18"/></svg>
-        رجوع إلى الفهرس
+        <span data-i18n="back_to_index">رجوع إلى الفهرس</span>
       </a>
       <div class="header-actions">
-        <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري">
+        <button class="lang-toggle" id="lang-toggle-btn-2" onclick="toggleLanguage()" title="Switch language / تبديل اللغة" aria-label="Switch language / تبديل اللغة">
+          <span class="lang-toggle-text">EN</span>
+        </button>
+        <button class="theme-toggle" onclick="toggleTheme()" title="تبديل الوضع الليلي/النهاري" aria-label="تبديل الوضع الليلي/النهاري" data-i18n-title="theme_toggle">
           <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
           <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
         </button>
@@ -1115,22 +1133,22 @@
     <p class="surah-sub" id="surah-sub"></p>
 
     <div class="page-jump-bar" id="page-jump-bar" style="display:none;">
-      <button type="button" class="page-nav-btn" onclick="openMushafPage(currentPageNum - 1)" id="page-prev-btn" title="الصفحة السابقة" aria-label="الصفحة السابقة">
+      <button type="button" class="page-nav-btn" onclick="openMushafPage(currentPageNum - 1)" id="page-prev-btn" title="الصفحة السابقة" aria-label="الصفحة السابقة" data-i18n-title="prev_page">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
       </button>
       <div class="page-jump-input-wrap">
-        <input type="number" id="page-jump-input" min="1" max="604" placeholder="رقم الصفحة" onkeydown="if(event.key==='Enter'){ event.preventDefault(); jumpToPageFromInput(); }">
+        <input type="number" id="page-jump-input" min="1" max="604" placeholder="رقم الصفحة" onkeydown="if(event.key==='Enter'){ event.preventDefault(); jumpToPageFromInput(); }" data-i18n-placeholder="page_number">
         <span class="page-jump-max">/ ٦٠٤</span>
       </div>
-      <button type="button" class="go-btn" onclick="jumpToPageFromInput()">اذهب</button>
-      <button type="button" class="page-nav-btn" onclick="openMushafPage(currentPageNum + 1)" id="page-next-btn" title="الصفحة التالية" aria-label="الصفحة التالية">
+      <button type="button" class="go-btn" onclick="jumpToPageFromInput()" data-i18n="go">اذهب</button>
+      <button type="button" class="page-nav-btn" onclick="openMushafPage(currentPageNum + 1)" id="page-next-btn" title="الصفحة التالية" aria-label="الصفحة التالية" data-i18n-title="next_page">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
       </button>
     </div>
 
     <div class="ayah-search-section" id="ayah-search-section-read">
       <div class="ayah-search-box" id="ayah-search-box-read">
-        <input type="text" id="ayah-search-input-read" placeholder="ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)" autocomplete="off" oninput="renderAyahSearchResults(this.value, 'ayah-search-dropdown-read')" onkeydown="onAyahSearchKeydown(event)">
+        <input type="text" id="ayah-search-input-read" placeholder="ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)" autocomplete="off" oninput="renderAyahSearchResults(this.value, 'ayah-search-dropdown-read')" onkeydown="onAyahSearchKeydown(event)" data-i18n-placeholder="search_ayah">
         <div class="ayah-search-dropdown" id="ayah-search-dropdown-read" style="display:none;"></div>
       </div>
     </div>
@@ -1139,43 +1157,43 @@
       <summary>
         <span class="gear">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          خيارات القراءة والتحكم
+          <span data-i18n="reading_controls">خيارات القراءة والتحكم</span>
         </span>
         <svg class="chev" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
       </summary>
       <div class="controls-body">
         <div class="control-group">
-          <span class="label">طريقة العرض</span>
+          <span class="label" data-i18n="display_mode_label">طريقة العرض</span>
           <div class="display-mode-toggle">
-            <button id="mode-btn-cards" class="mode-btn" onclick="setDisplayMode('cards')">آيات منفصلة</button>
-            <button id="mode-btn-continuous" class="mode-btn" onclick="setDisplayMode('continuous')">آيات متتالية (كالمصحف)</button>
+            <button id="mode-btn-cards" class="mode-btn" onclick="setDisplayMode('cards')" data-i18n="mode_cards">آيات منفصلة</button>
+            <button id="mode-btn-continuous" class="mode-btn" onclick="setDisplayMode('continuous')" data-i18n="mode_continuous">آيات متتالية (كالمصحف)</button>
           </div>
         </div>
         <div class="page-jump-control-row" id="page-jump-control-row" style="display:none;">
           <div class="page-jump-panel">
-            <span class="label">اذهب إلى صفحة من صفحات المصحف (١ - ٦٠٤)، بنفس تقسيم أسطر مصحف المدينة</span>
+            <span class="label" data-i18n="page_jump_panel_label">اذهب إلى صفحة من صفحات المصحف (١ - ٦٠٤)، بنفس تقسيم أسطر مصحف المدينة</span>
             <div class="page-jump-row">
-              <input type="number" id="page-panel-input" min="1" max="604" placeholder="رقم الصفحة" onkeydown="if(event.key==='Enter'){ event.preventDefault(); goToPageFromPanel(); }">
-              <button class="go-btn" onclick="goToPageFromPanel()">اذهب</button>
-              <button class="go-btn secondary" onclick="openMushafPage(1)">أول صفحة</button>
+              <input type="number" id="page-panel-input" min="1" max="604" placeholder="رقم الصفحة" onkeydown="if(event.key==='Enter'){ event.preventDefault(); goToPageFromPanel(); }" data-i18n-placeholder="page_number">
+              <button class="go-btn" onclick="goToPageFromPanel()" data-i18n="go">اذهب</button>
+              <button class="go-btn secondary" onclick="openMushafPage(1)" data-i18n="first_page">أول صفحة</button>
             </div>
           </div>
         </div>
         <div class="control-group">
-          <span class="label">حجم الخط</span>
+          <span class="label" data-i18n="font_size_label">حجم الخط</span>
           <div class="font-controls">
             <button onclick="changeFont(-1)">−</button>
             <span class="size-display" id="font-size-display">28</span>
             <button onclick="changeFont(1)">+</button>
-            <button class="bold-toggle-btn" id="bold-toggle-btn" onclick="toggleBold()" title="خط عريض" aria-label="خط عريض">B</button>
-            <button class="font-reset-btn" onclick="resetFontSize()" title="استعادة حجم الخط الافتراضي">
+            <button class="bold-toggle-btn" id="bold-toggle-btn" onclick="toggleBold()" title="خط عريض" aria-label="خط عريض" data-i18n-title="bold_label">B</button>
+            <button class="font-reset-btn" onclick="resetFontSize()" title="استعادة حجم الخط الافتراضي" data-i18n-title="reset_font_title">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-              إعادة تعيين
+              <span data-i18n="reset">إعادة تعيين</span>
             </button>
           </div>
         </div>
         <div class="control-group">
-          <span class="label">نوع الخط</span>
+          <span class="label" data-i18n="font_type_label">نوع الخط</span>
           <select id="font-family-select" class="font-select" onchange="changeFontFamily(this.value)">
             <option value="amiri-quran">الخط العثماني (Amiri Quran)</option>
             <option value="madinah">خط مصحف المدينة (عثمان طه)</option>
@@ -1186,7 +1204,7 @@
           </select>
         </div>
         <div class="control-group">
-          <span class="label">القارئ</span>
+          <span class="label" data-i18n="reciter_label">القارئ</span>
           <select id="reciter-select" class="font-select" onchange="changeReciter(this.value)">
             <option value="mustafa_ismail">الشيخ مصطفى إسماعيل (مرتل)</option>
             <option value="mustafa_ismail_mujawwad">الشيخ مصطفى إسماعيل (مجود)</option>
@@ -1220,41 +1238,41 @@
           </select>
         </div>
         <div class="control-group repeat-group">
-          <span class="label">تكرار الآيات للحفظ</span>
+          <span class="label" data-i18n="repeat_section_label">تكرار الآيات للحفظ</span>
           <div class="repeat-fields">
-            <label>من آية
+            <label><span data-i18n="repeat_from">من آية</span>
               <input type="number" id="repeat-from" min="1" value="1">
             </label>
-            <label>إلى آية
+            <label><span data-i18n="repeat_to">إلى آية</span>
               <input type="number" id="repeat-to" min="1" value="1">
             </label>
-            <label>عدد التكرار لكل آية
+            <label><span data-i18n="repeat_times_label">عدد التكرار لكل آية</span>
               <input type="number" id="repeat-times" min="1" max="50" value="3">
             </label>
-            <label>عدد تكرار المقطع كاملاً
+            <label><span data-i18n="repeat_segment_label">عدد تكرار المقطع كاملاً</span>
               <input type="number" id="repeat-segment-times" min="1" max="50" value="1">
             </label>
           </div>
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="test-mode-toggle" onchange="toggleTestMode(this.checked)">
-            وضع اختبار: يخفي نص الآية بالكامل حتى تمرّر الماوس عليها أو تضغط عليها باللمس
+            <span data-i18n="test_mode_label">وضع اختبار: يخفي نص الآية بالكامل حتى تمرّر الماوس عليها أو تضغط عليها باللمس</span>
           </label>
           <div class="repeat-actions">
             <button class="repeat-btn" id="repeat-start-btn" onclick="startAyahRepeat()">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              ابدأ التكرار
+              <span data-i18n="start_repeat">ابدأ التكرار</span>
             </button>
             <button class="repeat-btn stop-btn" id="repeat-stop-btn" onclick="stopAyahRepeat()" style="display:none;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14"/></svg>
-              إيقاف التكرار
+              <span data-i18n="stop_repeat">إيقاف التكرار</span>
             </button>
-            <button class="repeat-btn" id="listen-start-btn" onclick="startFullSurahListen()" title="تشغيل السورة كاملة ثم الانتقال تلقائيًا للسورة التالية وهكذا حتى ختم المصحف">
+            <button class="repeat-btn" id="listen-start-btn" onclick="startFullSurahListen()" title="تشغيل السورة كاملة ثم الانتقال تلقائيًا للسورة التالية وهكذا حتى ختم المصحف" data-i18n-title="listen_title">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              استماع
+              <span data-i18n="listen">استماع</span>
             </button>
             <button class="repeat-btn stop-btn" id="listen-stop-btn" onclick="stopFullSurahListen()" style="display:none;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14"/></svg>
-              إيقاف الاستماع
+              <span data-i18n="stop_listen">إيقاف الاستماع</span>
             </button>
             <span class="repeat-status" id="repeat-status"></span>
           </div>
@@ -1278,7 +1296,7 @@
   <div id="favorites-view" style="display:none;">
     <a href="#" class="back-link" onclick="showList(); return false;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M3 12h18"/></svg>
-      رجوع إلى الفهرس
+      <span data-i18n="back_to_index">رجوع إلى الفهرس</span>
     </a>
 
     <div class="surah-header">
@@ -1286,16 +1304,16 @@
         <span class="badge-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </span>
-        <span>المفضلة</span>
+        <span data-i18n="favorites">المفضلة</span>
       </h2>
     </div>
-    <p class="surah-sub">الآيات التي حفظتها في مفضلتك، اضغط على "الذهاب" للانتقال إليها مباشرة.</p>
+    <p class="surah-sub" data-i18n="favorites_desc">الآيات التي حفظتها في مفضلتك، اضغط على "الذهاب" للانتقال إليها مباشرة.</p>
 
     <div class="ayat-list" id="favorites-list"></div>
-    <div class="favorites-empty" id="favorites-empty" style="display:none;">لم تُضِف أي آية إلى المفضلة بعد. اضغط على أيقونة العلامة بجانب أي آية لإضافتها هنا.</div>
+    <div class="favorites-empty" id="favorites-empty" style="display:none;" data-i18n="favorites_empty_msg">لم تُضِف أي آية إلى المفضلة بعد. اضغط على أيقونة العلامة بجانب أي آية لإضافتها هنا.</div>
   </div>
 
-  <div class="loading" id="loading">جاري تحميل بيانات القرآن الكريم...</div>
+  <div class="loading" id="loading" data-i18n="loading_text">جاري تحميل بيانات القرآن الكريم...</div>
 </div>
 </div>
 
@@ -1883,7 +1901,7 @@ function showTafsir(surahId, ayahId, surahName){
   const subtitle = document.getElementById('tafsir-modal-subtitle');
   const select = document.getElementById('tafsir-source-select');
   populateTafsirSourceSelect();
-  subtitle.textContent = `سورة ${surahName} — الآية ${ayahId}`;
+  subtitle.textContent = `${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}`;
   overlay.classList.add('open');
   currentTafsirCtx = { surahId, ayahId };
   select.value = getSelectedTafsirSlug();
@@ -1951,7 +1969,7 @@ function loadTafsirContent(surahId, ayahId){
     return;
   }
 
-  body.innerHTML = `<div class="tafsir-modal-loading">${sourceInfo.type === 'translation' ? 'جارٍ تحميل الترجمة...' : 'جارٍ تحميل التفسير...'}</div>`;
+  body.innerHTML = `<div class="tafsir-modal-loading">${sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir')}</div>`;
   // مصادر مفتوحة عبر jsDelivr CDN - أسرع واكثر ثباتًا، مع نسخة احتياطية عبر GitHub Raw
   const tafsirSources = sourceInfo.type === 'translation'
     ? [
@@ -1965,7 +1983,7 @@ function loadTafsirContent(surahId, ayahId){
   function tryFetch(i){
     if(i >= tafsirSources.length){
       if(overlay.classList.contains('open') && getSelectedTafsirSlug() === slug){
-        body.innerHTML = `<div class="tafsir-modal-error">تعذّر تحميل التفسير حاليًا. يرجى المحاولة لاحقًا.</div>`;
+        body.innerHTML = `<div class="tafsir-modal-error">${t('tafsir_load_error')}</div>`;
       }
       return;
     }
@@ -2024,22 +2042,22 @@ function renderFavoritesView(){
     const verse = surah && surah.verses.find(v => v.id === b.ayahId);
     if(!verse) return '';
     return `
-    <div class="ayah-card is-saved" id="fayah-${b.surahId}-${b.ayahId}" data-ayah="${b.ayahId}" data-surah="${b.surahId}" onclick="playAyahAudio(${b.surahId}, ${b.ayahId}, 'fayah-${b.surahId}-${b.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت ${getReciterName()}">
+    <div class="ayah-card is-saved" id="fayah-${b.surahId}-${b.ayahId}" data-ayah="${b.ayahId}" data-surah="${b.surahId}" onclick="playAyahAudio(${b.surahId}, ${b.ayahId}, 'fayah-${b.surahId}-${b.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(verse.text)}</div>
       <div class="ayah-meta">
         <div class="ayah-audio-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
-        <div class="fav-ayah-meta-extra">سورة ${b.surahName} — آية ${b.ayahId}</div>
+        <div class="fav-ayah-meta-extra">${t('surah_word')} ${b.surahName} — ${t('ayah_word')} ${b.ayahId}</div>
         <div class="ayah-num">${b.ayahId}</div>
-        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${b.surahId}, ${b.ayahId}, '${b.surahName}')" title="عرض التفسير">
+        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${b.surahId}, ${b.ayahId}, '${b.surahName}')" title="${t('show_tafsir')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         </button>
-        <button class="fav-go-btn" onclick="event.stopPropagation(); openSurah(${b.surahId}, ${b.ayahId})" title="الذهاب إلى الآية">
-          الذهاب
+        <button class="fav-go-btn" onclick="event.stopPropagation(); openSurah(${b.surahId}, ${b.ayahId})" title="${t('go_to_ayah')}">
+          ${t('go')}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
         </button>
-        <button class="fav-remove-btn" onclick="event.stopPropagation(); removeBookmark(${b.surahId}, ${b.ayahId})" title="إزالة من المفضلة">
+        <button class="fav-remove-btn" onclick="event.stopPropagation(); removeBookmark(${b.surahId}, ${b.ayahId})" title="${t('remove_from_favorites')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
@@ -2520,13 +2538,13 @@ function renderContinueBanner(){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </div>
         <div class="cc-text">
-          <div class="cc-label">متابعة القراءة</div>
-          <div class="cc-title">سورة ${saved.surahName} — الآية ${saved.ayahId}</div>
+          <div class="cc-label">${t('continue_reading')}</div>
+          <div class="cc-title">${t('surah_word')} ${saved.surahName} — ${t('ayah_word')} ${saved.ayahId}</div>
         </div>
       </div>
       <div class="cc-actions">
-        <button class="cc-go" onclick="openSurah(${saved.surahId}, ${saved.ayahId})">أكمل من هنا</button>
-        <button class="cc-dismiss" onclick="dismissContinueBanner()" title="حذف">
+        <button class="cc-go" onclick="openSurah(${saved.surahId}, ${saved.ayahId})">${t('continue_from_here')}</button>
+        <button class="cc-dismiss" onclick="dismissContinueBanner()" title="${t('dismiss')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
@@ -2593,8 +2611,8 @@ window.addEventListener('scroll', () => {
   if(document.getElementById('read-view').style.display !== 'none') handleReadScroll();
 }, { passive:true });
 
-function typeLabel(t){
-  return t === 'meccan' ? 'مكية' : 'مدنية';
+function typeLabel(surahType){
+  return surahType === 'meccan' ? t('meccan_surah') : t('medinan_surah');
 }
 
 // يعيد كل آيات جزء معيّن (قد يمتد عبر أكثر من سورة) مرتبة بالترتيب الصحيح
@@ -2646,7 +2664,7 @@ function switchBrowseMode(mode){
   document.getElementById('juz-grid').style.display = mode === 'juz' ? '' : 'none';
   document.getElementById('hizb-grid').style.display = mode === 'hizb' ? '' : 'none';
   const input = document.getElementById('search-input');
-  input.placeholder = mode === 'surah' ? 'ابحث عن سورة...' : (mode === 'juz' ? 'ابحث برقم الجزء...' : 'ابحث برقم الحزب...');
+  input.placeholder = mode === 'surah' ? t('search_surah') : (mode === 'juz' ? t('search_juz_num') : t('search_hizb_num'));
   input.value = '';
   onSearchInput('');
 }
@@ -2663,7 +2681,7 @@ function renderJuzGrid(query){
   const q = (query || '').trim();
   const filtered = JUZ_START.filter(j => !q || String(j.juz) === q);
 
-  document.getElementById('count-pill').textContent = q ? `${filtered.length} نتيجة` : '1-30';
+  document.getElementById('count-pill').textContent = q ? `${filtered.length} ${t('results_word')}` : '1-30';
 
   if(filtered.length === 0){
     grid.innerHTML = '';
@@ -2678,8 +2696,8 @@ function renderJuzGrid(query){
     return `
     <a class="surah-card" href="#" onclick="openJuz(${j.juz}); return false;">
       <div class="info">
-        <div class="name">الجزء ${j.juz}</div>
-        <div class="meta">يبدأ من سورة ${startLabel}</div>
+        <div class="name">${t('juz_word')} ${j.juz}</div>
+        <div class="meta">${t('starts_from_surah')} ${startLabel}</div>
       </div>
       <div class="num">${j.juz}</div>
     </a>
@@ -2693,7 +2711,7 @@ function renderHizbGrid(query){
   const q = (query || '').trim();
   const filtered = HIZB_START.filter(h => !q || String(h.hizb) === q);
 
-  document.getElementById('count-pill').textContent = q ? `${filtered.length} نتيجة` : '1-60';
+  document.getElementById('count-pill').textContent = q ? `${filtered.length} ${t('results_word')}` : '1-60';
 
   if(filtered.length === 0){
     grid.innerHTML = '';
@@ -2709,8 +2727,8 @@ function renderHizbGrid(query){
     return `
     <a class="surah-card" href="#" onclick="openHizb(${h.hizb}); return false;">
       <div class="info">
-        <div class="name">الحزب ${h.hizb}</div>
-        <div class="meta">يبدأ من سورة ${startLabel}</div>
+        <div class="name">${t('hizb_word')} ${h.hizb}</div>
+        <div class="meta">${t('starts_from_surah')} ${startLabel}</div>
         <div class="hizb-quarter-jumps" onclick="event.preventDefault();">${quarterBtns}</div>
       </div>
       <div class="num">${h.hizb}</div>
@@ -2725,7 +2743,7 @@ function renderGrid(query){
   const q = (query || '').trim();
   const filtered = QURAN.filter(s => !q || s.name.includes(q) || s.transliteration.toLowerCase().includes(q.toLowerCase()) || String(s.id) === q);
 
-  document.getElementById('count-pill').textContent = q ? `${filtered.length} نتيجة` : '1-114';
+  document.getElementById('count-pill').textContent = q ? `${filtered.length} ${t('results_word')}` : '1-114';
 
   if(filtered.length === 0){
     grid.innerHTML = '';
@@ -2737,8 +2755,8 @@ function renderGrid(query){
   grid.innerHTML = filtered.map(s => `
     <a class="surah-card" href="#" onclick="openSurah(${s.id}); return false;">
       <div class="info">
-        <div class="name">سورة ${s.name}</div>
-        <div class="meta">${s.total_verses} آية</div>
+        <div class="name">${t('surah_word')} ${s.name}</div>
+        <div class="meta">${s.total_verses} ${t('ayahs_word')}</div>
       </div>
       <div class="num">${s.id}</div>
     </a>
@@ -2776,7 +2794,7 @@ function renderJuzSideNav(query){
   list.innerHTML = items.map(j => `
     <button type="button" class="surah-side-item${j.juz === currentJuzId ? ' active' : ''}" data-side-juz="${j.juz}" onclick="openJuz(${j.juz}); return false;">
       <span class="side-num">${j.juz}</span>
-      <span class="side-name">الجزء ${j.juz}</span>
+      <span class="side-name">${t('juz_word')} ${j.juz}</span>
     </button>
   `).join('');
 }
@@ -2812,7 +2830,7 @@ function switchSideNavMode(mode){
   document.getElementById('surah-side-list').style.display = mode === 'surah' ? '' : 'none';
   document.getElementById('juz-side-list').style.display = mode === 'juz' ? '' : 'none';
   const search = document.getElementById('surah-side-nav-search');
-  search.placeholder = mode === 'surah' ? 'ابحث عن سورة...' : 'ابحث برقم الجزء...';
+  search.placeholder = mode === 'surah' ? t('search_surah') : t('search_juz_num');
   search.value = '';
   onSideNavSearchInput('');
 }
@@ -2909,17 +2927,17 @@ function renderAyahSearchResults(query, dropdownId){
   const { results, truncated } = searchAyahs(q);
 
   if(results.length === 0){
-    dropdown.innerHTML = '<div class="ayah-search-empty">لا توجد آيات مطابقة</div>';
+    dropdown.innerHTML = `<div class="ayah-search-empty">${t('no_ayah_match')}</div>`;
     dropdown.style.display = 'block';
     return;
   }
 
   dropdown.innerHTML = results.map(r => `
     <div class="ayah-search-result" onclick="jumpToAyah(${r.surahId}, ${r.ayahId})">
-      <div class="ayah-search-meta">سورة ${r.surahName} — الآية ${r.ayahId}</div>
+      <div class="ayah-search-meta">${t('surah_word')} ${r.surahName} — ${t('ayah_word')} ${r.ayahId}</div>
       <div class="ayah-search-snippet">${buildAyahSnippet(r)}</div>
     </div>
-  `).join('') + (truncated ? `<div class="ayah-search-more">أول ${MAX_AYAH_RESULTS} نتيجة — دقّق البحث لعرض نتائج أدق</div>` : '');
+  `).join('') + (truncated ? `<div class="ayah-search-more">${t('top_results_prefix')} ${MAX_AYAH_RESULTS} ${t('results_word')} — ${t('refine_search_suffix')}</div>` : '');
 
   dropdown.style.display = 'block';
 }
@@ -3002,9 +3020,9 @@ function openSurah(id, scrollToAyah){
   window.scrollTo(0,0);
   updateReadingProgress();
 
-  document.getElementById('surah-title').textContent = `سورة ${surah.name} (${surah.transliteration})`;
+  document.getElementById('surah-title').textContent = `${t('surah_word')} ${surah.name} (${surah.transliteration})`;
   document.getElementById('surah-sub').innerHTML =
-    `قراءة سورة ${surah.name} <b>من الآية 1 إلى الآية ${surah.total_verses}</b> — سورة ${typeLabel(surah.type)}، اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.`;
+    `${t('reading_surah_prefix')} ${surah.name} <b>${t('from_ayah')} 1 ${t('to_ayah')} ${surah.total_verses}</b> — ${typeLabel(surah.type)}${t('reading_font_hint')}`;
 
   const basmalaBlock = document.getElementById('basmala-block');
   if(surah.id !== 9 && surah.id !== 1){
@@ -3024,17 +3042,17 @@ function openSurah(id, scrollToAyah){
   list.innerHTML = surah.verses.map(v => {
     const fav = isBookmarked(id, v.id);
     return `
-    <div class="ayah-card${fav ? ' is-saved' : ''}" id="ayah-${v.id}" data-ayah="${v.id}" data-surah="${id}" onclick="playAyahAudio(${id}, ${v.id}, 'ayah-${v.id}')" title="اضغط للاستماع لهذه الآية بصوت ${getReciterName()}">
+    <div class="ayah-card${fav ? ' is-saved' : ''}" id="ayah-${v.id}" data-ayah="${v.id}" data-surah="${id}" onclick="playAyahAudio(${id}, ${v.id}, 'ayah-${v.id}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
       <div class="ayah-meta">
         <div class="ayah-audio-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.id}</div>
-        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${id}, ${v.id}, '${surah.name}')" title="عرض التفسير">
+        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${id}, ${v.id}, '${surah.name}')" title="${t('show_tafsir')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         </button>
-        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${id}, ${v.id}, '${surah.name}')" title="إضافة إلى المفضلة">
+        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${id}, ${v.id}, '${surah.name}')" title="${t('add_to_favorites')}">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
@@ -3059,7 +3077,7 @@ function openSurah(id, scrollToAyah){
   if(next){
     nextLink.style.visibility = 'visible';
     nextLink.onclick = (e)=>{ e.preventDefault(); openSurah(next.id); };
-    nextLink.innerHTML = `السورة التالية: ${next.name} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
+    nextLink.innerHTML = `${t('next_surah')}: ${next.name} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
   } else {
     nextLink.style.visibility = 'hidden';
   }
@@ -3067,7 +3085,7 @@ function openSurah(id, scrollToAyah){
   if(prev){
     prevLink.style.visibility = 'visible';
     prevLink.onclick = (e)=>{ e.preventDefault(); openSurah(prev.id); };
-    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> السورة السابقة: ${prev.name}`;
+    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> ${t('prev_surah')}: ${prev.name}`;
   } else {
     prevLink.style.visibility = 'hidden';
   }
@@ -3106,12 +3124,12 @@ function openJuz(juzNum, scrollToSurahAyah){
 
   const first = verses[0];
   const last = verses[verses.length - 1];
-  document.getElementById('surah-title').textContent = `الجزء ${juzNum}`;
+  document.getElementById('surah-title').textContent = `${t('juz_word')} ${juzNum}`;
   document.getElementById('surah-sub').innerHTML =
     (first.surahId === last.surahId
-      ? `من سورة ${first.surahName} <b>من الآية ${first.ayahId} إلى الآية ${last.ayahId}</b>`
-      : `من سورة ${first.surahName} <b>الآية ${first.ayahId}</b> إلى سورة ${last.surahName} <b>الآية ${last.ayahId}</b>`
-    ) + `، اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.`;
+      ? `${t('from_surah')} ${first.surahName} <b>${t('from_ayah')} ${first.ayahId} ${t('to_ayah')} ${last.ayahId}</b>`
+      : `${t('from_surah')} ${first.surahName} <b>${t('ayah_word')} ${first.ayahId}</b> ${t('to_surah')} ${last.surahName} <b>${t('ayah_word')} ${last.ayahId}</b>`
+    ) + t('reading_font_hint');
 
   document.getElementById('basmala-block').style.display = 'none';
 
@@ -3122,21 +3140,21 @@ function openJuz(juzNum, scrollToSurahAyah){
     if(v.surahId !== lastSurahId){
       lastSurahId = v.surahId;
       const showBasmala = v.surahId !== 9 && v.surahId !== 1;
-      divider = `<div class="juz-surah-divider">سورة ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
+      divider = `<div class="juz-surah-divider" data-surah-name="${v.surahName}">${t('surah_word')} ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
     }
     const fav = isBookmarked(v.surahId, v.ayahId);
     return `${divider}
-    <div class="ayah-card${fav ? ' is-saved' : ''}" id="jayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'jayah-${v.surahId}-${v.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت ${getReciterName()}">
+    <div class="ayah-card${fav ? ' is-saved' : ''}" id="jayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'jayah-${v.surahId}-${v.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
       <div class="ayah-meta">
         <div class="ayah-audio-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.ayahId}</div>
-        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="عرض التفسير">
+        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('show_tafsir')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         </button>
-        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="إضافة إلى المفضلة">
+        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
@@ -3159,7 +3177,7 @@ function openJuz(juzNum, scrollToSurahAyah){
   if(hasNext){
     nextLink.style.visibility = 'visible';
     nextLink.onclick = (e)=>{ e.preventDefault(); openJuz(juzNum + 1); };
-    nextLink.innerHTML = `الجزء التالي: ${juzNum + 1} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
+    nextLink.innerHTML = `${t('next_juz')}: ${juzNum + 1} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
   } else {
     nextLink.style.visibility = 'hidden';
   }
@@ -3167,7 +3185,7 @@ function openJuz(juzNum, scrollToSurahAyah){
   if(hasPrev){
     prevLink.style.visibility = 'visible';
     prevLink.onclick = (e)=>{ e.preventDefault(); openJuz(juzNum - 1); };
-    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> الجزء السابق: ${juzNum - 1}`;
+    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> ${t('prev_juz')}: ${juzNum - 1}`;
   } else {
     prevLink.style.visibility = 'hidden';
   }
@@ -3216,12 +3234,12 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
 
   const first = verses[0];
   const last = verses[verses.length - 1];
-  document.getElementById('surah-title').textContent = `الحزب ${hizbNum}`;
+  document.getElementById('surah-title').textContent = `${t('hizb_word')} ${hizbNum}`;
   document.getElementById('surah-sub').innerHTML =
     (first.surahId === last.surahId
-      ? `من سورة ${first.surahName} <b>من الآية ${first.ayahId} إلى الآية ${last.ayahId}</b>`
-      : `من سورة ${first.surahName} <b>الآية ${first.ayahId}</b> إلى سورة ${last.surahName} <b>الآية ${last.ayahId}</b>`
-    ) + `، اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.`;
+      ? `${t('from_surah')} ${first.surahName} <b>${t('from_ayah')} ${first.ayahId} ${t('to_ayah')} ${last.ayahId}</b>`
+      : `${t('from_surah')} ${first.surahName} <b>${t('ayah_word')} ${first.ayahId}</b> ${t('to_surah')} ${last.surahName} <b>${t('ayah_word')} ${last.ayahId}</b>`
+    ) + t('reading_font_hint');
 
   document.getElementById('basmala-block').style.display = 'none';
 
@@ -3232,23 +3250,23 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
     if(v.surahId !== lastSurahId){
       lastSurahId = v.surahId;
       const showBasmala = v.surahId !== 9 && v.surahId !== 1;
-      divider = `<div class="juz-surah-divider">سورة ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
+      divider = `<div class="juz-surah-divider" data-surah-name="${v.surahName}">${t('surah_word')} ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
     }
     const rub = rubStarts.find(r => r.quarter > 1 && r.surah === v.surahId && r.ayah === v.ayahId);
     const rubMarker = rub ? `<div class="rub-hizb-marker" id="rub-${hizbNum}-${rub.quarter}"><span>${RUB_LABELS[rub.quarter]} (${hizbNum})</span></div>` : '';
     const fav = isBookmarked(v.surahId, v.ayahId);
     return `${divider}${rubMarker}
-    <div class="ayah-card${fav ? ' is-saved' : ''}" id="hayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'hayah-${v.surahId}-${v.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت ${getReciterName()}">
+    <div class="ayah-card${fav ? ' is-saved' : ''}" id="hayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'hayah-${v.surahId}-${v.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
       <div class="ayah-meta">
         <div class="ayah-audio-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.ayahId}</div>
-        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="عرض التفسير">
+        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('show_tafsir')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         </button>
-        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="إضافة إلى المفضلة">
+        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
@@ -3271,7 +3289,7 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   if(hasNext){
     nextLink.style.visibility = 'visible';
     nextLink.onclick = (e)=>{ e.preventDefault(); openHizb(hizbNum + 1); };
-    nextLink.innerHTML = `الحزب التالي: ${hizbNum + 1} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
+    nextLink.innerHTML = `${t('next_hizb')}: ${hizbNum + 1} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
   } else {
     nextLink.style.visibility = 'hidden';
   }
@@ -3279,7 +3297,7 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   if(hasPrev){
     prevLink.style.visibility = 'visible';
     prevLink.onclick = (e)=>{ e.preventDefault(); openHizb(hizbNum - 1); };
-    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> الحزب السابق: ${hizbNum - 1}`;
+    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> ${t('prev_hizb')}: ${hizbNum - 1}`;
   } else {
     prevLink.style.visibility = 'hidden';
   }
@@ -3321,13 +3339,13 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
   const first = verses[0];
   const last = verses[verses.length - 1];
   const globalIndex = (hizbNum - 1) * 4 + quarter;
-  document.getElementById('surah-title').textContent = `الربع ${globalIndex}`;
+  document.getElementById('surah-title').textContent = `${t('rub_word')} ${globalIndex}`;
   document.getElementById('surah-sub').innerHTML =
-    `${QUARTER_ORDINAL[quarter]} من الحزب ${hizbNum} — ` +
+    `${t('quarter_ordinal_' + quarter)} ${t('of_hizb')} ${hizbNum} — ` +
     (first.surahId === last.surahId
-      ? `من سورة ${first.surahName} <b>من الآية ${first.ayahId} إلى الآية ${last.ayahId}</b>`
-      : `من سورة ${first.surahName} <b>الآية ${first.ayahId}</b> إلى سورة ${last.surahName} <b>الآية ${last.ayahId}</b>`
-    ) + `، اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.`;
+      ? `${t('from_surah')} ${first.surahName} <b>${t('from_ayah')} ${first.ayahId} ${t('to_ayah')} ${last.ayahId}</b>`
+      : `${t('from_surah')} ${first.surahName} <b>${t('ayah_word')} ${first.ayahId}</b> ${t('to_surah')} ${last.surahName} <b>${t('ayah_word')} ${last.ayahId}</b>`
+    ) + t('reading_font_hint');
 
   document.getElementById('basmala-block').style.display = 'none';
 
@@ -3338,21 +3356,21 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
     if(v.surahId !== lastSurahId){
       lastSurahId = v.surahId;
       const showBasmala = v.surahId !== 9 && v.surahId !== 1;
-      divider = `<div class="juz-surah-divider">سورة ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
+      divider = `<div class="juz-surah-divider" data-surah-name="${v.surahName}">${t('surah_word')} ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
     }
     const fav = isBookmarked(v.surahId, v.ayahId);
     return `${divider}
-    <div class="ayah-card${fav ? ' is-saved' : ''}" id="rayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'rayah-${v.surahId}-${v.ayahId}')" title="اضغط للاستماع لهذه الآية بصوت ${getReciterName()}">
+    <div class="ayah-card${fav ? ' is-saved' : ''}" id="rayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'rayah-${v.surahId}-${v.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
       <div class="ayah-meta">
         <div class="ayah-audio-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.ayahId}</div>
-        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="عرض التفسير">
+        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('show_tafsir')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         </button>
-        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="إضافة إلى المفضلة">
+        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
@@ -3379,7 +3397,7 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
   if(hasPrevQuarter){
     prevLink.style.visibility = 'visible';
     prevLink.onclick = (e)=>{ e.preventDefault(); openRub(pHizb, pQuarter); };
-    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> الربع السابق`;
+    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> ${t('prev_rub')}`;
   } else {
     prevLink.style.visibility = 'hidden';
   }
@@ -3387,7 +3405,7 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
   if(hasNextQuarter){
     nextLink.style.visibility = 'visible';
     nextLink.onclick = (e)=>{ e.preventDefault(); openRub(nHizb, nQuarter); };
-    nextLink.innerHTML = `الربع التالي <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
+    nextLink.innerHTML = `${t('next_rub')} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
   } else {
     nextLink.style.visibility = 'hidden';
   }
@@ -3395,12 +3413,12 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
   const viewFullHizb = (e)=>{ e.preventDefault(); openHizb(hizbNum, { surahId: first.surahId, ayahId: first.ayahId }); };
   if(prevRubLink){
     prevRubLink.style.display = 'flex';
-    prevRubLink.innerHTML = 'عرض الحزب كاملاً';
+    prevRubLink.innerHTML = t('view_full_hizb');
     prevRubLink.onclick = viewFullHizb;
   }
   if(nextRubLink){
     nextRubLink.style.display = 'flex';
-    nextRubLink.innerHTML = 'عرض الحزب كاملاً';
+    nextRubLink.innerHTML = t('view_full_hizb');
     nextRubLink.onclick = viewFullHizb;
   }
 
@@ -3441,7 +3459,7 @@ function renderMushafLine(line){
     const surahNum = parseInt(line.surah, 10);
     const surah = QURAN.find(s => s.id === surahNum);
     const name = surah ? surah.name : (line.text || '');
-    return `<div class="mushaf-line mushaf-line-surah-header">سورة ${name}</div>`;
+    return `<div class="mushaf-line mushaf-line-surah-header" data-surah-name="${name}">${t('surah_word')} ${name}</div>`;
   }
   if(line.type === 'basmala'){
     return `<div class="mushaf-line mushaf-line-basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>`;
@@ -3469,9 +3487,9 @@ async function openMushafPage(pageNum){
   window.scrollTo(0,0);
   updateReadingProgress();
 
-  document.getElementById('surah-title').textContent = `صفحة ${pageNum}`;
+  document.getElementById('surah-title').textContent = `${t('page_word')} ${pageNum}`;
   document.getElementById('surah-sub').innerHTML =
-    `عرض صفحة ${pageNum} من ٦٠٤ بنفس تقسيم أسطر مصحف المدينة — اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.`;
+    `${t('viewing_page_prefix')} ${pageNum} ${t('of_604_madinah_layout')}${t('reading_font_hint')}`;
   document.getElementById('basmala-block').style.display = 'none';
 
   const jumpBar = document.getElementById('page-jump-bar');
@@ -3481,7 +3499,7 @@ async function openMushafPage(pageNum){
 
   const list = document.getElementById('ayat-list');
   list.classList.remove('continuous-mode');
-  list.innerHTML = `<div class="mushaf-page-loading">جاري تحميل الصفحة...</div>`;
+  list.innerHTML = `<div class="mushaf-page-loading">${t('page_loading')}</div>`;
 
   setSavedMushafPage(pageNum);
 
@@ -3490,7 +3508,7 @@ async function openMushafPage(pageNum){
     data = await fetchMushafPage(pageNum);
   }catch(e){
     if(currentPageNum !== pageNum) return;
-    list.innerHTML = `<div class="mushaf-page-error">تعذر تحميل هذه الصفحة، تأكد من الاتصال بالإنترنت.<button onclick="openMushafPage(${pageNum})">إعادة المحاولة</button></div>`;
+    list.innerHTML = `<div class="mushaf-page-error">${t('page_load_error')}<button onclick="openMushafPage(${pageNum})">${t('retry')}</button></div>`;
     return;
   }
   if(currentPageNum !== pageNum) return; // انتقل المستخدم إلى صفحة أخرى أثناء التحميل
@@ -3511,7 +3529,7 @@ async function openMushafPage(pageNum){
   if(hasNext){
     nextLink.style.visibility = 'visible';
     nextLink.onclick = (e)=>{ e.preventDefault(); openMushafPage(pageNum + 1); };
-    nextLink.innerHTML = `الصفحة التالية: ${pageNum + 1} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
+    nextLink.innerHTML = `${t('next_page')}: ${pageNum + 1} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>`;
   } else {
     nextLink.style.visibility = 'hidden';
   }
@@ -3519,7 +3537,7 @@ async function openMushafPage(pageNum){
   if(hasPrev){
     prevLink.style.visibility = 'visible';
     prevLink.onclick = (e)=>{ e.preventDefault(); openMushafPage(pageNum - 1); };
-    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> الصفحة السابقة: ${pageNum - 1}`;
+    prevLink.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg> ${t('prev_page')}: ${pageNum - 1}`;
   } else {
     prevLink.style.visibility = 'hidden';
   }
@@ -3693,6 +3711,349 @@ function toggleTheme(){
   applyTheme(saved);
 })();
 
+/* ---------- Language (ar/en) ---------- */
+const I18N_STRINGS = {
+  ar: {
+    app_title: 'القرآن الكريم',
+    app_subtitle: 'قراءة وتصفح القرآن الكريم برواية حفص',
+    favorites: 'المفضلة',
+    theme_toggle: 'تبديل الوضع الليلي/النهاري',
+    lang_toggle: 'تبديل اللغة',
+    back_to_index: 'رجوع إلى الفهرس',
+    index: 'الفهرس',
+    browse_surah_full: 'تصفح بالسور',
+    browse_surah_short: 'السور',
+    browse_juz_full: 'تصفح بالأجزاء',
+    browse_juz_short: 'الأجزاء',
+    browse_hizb_full: 'تصفح بالأحزاب',
+    browse_hizb_short: 'الأحزاب',
+    search_surah: 'ابحث عن سورة...',
+    search_ayah: 'ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)',
+    go: 'اذهب',
+    no_results: 'لا توجد نتائج مطابقة.',
+    loading_text: 'جاري تحميل بيانات القرآن الكريم...',
+    scroll_top: 'العودة لأعلى السورة',
+    toggle_side_nav: 'طي/فتح القائمة',
+    next_surah: 'السورة التالية',
+    prev_surah: 'السورة السابقة',
+    next_rub: 'الربع التالي',
+    prev_rub: 'الربع السابق',
+    view_full_hizb: 'عرض الحزب كاملاً',
+    next_page: 'الصفحة التالية',
+    prev_page: 'الصفحة السابقة',
+    page_loading: 'جاري تحميل الصفحة...',
+    page_load_error: 'تعذر تحميل هذه الصفحة، تأكد من الاتصال بالإنترنت.',
+    retry: 'إعادة المحاولة',
+    page_number: 'رقم الصفحة',
+    reading_controls: 'خيارات القراءة والتحكم',
+    display_mode_label: 'طريقة العرض',
+    mode_cards: 'آيات منفصلة',
+    mode_continuous: 'آيات متتالية (كالمصحف)',
+    page_jump_panel_label: 'اذهب إلى صفحة من صفحات المصحف (١ - ٦٠٤)، بنفس تقسيم أسطر مصحف المدينة',
+    first_page: 'أول صفحة',
+    font_size_label: 'حجم الخط',
+    bold_label: 'خط عريض',
+    reset_font_title: 'استعادة حجم الخط الافتراضي',
+    reset: 'إعادة تعيين',
+    font_type_label: 'نوع الخط',
+    reciter_label: 'القارئ',
+    repeat_section_label: 'تكرار الآيات للحفظ',
+    repeat_from: 'من آية',
+    repeat_to: 'إلى آية',
+    repeat_times_label: 'عدد التكرار لكل آية',
+    repeat_segment_label: 'عدد تكرار المقطع كاملاً',
+    test_mode_label: 'وضع اختبار: يخفي نص الآية بالكامل حتى تمرّر الماوس عليها أو تضغط عليها باللمس',
+    start_repeat: 'ابدأ التكرار',
+    stop_repeat: 'إيقاف التكرار',
+    listen_title: 'تشغيل السورة كاملة ثم الانتقال تلقائيًا للسورة التالية وهكذا حتى ختم المصحف',
+    listen: 'استماع',
+    stop_listen: 'إيقاف الاستماع',
+    favorites_desc: 'الآيات التي حفظتها في مفضلتك، اضغط على "الذهاب" للانتقال إليها مباشرة.',
+    favorites_empty_msg: 'لم تُضِف أي آية إلى المفضلة بعد. اضغط على أيقونة العلامة بجانب أي آية لإضافتها هنا.',
+    next_juz: 'الجزء التالي',
+    prev_juz: 'الجزء السابق',
+    next_hizb: 'الحزب التالي',
+    prev_hizb: 'الحزب السابق',
+    continue_reading: 'متابعة القراءة',
+    surah_word: 'سورة',
+    ayah_word: 'الآية',
+    continue_from_here: 'أكمل من هنا',
+    dismiss: 'حذف',
+    loading_translation: 'جارٍ تحميل الترجمة...',
+    loading_tafsir: 'جارٍ تحميل التفسير...',
+    tafsir_load_error: 'تعذّر تحميل التفسير حاليًا. يرجى المحاولة لاحقًا.',
+    close: 'إغلاق',
+    prev_ayah: 'الآية السابقة',
+    next_ayah: 'الآية التالية',
+    show_tafsir: 'عرض التفسير',
+    add_to_favorites: 'إضافة إلى المفضلة',
+    remove_from_favorites: 'إزالة من المفضلة',
+    tap_to_listen: 'اضغط للاستماع لهذه الآية بصوت',
+    go_to_ayah: 'الذهاب إلى الآية',
+    meccan_surah: 'سورة مكية',
+    medinan_surah: 'سورة مدنية',
+    results_word: 'نتيجة',
+    search_juz_num: 'ابحث برقم الجزء...',
+    search_hizb_num: 'ابحث برقم الحزب...',
+    juz_word: 'الجزء',
+    hizb_word: 'الحزب',
+    rub_word: 'الربع',
+    page_word: 'صفحة',
+    starts_from_surah: 'يبدأ من سورة',
+    ayahs_word: 'آية',
+    no_ayah_match: 'لا توجد آيات مطابقة',
+    top_results_prefix: 'أول',
+    refine_search_suffix: 'دقّق البحث لعرض نتائج أدق',
+    from_surah: 'من سورة',
+    to_surah: 'إلى سورة',
+    from_ayah: 'من الآية',
+    to_ayah: 'إلى الآية',
+    reading_surah_prefix: 'قراءة سورة',
+    reading_font_hint: '، اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.',
+    of_hizb: 'من الحزب',
+    quarter_ordinal_1: 'الربع الأول',
+    quarter_ordinal_2: 'الربع الثاني',
+    quarter_ordinal_3: 'الربع الثالث',
+    quarter_ordinal_4: 'الربع الرابع',
+    viewing_page_prefix: 'عرض صفحة',
+    of_604_madinah_layout: 'من ٦٠٤ بنفس تقسيم أسطر مصحف المدينة'
+  },
+  en: {
+    app_title: 'The Holy Quran',
+    app_subtitle: 'Read and browse the Holy Quran (Hafs narration)',
+    favorites: 'Favorites',
+    theme_toggle: 'Toggle dark/light mode',
+    lang_toggle: 'Switch language',
+    back_to_index: 'Back to index',
+    index: 'Index',
+    browse_surah_full: 'Browse by Surah',
+    browse_surah_short: 'Surahs',
+    browse_juz_full: 'Browse by Juz',
+    browse_juz_short: 'Juz',
+    browse_hizb_full: 'Browse by Hizb',
+    browse_hizb_short: 'Hizb',
+    search_surah: 'Search for a surah...',
+    search_ayah: 'Search ayah text... (type a word or part of an ayah)',
+    go: 'Go',
+    no_results: 'No matching results.',
+    loading_text: 'Loading the Holy Quran data...',
+    scroll_top: 'Back to top of surah',
+    toggle_side_nav: 'Collapse/expand menu',
+    next_surah: 'Next Surah',
+    prev_surah: 'Previous Surah',
+    next_rub: 'Next Quarter',
+    prev_rub: 'Previous Quarter',
+    view_full_hizb: 'View Full Hizb',
+    next_page: 'Next Page',
+    prev_page: 'Previous Page',
+    page_loading: 'Loading page...',
+    page_load_error: 'Failed to load this page, check your internet connection.',
+    retry: 'Retry',
+    page_number: 'Page number',
+    reading_controls: 'Reading & display options',
+    display_mode_label: 'Display mode',
+    mode_cards: 'Separate verses',
+    mode_continuous: 'Continuous (Mushaf style)',
+    page_jump_panel_label: 'Jump to a Mushaf page (1-604), matching the Madinah Mushaf line layout',
+    first_page: 'First page',
+    font_size_label: 'Font size',
+    bold_label: 'Bold',
+    reset_font_title: 'Restore default font size',
+    reset: 'Reset',
+    font_type_label: 'Font style',
+    reciter_label: 'Reciter',
+    repeat_section_label: 'Verse repetition for memorization',
+    repeat_from: 'From ayah',
+    repeat_to: 'To ayah',
+    repeat_times_label: 'Repeats per ayah',
+    repeat_segment_label: 'Repeats of the whole segment',
+    test_mode_label: 'Test mode: hides the ayah text completely until you hover or tap it',
+    start_repeat: 'Start repeat',
+    stop_repeat: 'Stop repeat',
+    listen_title: 'Play the full surah, then move automatically to the next one, until the whole Mushaf is finished',
+    listen: 'Listen',
+    stop_listen: 'Stop listening',
+    favorites_desc: 'Ayahs you saved to your favorites. Tap "Go" to jump straight to them.',
+    favorites_empty_msg: 'You haven\'t added any ayah to favorites yet. Tap the bookmark icon next to any ayah to add it here.',
+    next_juz: 'Next Juz',
+    prev_juz: 'Previous Juz',
+    next_hizb: 'Next Hizb',
+    prev_hizb: 'Previous Hizb',
+    continue_reading: 'Continue Reading',
+    surah_word: 'Surah',
+    ayah_word: 'Ayah',
+    continue_from_here: 'Continue from here',
+    dismiss: 'Dismiss',
+    loading_translation: 'Loading translation...',
+    loading_tafsir: 'Loading tafsir...',
+    tafsir_load_error: 'Could not load the tafsir right now. Please try again later.',
+    close: 'Close',
+    prev_ayah: 'Previous Ayah',
+    next_ayah: 'Next Ayah',
+    show_tafsir: 'Show tafsir',
+    add_to_favorites: 'Add to favorites',
+    remove_from_favorites: 'Remove from favorites',
+    tap_to_listen: 'Tap to listen to this ayah, recited by',
+    go_to_ayah: 'Go to this ayah',
+    meccan_surah: 'Meccan Surah',
+    medinan_surah: 'Medinan Surah',
+    results_word: 'results',
+    search_juz_num: 'Search by juz number...',
+    search_hizb_num: 'Search by hizb number...',
+    juz_word: 'Juz',
+    hizb_word: 'Hizb',
+    rub_word: 'Quarter',
+    page_word: 'Page',
+    starts_from_surah: 'Starts from Surah',
+    ayahs_word: 'verses',
+    no_ayah_match: 'No matching ayahs',
+    top_results_prefix: 'Top',
+    refine_search_suffix: 'refine your search for more precise results',
+    from_surah: 'From Surah',
+    to_surah: 'to Surah',
+    from_ayah: 'from Ayah',
+    to_ayah: 'to Ayah',
+    reading_surah_prefix: 'Reading Surah',
+    reading_font_hint: ' — tap the size icon to control the reading font size.',
+    of_hizb: 'of Hizb',
+    quarter_ordinal_1: 'First Quarter',
+    quarter_ordinal_2: 'Second Quarter',
+    quarter_ordinal_3: 'Third Quarter',
+    quarter_ordinal_4: 'Fourth Quarter',
+    viewing_page_prefix: 'Viewing page',
+    of_604_madinah_layout: 'of 604, following the Madinah Mushaf line layout'
+  }
+};
+
+function t(key){
+  const lang = document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar';
+  return (I18N_STRINGS[lang] && I18N_STRINGS[lang][key] !== undefined) ? I18N_STRINGS[lang][key] : (I18N_STRINGS.ar[key] || key);
+}
+
+function refreshDynamicContent(){
+  const searchInput = document.getElementById('search-input');
+  if(searchInput){
+    searchInput.placeholder = browseMode === 'surah' ? t('search_surah') : (browseMode === 'juz' ? t('search_juz_num') : t('search_hizb_num'));
+    onSearchInput(searchInput.value);
+  }
+  const sideSearch = document.getElementById('surah-side-nav-search');
+  if(sideSearch){
+    sideSearch.placeholder = sideNavMode === 'surah' ? t('search_surah') : t('search_juz_num');
+    onSideNavSearchInput(sideSearch.value);
+  }
+  if(typeof renderContinueBanner === 'function') renderContinueBanner();
+  const favView = document.getElementById('favorites-view');
+  if(favView && favView.style.display !== 'none' && typeof renderFavoritesView === 'function') renderFavoritesView();
+
+  const readView = document.getElementById('read-view');
+  const titleEl = document.getElementById('surah-title');
+  const subEl = document.getElementById('surah-sub');
+  if(readView && readView.style.display !== 'none' && titleEl && subEl){
+    if(currentMode === 'surah' && currentSurahId){
+      const surah = QURAN.find(s => s.id === currentSurahId);
+      if(surah){
+        titleEl.textContent = `${t('surah_word')} ${surah.name} (${surah.transliteration})`;
+        subEl.innerHTML = `${t('reading_surah_prefix')} ${surah.name} <b>${t('from_ayah')} 1 ${t('to_ayah')} ${surah.total_verses}</b> — ${typeLabel(surah.type)}${t('reading_font_hint')}`;
+      }
+    } else if(currentMode === 'juz' && currentJuzId){
+      const verses = getJuzVerses(currentJuzId);
+      const first = verses[0], last = verses[verses.length - 1];
+      if(first && last){
+        titleEl.textContent = `${t('juz_word')} ${currentJuzId}`;
+        subEl.innerHTML = (first.surahId === last.surahId
+          ? `${t('from_surah')} ${first.surahName} <b>${t('from_ayah')} ${first.ayahId} ${t('to_ayah')} ${last.ayahId}</b>`
+          : `${t('from_surah')} ${first.surahName} <b>${t('ayah_word')} ${first.ayahId}</b> ${t('to_surah')} ${last.surahName} <b>${t('ayah_word')} ${last.ayahId}</b>`
+        ) + t('reading_font_hint');
+      }
+    } else if(currentMode === 'hizb' && currentHizbId){
+      const verses = getHizbVerses(currentHizbId);
+      const first = verses[0], last = verses[verses.length - 1];
+      if(first && last){
+        titleEl.textContent = `${t('hizb_word')} ${currentHizbId}`;
+        subEl.innerHTML = (first.surahId === last.surahId
+          ? `${t('from_surah')} ${first.surahName} <b>${t('from_ayah')} ${first.ayahId} ${t('to_ayah')} ${last.ayahId}</b>`
+          : `${t('from_surah')} ${first.surahName} <b>${t('ayah_word')} ${first.ayahId}</b> ${t('to_surah')} ${last.surahName} <b>${t('ayah_word')} ${last.ayahId}</b>`
+        ) + t('reading_font_hint');
+      }
+    } else if(currentMode === 'rub' && currentHizbId && currentRubQuarter){
+      const verses = getRubVerses(currentHizbId, currentRubQuarter);
+      const first = verses[0], last = verses[verses.length - 1];
+      if(first && last){
+        const globalIndex = (currentHizbId - 1) * 4 + currentRubQuarter;
+        titleEl.textContent = `${t('rub_word')} ${globalIndex}`;
+        subEl.innerHTML = `${t('quarter_ordinal_' + currentRubQuarter)} ${t('of_hizb')} ${currentHizbId} — ` +
+          (first.surahId === last.surahId
+            ? `${t('from_surah')} ${first.surahName} <b>${t('from_ayah')} ${first.ayahId} ${t('to_ayah')} ${last.ayahId}</b>`
+            : `${t('from_surah')} ${first.surahName} <b>${t('ayah_word')} ${first.ayahId}</b> ${t('to_surah')} ${last.surahName} <b>${t('ayah_word')} ${last.ayahId}</b>`
+          ) + t('reading_font_hint');
+      }
+    } else if(currentMode === 'page' && currentPageNum){
+      titleEl.textContent = `${t('page_word')} ${currentPageNum}`;
+      subEl.innerHTML = `${t('viewing_page_prefix')} ${currentPageNum} ${t('of_604_madinah_layout')}${t('reading_font_hint')}`;
+    }
+
+    document.querySelectorAll('.juz-surah-divider[data-surah-name]').forEach(el => {
+      el.textContent = `${t('surah_word')} ${el.getAttribute('data-surah-name')}`;
+    });
+    document.querySelectorAll('.mushaf-line-surah-header[data-surah-name]').forEach(el => {
+      el.textContent = `${t('surah_word')} ${el.getAttribute('data-surah-name')}`;
+    });
+  }
+}
+
+function applyLanguage(lang){
+  if(lang !== 'ar' && lang !== 'en') lang = 'ar';
+  const dict = I18N_STRINGS[lang];
+  document.documentElement.setAttribute('lang', lang);
+  document.documentElement.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+  document.documentElement.setAttribute('data-lang', lang);
+
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if(dict[key] !== undefined) el.textContent = dict[key];
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-i18n-placeholder');
+    if(dict[key] !== undefined) el.setAttribute('placeholder', dict[key]);
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => {
+    const key = el.getAttribute('data-i18n-title');
+    if(dict[key] !== undefined){
+      el.setAttribute('title', dict[key]);
+      el.setAttribute('aria-label', dict[key]);
+    }
+  });
+
+  const langBtnText = lang === 'ar' ? 'EN' : 'ع';
+  document.querySelectorAll('.lang-toggle-text').forEach(el => { el.textContent = langBtnText; });
+  document.querySelectorAll('.lang-toggle').forEach(el => {
+    const label = lang === 'ar' ? 'Switch to English' : 'التبديل إلى العربية';
+    el.setAttribute('title', label);
+    el.setAttribute('aria-label', label);
+  });
+
+  try{ localStorage.setItem('quran-lang', lang); }catch(e){}
+
+  if(typeof QURAN !== 'undefined' && QURAN && QURAN.length){
+    refreshDynamicContent();
+  }
+}
+
+function toggleLanguage(){
+  const current = document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar';
+  applyLanguage(current === 'ar' ? 'en' : 'ar');
+}
+
+(function initLanguage(){
+  let saved = null;
+  try{ saved = localStorage.getItem('quran-lang'); }catch(e){}
+  if(!saved){
+    const browserLang = (navigator.language || navigator.userLanguage || '').toLowerCase();
+    saved = browserLang.startsWith('ar') ? 'ar' : 'en';
+  }
+  applyLanguage(saved);
+})();
+
 function attachSwipeNavigation(){
   const container = document.getElementById('read-view');
   if(!container) return;
@@ -3815,7 +4176,7 @@ if('serviceWorker' in navigator){
           <select class="tafsir-modal-title tafsir-source-select" id="tafsir-source-select" onchange="onTafsirSourceChange()"></select>
           <div class="tafsir-modal-subtitle" id="tafsir-modal-subtitle"></div>
         </div>
-        <button class="tafsir-modal-close" onclick="closeTafsirModal()" title="إغلاق">
+        <button class="tafsir-modal-close" onclick="closeTafsirModal()" title="إغلاق" data-i18n-title="close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
@@ -3823,10 +4184,10 @@ if('serviceWorker' in navigator){
       <div class="tafsir-modal-nav">
         <button class="tafsir-nav-btn" id="tafsir-prev-btn" onclick="navigateTafsir(-1)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-          <span>الآية السابقة</span>
+          <span data-i18n="prev_ayah">الآية السابقة</span>
         </button>
         <button class="tafsir-nav-btn" id="tafsir-next-btn" onclick="navigateTafsir(1)">
-          <span>الآية التالية</span>
+          <span data-i18n="next_ayah">الآية التالية</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
       </div>
