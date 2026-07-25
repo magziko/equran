@@ -363,6 +363,44 @@
   .ayah-bookmark-btn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
   .ayah-bookmark-btn svg{ width:12px; height:12px; }
 
+  /* ---------- Tafsir button + modal ---------- */
+  .ayah-tafsir-btn{
+    flex-shrink:0; width:26px; height:26px; border-radius:8px;
+    background:transparent; border:1px solid var(--border); color:var(--text-faint);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .ayah-tafsir-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .ayah-tafsir-btn svg{ width:12px; height:12px; }
+  .tafsir-overlay{
+    position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,.55);
+    display:none; align-items:center; justify-content:center; padding:16px;
+  }
+  .tafsir-overlay.open{ display:flex; }
+  .tafsir-modal{
+    width:100%; max-width:560px; max-height:80vh; overflow-y:auto;
+    background:var(--bg-elev); border:1px solid var(--border); border-radius:16px;
+    padding:20px; position:relative;
+  }
+  .tafsir-modal-header{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);
+  }
+  .tafsir-modal-title{ font-size:15px; font-weight:700; color:var(--text); }
+  .tafsir-modal-subtitle{ font-size:12.5px; color:var(--text-muted); margin-top:2px; }
+  .tafsir-modal-close{
+    flex-shrink:0; width:30px; height:30px; border-radius:9px;
+    background:transparent; border:1px solid var(--border); color:var(--text-muted);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tafsir-modal-close:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .tafsir-modal-close svg{ width:14px; height:14px; }
+  .tafsir-modal-body{
+    font-size:16px; line-height:2.1; color:var(--text); font-family:'Noto Naskh Arabic', serif;
+  }
+  .tafsir-modal-loading, .tafsir-modal-error{
+    font-size:13.5px; color:var(--text-muted); text-align:center; padding:20px 0;
+  }
+
   /* ---------- Favorites button + view ---------- */
   .favorites-toggle{
     position:relative; width:40px; height:40px; border-radius:10px; flex-shrink:0;
@@ -1658,6 +1696,66 @@ function toggleBookmark(surahId, ayahId, surahName){
   if(document.getElementById('favorites-view').style.display !== 'none') renderFavoritesView();
 }
 
+// ---------- تفسير الآية (التفسير الميسر) ----------
+const tafsirCache = {};
+function getTafsirCacheKey(surahId, ayahId){ return `${surahId}:${ayahId}`; }
+function getStoredTafsir(surahId, ayahId){
+  try{
+    const raw = localStorage.getItem('tafsirCache');
+    const store = raw ? JSON.parse(raw) : {};
+    return store[getTafsirCacheKey(surahId, ayahId)] || null;
+  } catch(e){ return null; }
+}
+function setStoredTafsir(surahId, ayahId, text){
+  try{
+    const raw = localStorage.getItem('tafsirCache');
+    const store = raw ? JSON.parse(raw) : {};
+    store[getTafsirCacheKey(surahId, ayahId)] = text;
+    localStorage.setItem('tafsirCache', JSON.stringify(store));
+  } catch(e){ /* تجاهل أخطاء التخزين */ }
+}
+
+function showTafsir(surahId, ayahId, surahName){
+  const overlay = document.getElementById('tafsir-overlay');
+  const body = document.getElementById('tafsir-modal-body');
+  const subtitle = document.getElementById('tafsir-modal-subtitle');
+  subtitle.textContent = `سورة ${surahName} — الآية ${ayahId}`;
+  overlay.classList.add('open');
+
+  const key = getTafsirCacheKey(surahId, ayahId);
+  if(tafsirCache[key]){
+    body.innerHTML = `<div class="tafsir-modal-body">${tafsirCache[key]}</div>`;
+    return;
+  }
+  const stored = getStoredTafsir(surahId, ayahId);
+  if(stored){
+    tafsirCache[key] = stored;
+    body.innerHTML = `<div class="tafsir-modal-body">${stored}</div>`;
+    return;
+  }
+
+  body.innerHTML = `<div class="tafsir-modal-loading">جارٍ تحميل التفسير...</div>`;
+  fetch(`https://api.quran-tafseer.com/tafseer/1/${surahId}/${ayahId}`)
+    .then(res => { if(!res.ok) throw new Error('tafsir fetch failed'); return res.json(); })
+    .then(data => {
+      const text = (data && data.text) ? data.text : null;
+      if(!text) throw new Error('no tafsir text');
+      tafsirCache[key] = text;
+      setStoredTafsir(surahId, ayahId, text);
+      // تأكيد أن المودال لسه مفتوح على نفس الآية قبل الكتابة
+      if(overlay.classList.contains('open')) body.innerHTML = `<div class="tafsir-modal-body">${text}</div>`;
+    })
+    .catch(() => {
+      if(overlay.classList.contains('open')){
+        body.innerHTML = `<div class="tafsir-modal-error">تعذّر تحميل التفسير حاليًا. يرجى المحاولة لاحقًا.</div>`;
+      }
+    });
+}
+
+function closeTafsirModal(){
+  document.getElementById('tafsir-overlay').classList.remove('open');
+}
+
 function removeBookmark(surahId, ayahId){
   const list = getBookmarks().filter(b => !(b.surahId === surahId && b.ayahId === ayahId));
   saveBookmarksList(list);
@@ -1700,6 +1798,9 @@ function renderFavoritesView(){
         </div>
         <div class="fav-ayah-meta-extra">سورة ${b.surahName} — آية ${b.ayahId}</div>
         <div class="ayah-num">${b.ayahId}</div>
+        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${b.surahId}, ${b.ayahId}, '${b.surahName}')" title="عرض التفسير">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </button>
         <button class="fav-go-btn" onclick="event.stopPropagation(); openSurah(${b.surahId}, ${b.ayahId})" title="الذهاب إلى الآية">
           الذهاب
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
@@ -2696,6 +2797,9 @@ function openSurah(id, scrollToAyah){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.id}</div>
+        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${id}, ${v.id}, '${surah.name}')" title="عرض التفسير">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </button>
         <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${id}, ${v.id}, '${surah.name}')" title="إضافة إلى المفضلة">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
@@ -2795,6 +2899,9 @@ function openJuz(juzNum, scrollToSurahAyah){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.ayahId}</div>
+        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="عرض التفسير">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </button>
         <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="إضافة إلى المفضلة">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
@@ -2904,6 +3011,9 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.ayahId}</div>
+        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="عرض التفسير">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </button>
         <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="إضافة إلى المفضلة">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
@@ -3005,6 +3115,9 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="ayah-num">${v.ayahId}</div>
+        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="عرض التفسير">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+        </button>
         <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="إضافة إلى المفضلة">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
@@ -3438,5 +3551,19 @@ if('serviceWorker' in navigator){
 }
 </script>
 
+  <div class="tafsir-overlay" id="tafsir-overlay" onclick="if(event.target===this) closeTafsirModal()">
+    <div class="tafsir-modal">
+      <div class="tafsir-modal-header">
+        <div>
+          <div class="tafsir-modal-title">التفسير الميسر</div>
+          <div class="tafsir-modal-subtitle" id="tafsir-modal-subtitle"></div>
+        </div>
+        <button class="tafsir-modal-close" onclick="closeTafsirModal()" title="إغلاق">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div id="tafsir-modal-body"></div>
+    </div>
+  </div>
 </body>
 </html>
