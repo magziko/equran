@@ -152,8 +152,20 @@
   }
   .header-actions .favorites-toggle,
   .header-actions .theme-toggle,
+  .header-actions .khatma-toggle,
   .header-actions .lang-toggle{
     background:var(--surface-2);
+  }
+  @media (max-width:768px){
+    .header-actions{ gap:6px; padding:5px; border-radius:12px; }
+    .header-actions .favorites-toggle,
+    .header-actions .theme-toggle,
+    .header-actions .khatma-toggle,
+    .header-actions .lang-toggle{ width:34px; height:34px; border-radius:9px; }
+    .header-actions .favorites-toggle svg,
+    .header-actions .theme-toggle svg,
+    .header-actions .khatma-toggle svg{ width:16px; height:16px; }
+    .header-actions .lang-toggle{ font-size:12px; }
   }
   @media (max-width:480px){
     .top-header{ flex-wrap:nowrap; }
@@ -163,9 +175,11 @@
     .header-actions{ gap:5px; padding:4px; border-radius:11px; }
     .header-actions .favorites-toggle,
     .header-actions .theme-toggle,
+    .header-actions .khatma-toggle,
     .header-actions .lang-toggle{ width:30px; height:30px; border-radius:8px; }
     .header-actions .favorites-toggle svg,
-    .header-actions .theme-toggle svg{ width:14px; height:14px; }
+    .header-actions .theme-toggle svg,
+    .header-actions .khatma-toggle svg{ width:14px; height:14px; }
     .header-actions .lang-toggle{ font-size:10.5px; }
     .header-actions .fav-count{
       min-width:14px; height:14px; font-size:8.5px; top:-4px; left:-4px;
@@ -315,16 +329,18 @@
   /* ---------- Surah grid ---------- */
   .surah-grid{
     display:grid;
-    grid-template-columns:repeat(4, 1fr);
+    grid-template-columns:repeat(4, minmax(0,1fr));
     gap:14px;
   }
-  @media (max-width:980px){ .surah-grid{ grid-template-columns:repeat(2,1fr);} }
-  @media (max-width:560px){ .surah-grid{ grid-template-columns:1fr;} }
+  @media (max-width:980px){ .surah-grid{ grid-template-columns:repeat(3,minmax(0,1fr));} }
+  @media (max-width:700px){ .surah-grid{ grid-template-columns:repeat(2,minmax(0,1fr));} }
+  @media (max-width:480px){ .surah-grid{ grid-template-columns:minmax(0,1fr);} }
 
   .surah-card{
     display:flex; align-items:center; justify-content:space-between; gap:14px;
     background:var(--surface); border:1px solid var(--border);
     border-radius:var(--radius-md); padding:16px 18px;
+    min-width:0;
     transition:transform .15s ease, border-color .15s ease, background .15s ease;
   }
   .surah-card:hover{
@@ -332,7 +348,7 @@
     border-color:var(--accent);
     background:var(--surface-2);
   }
-  .surah-card .info{ display:flex; flex-direction:column; gap:4px; text-align:right; overflow:hidden; }
+  .surah-card .info{ display:flex; flex-direction:column; gap:4px; text-align:right; overflow:hidden; min-width:0; flex:1 1 auto; }
   .surah-card .name{ font-size:16.5px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .surah-card .meta{ font-size:12.5px; color:var(--text-muted); font-weight:500; }
   .surah-card .num{
@@ -569,6 +585,41 @@
   }
   .khatma-delete-btn:hover{ border-color:#e05656; color:#e05656; }
   .khatma-delete-btn svg{ width:14px; height:14px; }
+
+  /* ---------- Khatma: plan editing + auto catch-up ---------- */
+  .khatma-header-actions{ display:flex; gap:8px; align-items:center; }
+  .khatma-edit-btn{
+    display:flex; align-items:center; justify-content:center;
+    width:28px; height:28px; border-radius:8px; border:1.5px solid var(--border);
+    background:transparent; color:var(--text-muted); cursor:pointer; transition:.15s;
+  }
+  .khatma-edit-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .khatma-edit-btn svg{ width:14px; height:14px; }
+  .khatma-edit-form{
+    margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);
+  }
+  .khatma-autocatchup-row{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-top:14px; padding:10px 12px; border-radius:10px; background:var(--accent-bg);
+  }
+  .khatma-autocatchup-text{ display:flex; flex-direction:column; gap:2px; }
+  .khatma-autocatchup-title{ font-size:13px; font-weight:700; color:var(--text); }
+  .khatma-autocatchup-desc{ font-size:11.5px; color:var(--text-muted); line-height:1.5; }
+  .khatma-switch{ position:relative; width:40px; height:22px; flex-shrink:0; }
+  .khatma-switch input{ opacity:0; width:0; height:0; }
+  .khatma-switch-slider{
+    position:absolute; inset:0; background:var(--border); border-radius:22px; cursor:pointer; transition:.2s;
+  }
+  .khatma-switch-slider::before{
+    content:''; position:absolute; width:16px; height:16px; left:3px; top:3px;
+    background:#fff; border-radius:50%; transition:.2s;
+  }
+  .khatma-switch input:checked + .khatma-switch-slider{ background:var(--accent); }
+  html[dir="rtl"] .khatma-switch input:checked + .khatma-switch-slider::before{ transform:translateX(-18px); }
+  html:not([dir="rtl"]) .khatma-switch input:checked + .khatma-switch-slider::before{ transform:translateX(18px); }
+  .khatma-autocatchup-note{
+    font-size:11.5px; color:var(--accent-soft); font-weight:600; margin-top:8px;
+  }
 
   /* ---------- Theme toggle ---------- */
   .theme-toggle{
@@ -2350,6 +2401,8 @@ function showFavorites(){
 const KHATMA_UNIT_TOTALS = { page: 604, juz: 30, hizb: 60 };
 let khatmaSetupType = 'days';
 let khatmaShowingAddForm = false;
+let khatmaEditingPlanId = null;
+let khatmaEditTypeByPlan = {};
 
 function showKhatma(){
   stopAyahRepeat();
@@ -2440,7 +2493,8 @@ function startKhatmaPlan(){
     startDate: khatmaTodayStr(),
     completed: 0,
     log: {},
-    completedKhatmas: 0
+    completedKhatmas: 0,
+    autoCatchup: false
   };
   plans.push(plan);
   saveKhatmaPlans(plans);
@@ -2452,6 +2506,76 @@ function khatmaUnitLabel(unit){
   if(unit === 'page') return t('khatma_unit_page_short');
   if(unit === 'juz') return t('khatma_unit_juz_short');
   return t('khatma_unit_hizb_short');
+}
+// عدد الأيام التي مرّت منذ بداية الخطة (لحساب مدى التأخر عن الموعد المستهدف)
+function khatmaDaysElapsed(plan){
+  const start = new Date(plan.startDate + 'T00:00:00');
+  const today = new Date(khatmaTodayStr() + 'T00:00:00');
+  return Math.max(0, Math.round((today - start) / 86400000));
+}
+// المقدار المطلوب فعليًا اليوم: لو "تعويض المتأخر تلقائيًا" مفعّل، يعاد حساب المقدار
+// اليومي بقسمة الباقي على الأيام المتبقية حتى الموعد الأصلي لختم الخطة، بدل المقدار
+// الثابت — بحيث تلحق الختمة بموعدها حتى لو فاتتك أيام.
+function khatmaEffectiveDailyTarget(plan){
+  const total = KHATMA_UNIT_TOTALS[plan.unit];
+  const remainingUnits = Math.max(0, total - plan.completed);
+  if(!plan.autoCatchup) return plan.dailyAmount;
+  const elapsed = khatmaDaysElapsed(plan);
+  const remainingDaysToDeadline = Math.max(1, plan.totalDays - elapsed);
+  return remainingUnits / remainingDaysToDeadline;
+}
+function toggleKhatmaAutoCatchup(planId, checked){
+  const plans = getKhatmaPlans();
+  const plan = plans.find(p => p.id === planId);
+  if(!plan) return;
+  plan.autoCatchup = !!checked;
+  saveKhatmaPlans(plans);
+  renderKhatmaView();
+}
+function showKhatmaEditForm(planId){
+  const plan = getKhatmaPlanById(planId);
+  if(!plan) return;
+  khatmaEditingPlanId = planId;
+  khatmaEditTypeByPlan[planId] = plan.type || 'days';
+  renderKhatmaView();
+}
+function hideKhatmaEditForm(){
+  khatmaEditingPlanId = null;
+  renderKhatmaView();
+}
+function setKhatmaEditType(planId, type){
+  khatmaEditTypeByPlan[planId] = type;
+  renderKhatmaView();
+}
+// يحفظ تعديل الخطة (تغيير عدد الأيام أو المقدار اليومي) بالاعتماد على الباقي الفعلي
+// من الختمة، من غير ما يصفّر التقدم أو السجل المحفوظ
+function saveKhatmaEdit(planId){
+  const plans = getKhatmaPlans();
+  const plan = plans.find(p => p.id === planId);
+  if(!plan) return;
+  const type = khatmaEditTypeByPlan[planId] || 'days';
+  const statusEl = document.getElementById('khatma-edit-status-' + planId);
+  const total = KHATMA_UNIT_TOTALS[plan.unit];
+  const remainingUnits = Math.max(0, total - plan.completed);
+  const elapsed = khatmaDaysElapsed(plan);
+  let newTotalDays, newDailyAmount;
+  if(type === 'days'){
+    const daysLeft = parseInt(document.getElementById('khatma-edit-days-input-' + planId).value, 10);
+    if(!daysLeft || daysLeft < 1){ if(statusEl) statusEl.textContent = t('khatma_invalid_input'); return; }
+    newDailyAmount = remainingUnits / daysLeft;
+    newTotalDays = elapsed + daysLeft;
+  } else {
+    const amount = parseFloat(document.getElementById('khatma-edit-amount-input-' + planId).value);
+    if(!amount || amount <= 0){ if(statusEl) statusEl.textContent = t('khatma_invalid_input'); return; }
+    newDailyAmount = amount;
+    newTotalDays = elapsed + Math.ceil(remainingUnits / amount);
+  }
+  plan.type = type;
+  plan.dailyAmount = newDailyAmount;
+  plan.totalDays = newTotalDays;
+  saveKhatmaPlans(plans);
+  khatmaEditingPlanId = null;
+  renderKhatmaView();
 }
 function logKhatmaAmount(planId, amount){
   const plans = getKhatmaPlans();
@@ -2477,10 +2601,11 @@ function logKhatmaAmount(planId, amount){
 function logKhatmaTodayTarget(planId){
   const plan = getKhatmaPlanById(planId);
   if(!plan) return;
+  const target = khatmaEffectiveDailyTarget(plan);
   const today = khatmaTodayStr();
   const loggedToday = plan.log[today] || 0;
-  const remainingToday = Math.max(0, plan.dailyAmount - loggedToday);
-  logKhatmaAmount(planId, remainingToday > 0 ? remainingToday : plan.dailyAmount);
+  const remainingToday = Math.max(0, target - loggedToday);
+  logKhatmaAmount(planId, remainingToday > 0 ? remainingToday : target);
 }
 function logKhatmaCustomAmount(planId){
   const input = document.getElementById('khatma-log-custom-input-' + planId);
@@ -2496,24 +2621,62 @@ function confirmDeleteKhatmaPlan(planId){
   saveKhatmaPlans(plans);
   renderKhatmaView();
 }
+function renderKhatmaEditForm(plan){
+  const editType = khatmaEditTypeByPlan[plan.id] || plan.type || 'days';
+  const total = KHATMA_UNIT_TOTALS[plan.unit];
+  const remainingUnits = Math.max(0, total - plan.completed);
+  const elapsed = khatmaDaysElapsed(plan);
+  const currentRemainingDays = Math.max(1, plan.totalDays - elapsed);
+  return `
+    <div class="khatma-edit-form" id="khatma-edit-form-${plan.id}">
+      <div class="khatma-type-toggle">
+        <button type="button" class="khatma-type-btn ${editType === 'days' ? 'active' : ''}" onclick="setKhatmaEditType('${plan.id}','days')" data-i18n="khatma_type_days">${t('khatma_type_days')}</button>
+        <button type="button" class="khatma-type-btn ${editType === 'amount' ? 'active' : ''}" onclick="setKhatmaEditType('${plan.id}','amount')" data-i18n="khatma_type_amount">${t('khatma_type_amount')}</button>
+      </div>
+      <div class="khatma-setup-row">
+        <div class="khatma-setup-field" style="display:${editType === 'days' ? '' : 'none'};">
+          <span class="label">${t('khatma_edit_days_label')}</span>
+          <input type="number" id="khatma-edit-days-input-${plan.id}" min="1" max="3650" value="${currentRemainingDays}">
+        </div>
+        <div class="khatma-setup-field" style="display:${editType === 'amount' ? '' : 'none'};">
+          <span class="label">${t('khatma_amount_label')}</span>
+          <input type="number" id="khatma-edit-amount-input-${plan.id}" min="0.5" step="0.5" value="${Math.round(plan.dailyAmount * 10) / 10}">
+        </div>
+      </div>
+      <div class="khatma-setup-actions">
+        <button type="button" class="go-btn" onclick="saveKhatmaEdit('${plan.id}')">${t('khatma_edit_save_btn')}</button>
+        <button type="button" class="go-btn secondary" onclick="hideKhatmaEditForm()">${t('khatma_cancel_btn')}</button>
+      </div>
+      <div class="khatma-status" id="khatma-edit-status-${plan.id}"></div>
+    </div>
+  `;
+}
 function renderKhatmaPlanCard(plan, idx){
   const total = KHATMA_UNIT_TOTALS[plan.unit];
   const pct = Math.max(0, Math.min(100, Math.round((plan.completed / total) * 100)));
   const progressText = tf('khatma_progress_text', { completed: Math.round(plan.completed * 10) / 10, total: total, unit: khatmaUnitLabel(plan.unit) });
   const remainingUnits = Math.max(0, total - plan.completed);
-  const remainingDays = plan.dailyAmount > 0 ? Math.max(0, Math.ceil(remainingUnits / plan.dailyAmount)) : 0;
+  const effectiveTarget = khatmaEffectiveDailyTarget(plan);
+  const remainingDays = effectiveTarget > 0 ? Math.max(0, Math.ceil(remainingUnits / effectiveTarget)) : 0;
   const today = khatmaTodayStr();
   const loggedToday = (plan.log && plan.log[today]) || 0;
-  const remainingToday = Math.max(0, Math.round((plan.dailyAmount - loggedToday) * 10) / 10);
+  const remainingToday = Math.max(0, Math.round((effectiveTarget - loggedToday) * 10) / 10);
   const todayTargetText = remainingToday > 0 ? (Math.round(remainingToday * 10) / 10) + ' ' + khatmaUnitLabel(plan.unit) : t('khatma_today_done');
-  const targetBtnText = tf('khatma_log_target_btn_dynamic', { amount: Math.round(plan.dailyAmount * 10) / 10, unit: khatmaUnitLabel(plan.unit) });
+  const targetBtnText = tf('khatma_log_target_btn_dynamic', { amount: Math.round(effectiveTarget * 10) / 10, unit: khatmaUnitLabel(plan.unit) });
+  const showAutoNote = plan.autoCatchup && Math.abs(effectiveTarget - plan.dailyAmount) > 0.05;
+  const isEditing = khatmaEditingPlanId === plan.id;
   return `
     <div class="khatma-dash-card" data-plan-id="${plan.id}">
       <div class="khatma-plan-card-header">
         <span class="khatma-plan-name">${t('khatma_plan_label')} ${idx + 1}</span>
-        <button type="button" class="khatma-delete-btn" onclick="confirmDeleteKhatmaPlan('${plan.id}')" title="${t('khatma_reset_btn')}" aria-label="${t('khatma_reset_btn')}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z"/></svg>
-        </button>
+        <div class="khatma-header-actions">
+          <button type="button" class="khatma-edit-btn" onclick="${isEditing ? 'hideKhatmaEditForm()' : `showKhatmaEditForm('${plan.id}')`}" title="${t('khatma_edit_btn')}" aria-label="${t('khatma_edit_btn')}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </button>
+          <button type="button" class="khatma-delete-btn" onclick="confirmDeleteKhatmaPlan('${plan.id}')" title="${t('khatma_reset_btn')}" aria-label="${t('khatma_reset_btn')}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z"/></svg>
+          </button>
+        </div>
       </div>
       <div class="khatma-progress-label">
         <span>${progressText}</span>
@@ -2542,6 +2705,18 @@ function renderKhatmaPlanCard(plan, idx){
         <button type="button" class="go-btn secondary" onclick="logKhatmaCustomAmount('${plan.id}')">${t('khatma_log_custom_btn')}</button>
       </div>
       <div class="khatma-status" id="khatma-dash-status-${plan.id}"></div>
+      <div class="khatma-autocatchup-row">
+        <div class="khatma-autocatchup-text">
+          <span class="khatma-autocatchup-title">${t('khatma_autocatchup_title')}</span>
+          <span class="khatma-autocatchup-desc">${t('khatma_autocatchup_desc')}</span>
+        </div>
+        <label class="khatma-switch">
+          <input type="checkbox" ${plan.autoCatchup ? 'checked' : ''} onchange="toggleKhatmaAutoCatchup('${plan.id}', this.checked)">
+          <span class="khatma-switch-slider"></span>
+        </label>
+      </div>
+      ${showAutoNote ? `<div class="khatma-autocatchup-note">${t('khatma_autocatchup_note')}</div>` : ''}
+      ${isEditing ? renderKhatmaEditForm(plan) : ''}
     </div>
   `;
 }
@@ -4535,7 +4710,13 @@ const I18N_STRINGS = {
     khatma_add_new_btn: 'إضافة ختمة جديدة',
     khatma_cancel_btn: 'إلغاء',
     khatma_plan_label: 'الختمة',
-    khatma_custom_placeholder: 'مقدار مخصص'
+    khatma_custom_placeholder: 'مقدار مخصص',
+    khatma_edit_btn: 'تعديل الخطة',
+    khatma_edit_days_label: 'كام يوم عايز تختم فيه من دلوقتي',
+    khatma_edit_save_btn: 'حفظ التعديل',
+    khatma_autocatchup_title: 'تعويض المتأخر تلقائيًا',
+    khatma_autocatchup_desc: 'لو فاتتك أيام، يُعاد توزيع الباقي تلقائيًا على الأيام المتبقية عشان تلحق موعد ختمتك.',
+    khatma_autocatchup_note: 'تم تعديل مقدار اليوم تلقائيًا لتعويض الأيام الفائتة ✨'
   },
   en: {
     app_title: 'The Holy Quran',
@@ -4723,7 +4904,13 @@ const I18N_STRINGS = {
     khatma_add_new_btn: 'Add new khatma',
     khatma_cancel_btn: 'Cancel',
     khatma_plan_label: 'Khatma',
-    khatma_custom_placeholder: 'Custom amount'
+    khatma_custom_placeholder: 'Custom amount',
+    khatma_edit_btn: 'Edit plan',
+    khatma_edit_days_label: 'Days from now to finish',
+    khatma_edit_save_btn: 'Save changes',
+    khatma_autocatchup_title: 'Auto catch-up',
+    khatma_autocatchup_desc: "If you fall behind, the remaining amount is automatically redistributed over the days left so you still finish on time.",
+    khatma_autocatchup_note: "Today's amount was auto-adjusted to make up for missed days ✨"
   }
 };
 
