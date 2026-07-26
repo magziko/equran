@@ -482,6 +482,70 @@
     padding:60px 20px;
   }
 
+  /* ---------- Khatma plan ---------- */
+  .khatma-toggle{
+    width:40px; height:40px; border-radius:10px; flex-shrink:0;
+    background:var(--surface); border:1px solid var(--border); color:var(--accent-soft);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .khatma-toggle:hover{ border-color:var(--accent); }
+  .khatma-toggle svg{ width:19px; height:19px; }
+  #khatma-view{ display:none; }
+  .khatma-type-toggle{
+    display:flex; gap:3px; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:var(--radius-md); padding:3px; margin-bottom:14px;
+  }
+  .khatma-type-btn{
+    flex:1; padding:9px 10px; border-radius:9px; border:none; background:transparent;
+    color:var(--text-muted); font-weight:700; font-size:13.5px; cursor:pointer;
+  }
+  .khatma-type-btn.active{ background:var(--accent); color:#fff; }
+  .khatma-setup-card, .khatma-dash-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:20px; margin-top:16px;
+  }
+  .khatma-setup-row{ display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px; }
+  .khatma-setup-field{ display:flex; flex-direction:column; gap:5px; flex:1; min-width:120px; }
+  .khatma-setup-field .label{ font-size:12.5px; color:var(--text-muted); font-weight:600; }
+  .khatma-setup-field input, .khatma-setup-field select{
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    border-radius:9px; padding:9px 10px; font-family:inherit; font-size:14px;
+  }
+  .khatma-progress-track{
+    width:100%; height:14px; border-radius:8px; background:var(--surface-2);
+    border:1px solid var(--border); overflow:hidden; margin:10px 0;
+  }
+  .khatma-progress-fill{
+    height:100%; background:var(--accent); border-radius:8px; transition:width .3s ease;
+  }
+  .khatma-progress-label{
+    display:flex; justify-content:space-between; font-size:13px; color:var(--text-muted); font-weight:700;
+  }
+  .khatma-stats-grid{
+    display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:10px; margin:16px 0;
+  }
+  .khatma-stat{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:12px 14px; text-align:center;
+  }
+  .khatma-stat-value{ font-size:19px; font-weight:800; color:var(--accent-soft); }
+  .khatma-stat-label{ font-size:12px; color:var(--text-muted); font-weight:600; margin-top:3px; }
+  .khatma-log-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:16px; }
+  .khatma-log-input{
+    width:110px; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    border-radius:9px; padding:9px 10px; font-family:inherit; font-size:14px;
+  }
+  .khatma-reset-btn{
+    background:transparent; border:1px solid var(--border); color:var(--text-faint);
+    border-radius:9px; padding:9px 14px; font-weight:700; font-size:13px; cursor:pointer; margin-top:14px;
+  }
+  .khatma-reset-btn:hover{ border-color:#e05656; color:#e05656; }
+  .khatma-status{ font-size:13.5px; color:var(--accent-soft); font-weight:700; margin-top:10px; min-height:18px; }
+  .khatma-log-row .go-btn.secondary{
+    background:var(--surface-2); color:var(--text); border:1px solid var(--border);
+  }
+  .khatma-log-row .go-btn.secondary:hover{ border-color:var(--accent); color:var(--accent-soft); }
+
   /* ---------- Theme toggle ---------- */
   .theme-toggle{
     width:40px; height:40px; border-radius:10px; flex-shrink:0;
@@ -596,6 +660,9 @@
   .font-select option{ background:var(--surface); color:var(--text); }
 
   /* ayat list */
+  /* الآيات لازم تفضل تتعرض من اليمين للشمال دايمًا (سواء الوضع منفصل أو متتالي/مصحف)
+     بغض النظر عن لغة الواجهة (عربي/إنجليزي) اللي بتغيّر dir بتاع الصفحة كلها */
+  .ayat-list, .ayah-card, .mushaf-page-frame{ direction:rtl; }
   .ayat-list{ display:flex; flex-direction:column; gap:12px; }
   .ayah-card{
     background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
@@ -1130,6 +1197,9 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
           <span class="fav-count zero" id="fav-count">0</span>
         </button>
+        <button class="khatma-toggle" onclick="showKhatma()" title="خطة ختم القرآن" aria-label="خطة ختم القرآن" data-i18n-title="khatma_title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14l2.5 2.5L16 11"/></svg>
+        </button>
         <button class="lang-toggle" id="lang-toggle-btn-1" onclick="toggleLanguage()" title="Switch language / تبديل اللغة" aria-label="Switch language / تبديل اللغة">
           <span class="lang-toggle-text">EN</span>
         </button>
@@ -1398,6 +1468,84 @@
 
     <div class="ayat-list" id="favorites-list"></div>
     <div class="favorites-empty" id="favorites-empty" style="display:none;" data-i18n="favorites_empty_msg">لم تُضِف أي آية إلى المفضلة بعد. اضغط على أيقونة العلامة بجانب أي آية لإضافتها هنا.</div>
+  </div>
+
+  <!-- ===================== KHATMA VIEW ===================== -->
+  <div id="khatma-view">
+    <a href="#" class="back-link" onclick="showList(); return false;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M3 12h18"/></svg>
+      <span data-i18n="back_to_index">رجوع إلى الفهرس</span>
+    </a>
+
+    <div class="surah-header">
+      <h2>
+        <span class="badge-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14l2.5 2.5L16 11"/></svg>
+        </span>
+        <span data-i18n="khatma_title">خطة ختم القرآن</span>
+      </h2>
+    </div>
+    <p class="surah-sub" data-i18n="khatma_desc">حدد خطة قراءة بعدد أيام أو مقدار يومي ثابت، وتابع تقدمك يوميًا حتى تختم القرآن الكريم.</p>
+
+    <!-- Setup card (shown when no plan exists) -->
+    <div class="khatma-setup-card" id="khatma-setup">
+      <div class="khatma-type-toggle">
+        <button type="button" class="khatma-type-btn active" id="khatma-type-days-btn" onclick="setKhatmaSetupType('days')" data-i18n="khatma_type_days">عدد أيام محدد</button>
+        <button type="button" class="khatma-type-btn" id="khatma-type-amount-btn" onclick="setKhatmaSetupType('amount')" data-i18n="khatma_type_amount">مقدار يومي محدد</button>
+      </div>
+      <div class="khatma-setup-row">
+        <div class="khatma-setup-field" id="khatma-days-field">
+          <span class="label" data-i18n="khatma_days_label">عدد الأيام لختم القرآن كاملًا</span>
+          <input type="number" id="khatma-days-input" min="1" max="3650" value="30">
+        </div>
+        <div class="khatma-setup-field" id="khatma-amount-field" style="display:none;">
+          <span class="label" data-i18n="khatma_amount_label">المقدار الذي تقرؤه يوميًا</span>
+          <input type="number" id="khatma-amount-input" min="1" step="0.5" value="4">
+        </div>
+        <div class="khatma-setup-field">
+          <span class="label" data-i18n="khatma_unit_label">وحدة القياس</span>
+          <select id="khatma-unit-select">
+            <option value="page" data-i18n="khatma_unit_page">صفحة (٦٠٤ صفحة)</option>
+            <option value="juz" data-i18n="khatma_unit_juz">جزء (٣٠ جزءًا)</option>
+            <option value="hizb" data-i18n="khatma_unit_hizb">حزب (٦٠ حزبًا)</option>
+          </select>
+        </div>
+      </div>
+      <button type="button" class="go-btn" onclick="startKhatmaPlan()" data-i18n="khatma_start_btn">ابدأ الخطة</button>
+      <div class="khatma-status" id="khatma-setup-status"></div>
+    </div>
+
+    <!-- Dashboard card (shown when a plan is active) -->
+    <div class="khatma-dash-card" id="khatma-dashboard" style="display:none;">
+      <div class="khatma-progress-label">
+        <span id="khatma-progress-text"></span>
+        <span id="khatma-progress-pct">0%</span>
+      </div>
+      <div class="khatma-progress-track">
+        <div class="khatma-progress-fill" id="khatma-progress-fill" style="width:0%;"></div>
+      </div>
+      <div class="khatma-stats-grid">
+        <div class="khatma-stat">
+          <div class="khatma-stat-value" id="khatma-stat-remaining-days">-</div>
+          <div class="khatma-stat-label" data-i18n="khatma_stat_remaining_days">أيام متبقية</div>
+        </div>
+        <div class="khatma-stat">
+          <div class="khatma-stat-value" id="khatma-stat-today-target">-</div>
+          <div class="khatma-stat-label" data-i18n="khatma_stat_today_target">مطلوب اليوم</div>
+        </div>
+        <div class="khatma-stat">
+          <div class="khatma-stat-value" id="khatma-stat-completed-count">0</div>
+          <div class="khatma-stat-label" data-i18n="khatma_stat_completed_khatmas">ختمات مكتملة</div>
+        </div>
+      </div>
+      <div class="khatma-log-row">
+        <button type="button" class="go-btn" id="khatma-log-target-btn" onclick="logKhatmaTodayTarget()" data-i18n="khatma_log_target_btn">سجل مقدار اليوم</button>
+        <input type="number" class="khatma-log-input" id="khatma-log-custom-input" min="0.5" step="0.5" placeholder="مقدار مخصص">
+        <button type="button" class="go-btn secondary" onclick="logKhatmaCustomAmount()" data-i18n="khatma_log_custom_btn">سجل مقدارًا آخر</button>
+      </div>
+      <div class="khatma-status" id="khatma-dash-status"></div>
+      <button type="button" class="khatma-reset-btn" onclick="confirmResetKhatmaPlan()" data-i18n="khatma_reset_btn">إعادة تعيين الخطة</button>
+    </div>
   </div>
 
   <div class="loading" id="loading" data-i18n="loading_text">جاري تحميل بيانات القرآن الكريم...</div>
@@ -2187,10 +2335,152 @@ function showFavorites(){
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'block';
+  document.getElementById('khatma-view').style.display = 'none';
   document.getElementById('surah-side-nav').classList.add('side-nav-hidden');
   window.scrollTo(0,0);
   updateReadingProgress();
   renderFavoritesView();
+}
+
+/* ===================== خطة ختم القرآن ===================== */
+const KHATMA_UNIT_TOTALS = { page: 604, juz: 30, hizb: 60 };
+let khatmaSetupType = 'days';
+
+function showKhatma(){
+  stopAyahRepeat();
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('read-view').style.display = 'none';
+  document.getElementById('favorites-view').style.display = 'none';
+  document.getElementById('khatma-view').style.display = 'block';
+  document.getElementById('surah-side-nav').classList.add('side-nav-hidden');
+  window.scrollTo(0,0);
+  updateReadingProgress();
+  renderKhatmaView();
+}
+
+function getKhatmaPlan(){
+  try{
+    const raw = localStorage.getItem('quran-khatma-plan');
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function saveKhatmaPlan(plan){
+  try{ localStorage.setItem('quran-khatma-plan', JSON.stringify(plan)); }catch(e){}
+}
+function khatmaTodayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function setKhatmaSetupType(type){
+  khatmaSetupType = type;
+  document.getElementById('khatma-type-days-btn').classList.toggle('active', type === 'days');
+  document.getElementById('khatma-type-amount-btn').classList.toggle('active', type === 'amount');
+  document.getElementById('khatma-days-field').style.display = type === 'days' ? '' : 'none';
+  document.getElementById('khatma-amount-field').style.display = type === 'amount' ? '' : 'none';
+}
+function startKhatmaPlan(){
+  const unit = document.getElementById('khatma-unit-select').value;
+  const total = KHATMA_UNIT_TOTALS[unit];
+  const statusEl = document.getElementById('khatma-setup-status');
+  let totalDays, dailyAmount;
+  if(khatmaSetupType === 'days'){
+    const days = parseInt(document.getElementById('khatma-days-input').value, 10);
+    if(!days || days < 1){ statusEl.textContent = t('khatma_invalid_input'); return; }
+    totalDays = days;
+    dailyAmount = total / days;
+  } else {
+    const amount = parseFloat(document.getElementById('khatma-amount-input').value);
+    if(!amount || amount <= 0){ statusEl.textContent = t('khatma_invalid_input'); return; }
+    dailyAmount = amount;
+    totalDays = Math.ceil(total / amount);
+  }
+  const prev = getKhatmaPlan();
+  const plan = {
+    type: khatmaSetupType,
+    unit, totalDays, dailyAmount,
+    startDate: khatmaTodayStr(),
+    completed: 0,
+    log: {},
+    completedKhatmas: prev ? (prev.completedKhatmas || 0) : 0
+  };
+  saveKhatmaPlan(plan);
+  statusEl.textContent = '';
+  renderKhatmaView();
+}
+function khatmaUnitLabel(unit){
+  if(unit === 'page') return t('khatma_unit_page_short');
+  if(unit === 'juz') return t('khatma_unit_juz_short');
+  return t('khatma_unit_hizb_short');
+}
+function logKhatmaAmount(amount){
+  const plan = getKhatmaPlan();
+  if(!plan || amount <= 0) return;
+  const total = KHATMA_UNIT_TOTALS[plan.unit];
+  const today = khatmaTodayStr();
+  plan.log[today] = (plan.log[today] || 0) + amount;
+  plan.completed = plan.completed + amount;
+  let justFinished = false;
+  if(plan.completed >= total){
+    justFinished = true;
+    plan.completedKhatmas = (plan.completedKhatmas || 0) + 1;
+    plan.completed = 0;
+    plan.log = {};
+    plan.startDate = today;
+  }
+  saveKhatmaPlan(plan);
+  renderKhatmaView();
+  const statusEl = document.getElementById('khatma-dash-status');
+  if(statusEl) statusEl.textContent = justFinished ? t('khatma_completed_msg') : t('khatma_logged_msg');
+}
+function logKhatmaTodayTarget(){
+  const plan = getKhatmaPlan();
+  if(!plan) return;
+  const today = khatmaTodayStr();
+  const loggedToday = plan.log[today] || 0;
+  const remainingToday = Math.max(0, plan.dailyAmount - loggedToday);
+  logKhatmaAmount(remainingToday > 0 ? remainingToday : plan.dailyAmount);
+}
+function logKhatmaCustomAmount(){
+  const input = document.getElementById('khatma-log-custom-input');
+  const amount = parseFloat(input.value);
+  if(!amount || amount <= 0) return;
+  logKhatmaAmount(amount);
+  input.value = '';
+}
+function confirmResetKhatmaPlan(){
+  if(!confirm(t('khatma_reset_confirm'))) return;
+  try{ localStorage.removeItem('quran-khatma-plan'); }catch(e){}
+  renderKhatmaView();
+}
+function renderKhatmaView(){
+  const plan = getKhatmaPlan();
+  const setupEl = document.getElementById('khatma-setup');
+  const dashEl = document.getElementById('khatma-dashboard');
+  if(!setupEl || !dashEl) return;
+  if(!plan){
+    setupEl.style.display = '';
+    dashEl.style.display = 'none';
+    return;
+  }
+  setupEl.style.display = 'none';
+  dashEl.style.display = '';
+  const total = KHATMA_UNIT_TOTALS[plan.unit];
+  const pct = Math.max(0, Math.min(100, Math.round((plan.completed / total) * 100)));
+  document.getElementById('khatma-progress-fill').style.width = pct + '%';
+  document.getElementById('khatma-progress-pct').textContent = pct + '%';
+  document.getElementById('khatma-progress-text').textContent =
+    tf('khatma_progress_text', { completed: Math.round(plan.completed * 10) / 10, total: total, unit: khatmaUnitLabel(plan.unit) });
+  const remainingUnits = Math.max(0, total - plan.completed);
+  const remainingDays = plan.dailyAmount > 0 ? Math.max(0, Math.ceil(remainingUnits / plan.dailyAmount)) : 0;
+  document.getElementById('khatma-stat-remaining-days').textContent = remainingDays;
+  const today = khatmaTodayStr();
+  const loggedToday = plan.log[today] || 0;
+  const remainingToday = Math.max(0, Math.round((plan.dailyAmount - loggedToday) * 10) / 10);
+  document.getElementById('khatma-stat-today-target').textContent =
+    remainingToday > 0 ? (Math.round(remainingToday * 10) / 10) + ' ' + khatmaUnitLabel(plan.unit) : t('khatma_today_done');
+  document.getElementById('khatma-stat-completed-count').textContent = plan.completedKhatmas || 0;
+  const targetBtn = document.getElementById('khatma-log-target-btn');
+  if(targetBtn) targetBtn.textContent = tf('khatma_log_target_btn_dynamic', { amount: Math.round(plan.dailyAmount * 10) / 10, unit: khatmaUnitLabel(plan.unit) });
 }
 
 function renderFavoritesView(){
@@ -3256,6 +3546,7 @@ function showList(){
   document.getElementById('read-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('list-view').style.display = 'block';
+  document.getElementById('khatma-view').style.display = 'none';
   document.getElementById('surah-side-nav').classList.add('side-nav-hidden');
   renderContinueBanner();
   window.scrollTo(0,0);
@@ -3278,6 +3569,7 @@ function openSurah(id, scrollToAyah){
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'block';
+  document.getElementById('khatma-view').style.display = 'none';
   window.scrollTo(0,0);
   updateReadingProgress();
 
@@ -3380,6 +3672,7 @@ function openJuz(juzNum, scrollToSurahAyah){
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'block';
+  document.getElementById('khatma-view').style.display = 'none';
   window.scrollTo(0,0);
   updateReadingProgress();
 
@@ -3488,6 +3781,7 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'block';
+  document.getElementById('khatma-view').style.display = 'none';
   document.getElementById('surah-side-nav').classList.remove('side-nav-hidden');
   switchSideNavMode('juz');
   window.scrollTo(0,0);
@@ -3592,6 +3886,7 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'block';
+  document.getElementById('khatma-view').style.display = 'none';
   document.getElementById('surah-side-nav').classList.remove('side-nav-hidden');
   switchSideNavMode('juz');
   window.scrollTo(0,0);
@@ -3743,6 +4038,7 @@ async function openMushafPage(pageNum){
   document.getElementById('list-view').style.display = 'none';
   document.getElementById('favorites-view').style.display = 'none';
   document.getElementById('read-view').style.display = 'block';
+  document.getElementById('khatma-view').style.display = 'none';
   document.getElementById('read-view').classList.add('mode-page');
   document.getElementById('surah-side-nav').classList.remove('side-nav-hidden');
   window.scrollTo(0,0);
@@ -4129,7 +4425,34 @@ const I18N_STRINGS = {
     completed_full_quran_listen: 'تم بحمد الله الاستماع إلى القرآن الكريم كاملاً 🌙',
     repeat_unsupported_reciter: 'تكرار الآية الواحدة غير متاح لهذا القارئ لأن تسجيله ملف واحد للسورة كاملة. جرّب "استماع" أو اختر قارئًا آخر.',
     viewing_page_prefix: 'عرض صفحة',
-    of_604_madinah_layout: 'من ٦٠٤ بنفس تقسيم أسطر مصحف المدينة'
+    of_604_madinah_layout: 'من ٦٠٤ بنفس تقسيم أسطر مصحف المدينة',
+    khatma_title: 'خطة ختم القرآن',
+    khatma_desc: 'حدد خطة قراءة بعدد أيام أو مقدار يومي ثابت، وتابع تقدمك يوميًا حتى تختم القرآن الكريم.',
+    khatma_type_days: 'عدد أيام محدد',
+    khatma_type_amount: 'مقدار يومي محدد',
+    khatma_days_label: 'عدد الأيام لختم القرآن كاملًا',
+    khatma_amount_label: 'المقدار الذي تقرؤه يوميًا',
+    khatma_unit_label: 'وحدة القياس',
+    khatma_unit_page: 'صفحة (٦٠٤ صفحة)',
+    khatma_unit_juz: 'جزء (٣٠ جزءًا)',
+    khatma_unit_hizb: 'حزب (٦٠ حزبًا)',
+    khatma_unit_page_short: 'صفحة',
+    khatma_unit_juz_short: 'جزء',
+    khatma_unit_hizb_short: 'حزب',
+    khatma_start_btn: 'ابدأ الخطة',
+    khatma_invalid_input: 'من فضلك أدخل رقمًا صحيحًا أكبر من صفر',
+    khatma_progress_text: 'تمّت قراءة {completed} من {total} {unit}',
+    khatma_stat_remaining_days: 'أيام متبقية',
+    khatma_stat_today_target: 'مطلوب اليوم',
+    khatma_stat_completed_khatmas: 'ختمات مكتملة',
+    khatma_today_done: 'تم إنجاز مقدار اليوم ✓',
+    khatma_log_target_btn: 'سجل مقدار اليوم',
+    khatma_log_target_btn_dynamic: 'سجل {amount} {unit} (مقدار اليوم)',
+    khatma_log_custom_btn: 'سجل مقدارًا آخر',
+    khatma_reset_btn: 'إعادة تعيين الخطة',
+    khatma_reset_confirm: 'هل أنت متأكد من إعادة تعيين خطة الختمة؟ سيتم حذف التقدم الحالي.',
+    khatma_logged_msg: 'تم تسجيل قراءتك، بارك الله فيك 🌙',
+    khatma_completed_msg: 'الحمد لله، لقد ختمت القرآن الكريم! تم بدء ختمة جديدة تلقائيًا 🎉'
   },
   en: {
     app_title: 'The Holy Quran',
@@ -4286,7 +4609,34 @@ const I18N_STRINGS = {
     completed_full_quran_listen: 'Alhamdulillah, you have finished listening to the entire Holy Quran 🌙',
     repeat_unsupported_reciter: 'Single-verse repeat isn\'t available for this reciter because their recording is one file per full surah. Try "Listen" instead, or pick a different reciter.',
     viewing_page_prefix: 'Viewing page',
-    of_604_madinah_layout: 'of 604, following the Madinah Mushaf line layout'
+    of_604_madinah_layout: 'of 604, following the Madinah Mushaf line layout',
+    khatma_title: 'Khatma Plan',
+    khatma_desc: 'Set a reading plan with a fixed number of days or a fixed daily amount, and track your progress daily until you finish the entire Quran.',
+    khatma_type_days: 'Fixed number of days',
+    khatma_type_amount: 'Fixed daily amount',
+    khatma_days_label: 'Days to finish the whole Quran',
+    khatma_amount_label: 'Amount you read daily',
+    khatma_unit_label: 'Unit',
+    khatma_unit_page: 'Pages (604 pages)',
+    khatma_unit_juz: 'Juz (30 juz)',
+    khatma_unit_hizb: 'Hizb (60 hizb)',
+    khatma_unit_page_short: 'pages',
+    khatma_unit_juz_short: 'juz',
+    khatma_unit_hizb_short: 'hizb',
+    khatma_start_btn: 'Start plan',
+    khatma_invalid_input: 'Please enter a valid number greater than zero',
+    khatma_progress_text: '{completed} of {total} {unit} read',
+    khatma_stat_remaining_days: 'Days left',
+    khatma_stat_today_target: 'Due today',
+    khatma_stat_completed_khatmas: 'Completed khatmas',
+    khatma_today_done: "Today's amount done ✓",
+    khatma_log_target_btn: "Log today's amount",
+    khatma_log_target_btn_dynamic: "Log {amount} {unit} (today's amount)",
+    khatma_log_custom_btn: 'Log a custom amount',
+    khatma_reset_btn: 'Reset plan',
+    khatma_reset_confirm: 'Are you sure you want to reset your Khatma plan? Current progress will be deleted.',
+    khatma_logged_msg: 'Your reading has been logged, may Allah bless you 🌙',
+    khatma_completed_msg: "Alhamdulillah, you've finished the whole Quran! A new khatma has started automatically 🎉"
   }
 };
 
@@ -4354,6 +4704,8 @@ function refreshDynamicContent(){
   updateRepeatAvailability();
   const favView = document.getElementById('favorites-view');
   if(favView && favView.style.display !== 'none' && typeof renderFavoritesView === 'function') renderFavoritesView();
+  const khatmaView = document.getElementById('khatma-view');
+  if(khatmaView && khatmaView.style.display !== 'none' && typeof renderKhatmaView === 'function') renderKhatmaView();
 
   const readView = document.getElementById('read-view');
   const titleEl = document.getElementById('surah-title');
