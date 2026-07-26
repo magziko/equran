@@ -546,6 +546,30 @@
   }
   .khatma-log-row .go-btn.secondary:hover{ border-color:var(--accent); color:var(--accent-soft); }
 
+  /* ---------- Khatma: multiple concurrent plans ---------- */
+  .khatma-setup-actions{ display:flex; gap:8px; flex-wrap:wrap; }
+  .khatma-add-new-btn{
+    display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
+    background:var(--surface); border:1.5px dashed var(--border); color:var(--accent-soft);
+    border-radius:var(--radius-lg); padding:14px; margin-top:16px; font-weight:700; font-size:14px;
+    cursor:pointer; transition:border-color .15s ease, background .15s ease;
+  }
+  .khatma-add-new-btn:hover{ border-color:var(--accent); background:var(--accent-bg); }
+  .khatma-add-new-btn svg{ width:18px; height:18px; flex-shrink:0; }
+  .khatma-plans-list{ display:flex; flex-direction:column; gap:16px; margin-top:16px; }
+  .khatma-plans-list .khatma-dash-card{ margin-top:0; }
+  .khatma-plan-card-header{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:6px;
+  }
+  .khatma-plan-name{ font-size:15px; font-weight:800; color:var(--text); }
+  .khatma-delete-btn{
+    flex-shrink:0; width:30px; height:30px; border-radius:8px; background:transparent;
+    border:1px solid var(--border); color:var(--text-faint); display:flex; align-items:center;
+    justify-content:center; cursor:pointer; transition:border-color .15s ease, color .15s ease;
+  }
+  .khatma-delete-btn:hover{ border-color:#e05656; color:#e05656; }
+  .khatma-delete-btn svg{ width:14px; height:14px; }
+
   /* ---------- Theme toggle ---------- */
   .theme-toggle{
     width:40px; height:40px; border-radius:10px; flex-shrink:0;
@@ -1487,7 +1511,7 @@
     </div>
     <p class="surah-sub" data-i18n="khatma_desc">حدد خطة قراءة بعدد أيام أو مقدار يومي ثابت، وتابع تقدمك يوميًا حتى تختم القرآن الكريم.</p>
 
-    <!-- Setup card (shown when no plan exists) -->
+    <!-- Setup card (shown when no plans exist yet, or when adding a new khatma) -->
     <div class="khatma-setup-card" id="khatma-setup">
       <div class="khatma-type-toggle">
         <button type="button" class="khatma-type-btn active" id="khatma-type-days-btn" onclick="setKhatmaSetupType('days')" data-i18n="khatma_type_days">عدد أيام محدد</button>
@@ -1511,41 +1535,21 @@
           </select>
         </div>
       </div>
-      <button type="button" class="go-btn" onclick="startKhatmaPlan()" data-i18n="khatma_start_btn">ابدأ الخطة</button>
+      <div class="khatma-setup-actions">
+        <button type="button" class="go-btn" onclick="startKhatmaPlan()" data-i18n="khatma_start_btn">ابدأ الخطة</button>
+        <button type="button" class="go-btn secondary" id="khatma-cancel-add-btn" onclick="hideKhatmaAddForm()" style="display:none;" data-i18n="khatma_cancel_btn">إلغاء</button>
+      </div>
       <div class="khatma-status" id="khatma-setup-status"></div>
     </div>
 
-    <!-- Dashboard card (shown when a plan is active) -->
-    <div class="khatma-dash-card" id="khatma-dashboard" style="display:none;">
-      <div class="khatma-progress-label">
-        <span id="khatma-progress-text"></span>
-        <span id="khatma-progress-pct">0%</span>
-      </div>
-      <div class="khatma-progress-track">
-        <div class="khatma-progress-fill" id="khatma-progress-fill" style="width:0%;"></div>
-      </div>
-      <div class="khatma-stats-grid">
-        <div class="khatma-stat">
-          <div class="khatma-stat-value" id="khatma-stat-remaining-days">-</div>
-          <div class="khatma-stat-label" data-i18n="khatma_stat_remaining_days">أيام متبقية</div>
-        </div>
-        <div class="khatma-stat">
-          <div class="khatma-stat-value" id="khatma-stat-today-target">-</div>
-          <div class="khatma-stat-label" data-i18n="khatma_stat_today_target">مطلوب اليوم</div>
-        </div>
-        <div class="khatma-stat">
-          <div class="khatma-stat-value" id="khatma-stat-completed-count">0</div>
-          <div class="khatma-stat-label" data-i18n="khatma_stat_completed_khatmas">ختمات مكتملة</div>
-        </div>
-      </div>
-      <div class="khatma-log-row">
-        <button type="button" class="go-btn" id="khatma-log-target-btn" onclick="logKhatmaTodayTarget()" data-i18n="khatma_log_target_btn">سجل مقدار اليوم</button>
-        <input type="number" class="khatma-log-input" id="khatma-log-custom-input" min="0.5" step="0.5" placeholder="مقدار مخصص">
-        <button type="button" class="go-btn secondary" onclick="logKhatmaCustomAmount()" data-i18n="khatma_log_custom_btn">سجل مقدارًا آخر</button>
-      </div>
-      <div class="khatma-status" id="khatma-dash-status"></div>
-      <button type="button" class="khatma-reset-btn" onclick="confirmResetKhatmaPlan()" data-i18n="khatma_reset_btn">إعادة تعيين الخطة</button>
-    </div>
+    <!-- Trigger to add another khatma alongside existing ones -->
+    <button type="button" class="khatma-add-new-btn" id="khatma-add-new-btn" onclick="showKhatmaAddForm()" style="display:none;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      <span data-i18n="khatma_add_new_btn">إضافة ختمة جديدة</span>
+    </button>
+
+    <!-- List of active khatma plans, each tracked independently -->
+    <div class="khatma-plans-list" id="khatma-plans-list" style="display:none;"></div>
   </div>
 
   <div class="loading" id="loading" data-i18n="loading_text">جاري تحميل بيانات القرآن الكريم...</div>
@@ -2342,9 +2346,10 @@ function showFavorites(){
   renderFavoritesView();
 }
 
-/* ===================== خطة ختم القرآن ===================== */
+/* ===================== خطة ختم القرآن (تدعم عدة ختمات في نفس الوقت) ===================== */
 const KHATMA_UNIT_TOTALS = { page: 604, juz: 30, hizb: 60 };
 let khatmaSetupType = 'days';
+let khatmaShowingAddForm = false;
 
 function showKhatma(){
   stopAyahRepeat();
@@ -2358,14 +2363,37 @@ function showKhatma(){
   renderKhatmaView();
 }
 
-function getKhatmaPlan(){
-  try{
-    const raw = localStorage.getItem('quran-khatma-plan');
-    return raw ? JSON.parse(raw) : null;
-  }catch(e){ return null; }
+function khatmaGenerateId(){
+  return 'k' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
-function saveKhatmaPlan(plan){
-  try{ localStorage.setItem('quran-khatma-plan', JSON.stringify(plan)); }catch(e){}
+
+// يقرأ كل خطط الختم المحفوظة، ويهاجر تلقائيًا أي خطة قديمة (كانت مخزّنة كخطة واحدة فقط) إلى نظام القائمة الجديد
+function getKhatmaPlans(){
+  try{
+    const raw = localStorage.getItem('quran-khatma-plans');
+    if(raw){
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    const oldRaw = localStorage.getItem('quran-khatma-plan');
+    if(oldRaw){
+      const oldPlan = JSON.parse(oldRaw);
+      if(oldPlan && typeof oldPlan === 'object'){
+        oldPlan.id = khatmaGenerateId();
+        const migrated = [oldPlan];
+        saveKhatmaPlans(migrated);
+        try{ localStorage.removeItem('quran-khatma-plan'); }catch(e){}
+        return migrated;
+      }
+    }
+    return [];
+  }catch(e){ return []; }
+}
+function saveKhatmaPlans(plans){
+  try{ localStorage.setItem('quran-khatma-plans', JSON.stringify(plans)); }catch(e){}
+}
+function getKhatmaPlanById(planId){
+  return getKhatmaPlans().find(p => p.id === planId) || null;
 }
 function khatmaTodayStr(){
   const d = new Date();
@@ -2377,6 +2405,16 @@ function setKhatmaSetupType(type){
   document.getElementById('khatma-type-amount-btn').classList.toggle('active', type === 'amount');
   document.getElementById('khatma-days-field').style.display = type === 'days' ? '' : 'none';
   document.getElementById('khatma-amount-field').style.display = type === 'amount' ? '' : 'none';
+}
+function showKhatmaAddForm(){
+  khatmaShowingAddForm = true;
+  const statusEl = document.getElementById('khatma-setup-status');
+  if(statusEl) statusEl.textContent = '';
+  renderKhatmaView();
+}
+function hideKhatmaAddForm(){
+  khatmaShowingAddForm = false;
+  renderKhatmaView();
 }
 function startKhatmaPlan(){
   const unit = document.getElementById('khatma-unit-select').value;
@@ -2394,17 +2432,20 @@ function startKhatmaPlan(){
     dailyAmount = amount;
     totalDays = Math.ceil(total / amount);
   }
-  const prev = getKhatmaPlan();
+  const plans = getKhatmaPlans();
   const plan = {
+    id: khatmaGenerateId(),
     type: khatmaSetupType,
     unit, totalDays, dailyAmount,
     startDate: khatmaTodayStr(),
     completed: 0,
     log: {},
-    completedKhatmas: prev ? (prev.completedKhatmas || 0) : 0
+    completedKhatmas: 0
   };
-  saveKhatmaPlan(plan);
+  plans.push(plan);
+  saveKhatmaPlans(plans);
   statusEl.textContent = '';
+  khatmaShowingAddForm = false;
   renderKhatmaView();
 }
 function khatmaUnitLabel(unit){
@@ -2412,8 +2453,9 @@ function khatmaUnitLabel(unit){
   if(unit === 'juz') return t('khatma_unit_juz_short');
   return t('khatma_unit_hizb_short');
 }
-function logKhatmaAmount(amount){
-  const plan = getKhatmaPlan();
+function logKhatmaAmount(planId, amount){
+  const plans = getKhatmaPlans();
+  const plan = plans.find(p => p.id === planId);
   if(!plan || amount <= 0) return;
   const total = KHATMA_UNIT_TOTALS[plan.unit];
   const today = khatmaTodayStr();
@@ -2427,60 +2469,97 @@ function logKhatmaAmount(amount){
     plan.log = {};
     plan.startDate = today;
   }
-  saveKhatmaPlan(plan);
+  saveKhatmaPlans(plans);
   renderKhatmaView();
-  const statusEl = document.getElementById('khatma-dash-status');
+  const statusEl = document.getElementById('khatma-dash-status-' + planId);
   if(statusEl) statusEl.textContent = justFinished ? t('khatma_completed_msg') : t('khatma_logged_msg');
 }
-function logKhatmaTodayTarget(){
-  const plan = getKhatmaPlan();
+function logKhatmaTodayTarget(planId){
+  const plan = getKhatmaPlanById(planId);
   if(!plan) return;
   const today = khatmaTodayStr();
   const loggedToday = plan.log[today] || 0;
   const remainingToday = Math.max(0, plan.dailyAmount - loggedToday);
-  logKhatmaAmount(remainingToday > 0 ? remainingToday : plan.dailyAmount);
+  logKhatmaAmount(planId, remainingToday > 0 ? remainingToday : plan.dailyAmount);
 }
-function logKhatmaCustomAmount(){
-  const input = document.getElementById('khatma-log-custom-input');
+function logKhatmaCustomAmount(planId){
+  const input = document.getElementById('khatma-log-custom-input-' + planId);
+  if(!input) return;
   const amount = parseFloat(input.value);
   if(!amount || amount <= 0) return;
-  logKhatmaAmount(amount);
+  logKhatmaAmount(planId, amount);
   input.value = '';
 }
-function confirmResetKhatmaPlan(){
+function confirmDeleteKhatmaPlan(planId){
   if(!confirm(t('khatma_reset_confirm'))) return;
-  try{ localStorage.removeItem('quran-khatma-plan'); }catch(e){}
+  const plans = getKhatmaPlans().filter(p => p.id !== planId);
+  saveKhatmaPlans(plans);
   renderKhatmaView();
 }
-function renderKhatmaView(){
-  const plan = getKhatmaPlan();
-  const setupEl = document.getElementById('khatma-setup');
-  const dashEl = document.getElementById('khatma-dashboard');
-  if(!setupEl || !dashEl) return;
-  if(!plan){
-    setupEl.style.display = '';
-    dashEl.style.display = 'none';
-    return;
-  }
-  setupEl.style.display = 'none';
-  dashEl.style.display = '';
+function renderKhatmaPlanCard(plan, idx){
   const total = KHATMA_UNIT_TOTALS[plan.unit];
   const pct = Math.max(0, Math.min(100, Math.round((plan.completed / total) * 100)));
-  document.getElementById('khatma-progress-fill').style.width = pct + '%';
-  document.getElementById('khatma-progress-pct').textContent = pct + '%';
-  document.getElementById('khatma-progress-text').textContent =
-    tf('khatma_progress_text', { completed: Math.round(plan.completed * 10) / 10, total: total, unit: khatmaUnitLabel(plan.unit) });
+  const progressText = tf('khatma_progress_text', { completed: Math.round(plan.completed * 10) / 10, total: total, unit: khatmaUnitLabel(plan.unit) });
   const remainingUnits = Math.max(0, total - plan.completed);
   const remainingDays = plan.dailyAmount > 0 ? Math.max(0, Math.ceil(remainingUnits / plan.dailyAmount)) : 0;
-  document.getElementById('khatma-stat-remaining-days').textContent = remainingDays;
   const today = khatmaTodayStr();
-  const loggedToday = plan.log[today] || 0;
+  const loggedToday = (plan.log && plan.log[today]) || 0;
   const remainingToday = Math.max(0, Math.round((plan.dailyAmount - loggedToday) * 10) / 10);
-  document.getElementById('khatma-stat-today-target').textContent =
-    remainingToday > 0 ? (Math.round(remainingToday * 10) / 10) + ' ' + khatmaUnitLabel(plan.unit) : t('khatma_today_done');
-  document.getElementById('khatma-stat-completed-count').textContent = plan.completedKhatmas || 0;
-  const targetBtn = document.getElementById('khatma-log-target-btn');
-  if(targetBtn) targetBtn.textContent = tf('khatma_log_target_btn_dynamic', { amount: Math.round(plan.dailyAmount * 10) / 10, unit: khatmaUnitLabel(plan.unit) });
+  const todayTargetText = remainingToday > 0 ? (Math.round(remainingToday * 10) / 10) + ' ' + khatmaUnitLabel(plan.unit) : t('khatma_today_done');
+  const targetBtnText = tf('khatma_log_target_btn_dynamic', { amount: Math.round(plan.dailyAmount * 10) / 10, unit: khatmaUnitLabel(plan.unit) });
+  return `
+    <div class="khatma-dash-card" data-plan-id="${plan.id}">
+      <div class="khatma-plan-card-header">
+        <span class="khatma-plan-name">${t('khatma_plan_label')} ${idx + 1}</span>
+        <button type="button" class="khatma-delete-btn" onclick="confirmDeleteKhatmaPlan('${plan.id}')" title="${t('khatma_reset_btn')}" aria-label="${t('khatma_reset_btn')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6h16z"/></svg>
+        </button>
+      </div>
+      <div class="khatma-progress-label">
+        <span>${progressText}</span>
+        <span>${pct}%</span>
+      </div>
+      <div class="khatma-progress-track">
+        <div class="khatma-progress-fill" style="width:${pct}%;"></div>
+      </div>
+      <div class="khatma-stats-grid">
+        <div class="khatma-stat">
+          <div class="khatma-stat-value">${remainingDays}</div>
+          <div class="khatma-stat-label">${t('khatma_stat_remaining_days')}</div>
+        </div>
+        <div class="khatma-stat">
+          <div class="khatma-stat-value">${todayTargetText}</div>
+          <div class="khatma-stat-label">${t('khatma_stat_today_target')}</div>
+        </div>
+        <div class="khatma-stat">
+          <div class="khatma-stat-value">${plan.completedKhatmas || 0}</div>
+          <div class="khatma-stat-label">${t('khatma_stat_completed_khatmas')}</div>
+        </div>
+      </div>
+      <div class="khatma-log-row">
+        <button type="button" class="go-btn" onclick="logKhatmaTodayTarget('${plan.id}')">${targetBtnText}</button>
+        <input type="number" class="khatma-log-input" id="khatma-log-custom-input-${plan.id}" min="0.5" step="0.5" placeholder="${t('khatma_custom_placeholder')}">
+        <button type="button" class="go-btn secondary" onclick="logKhatmaCustomAmount('${plan.id}')">${t('khatma_log_custom_btn')}</button>
+      </div>
+      <div class="khatma-status" id="khatma-dash-status-${plan.id}"></div>
+    </div>
+  `;
+}
+function renderKhatmaView(){
+  const plans = getKhatmaPlans();
+  const setupEl = document.getElementById('khatma-setup');
+  const addNewBtn = document.getElementById('khatma-add-new-btn');
+  const cancelBtn = document.getElementById('khatma-cancel-add-btn');
+  const listEl = document.getElementById('khatma-plans-list');
+  if(!setupEl || !listEl) return;
+
+  const showForm = plans.length === 0 || khatmaShowingAddForm;
+  setupEl.style.display = showForm ? '' : 'none';
+  if(addNewBtn) addNewBtn.style.display = (!showForm && plans.length > 0) ? '' : 'none';
+  if(cancelBtn) cancelBtn.style.display = (showForm && plans.length > 0) ? '' : 'none';
+
+  listEl.style.display = plans.length ? '' : 'none';
+  listEl.innerHTML = plans.map((plan, idx) => renderKhatmaPlanCard(plan, idx)).join('');
 }
 
 function renderFavoritesView(){
@@ -4449,10 +4528,14 @@ const I18N_STRINGS = {
     khatma_log_target_btn: 'سجل مقدار اليوم',
     khatma_log_target_btn_dynamic: 'سجل {amount} {unit} (مقدار اليوم)',
     khatma_log_custom_btn: 'سجل مقدارًا آخر',
-    khatma_reset_btn: 'إعادة تعيين الخطة',
-    khatma_reset_confirm: 'هل أنت متأكد من إعادة تعيين خطة الختمة؟ سيتم حذف التقدم الحالي.',
+    khatma_reset_btn: 'حذف الختمة',
+    khatma_reset_confirm: 'هل أنت متأكد من حذف هذه الختمة؟ سيتم حذف تقدمها نهائيًا.',
     khatma_logged_msg: 'تم تسجيل قراءتك، بارك الله فيك 🌙',
-    khatma_completed_msg: 'الحمد لله، لقد ختمت القرآن الكريم! تم بدء ختمة جديدة تلقائيًا 🎉'
+    khatma_completed_msg: 'الحمد لله، لقد ختمت القرآن الكريم! تم بدء ختمة جديدة تلقائيًا 🎉',
+    khatma_add_new_btn: 'إضافة ختمة جديدة',
+    khatma_cancel_btn: 'إلغاء',
+    khatma_plan_label: 'الختمة',
+    khatma_custom_placeholder: 'مقدار مخصص'
   },
   en: {
     app_title: 'The Holy Quran',
@@ -4633,10 +4716,14 @@ const I18N_STRINGS = {
     khatma_log_target_btn: "Log today's amount",
     khatma_log_target_btn_dynamic: "Log {amount} {unit} (today's amount)",
     khatma_log_custom_btn: 'Log a custom amount',
-    khatma_reset_btn: 'Reset plan',
-    khatma_reset_confirm: 'Are you sure you want to reset your Khatma plan? Current progress will be deleted.',
+    khatma_reset_btn: 'Delete khatma',
+    khatma_reset_confirm: 'Are you sure you want to delete this khatma? Its progress will be permanently deleted.',
     khatma_logged_msg: 'Your reading has been logged, may Allah bless you 🌙',
-    khatma_completed_msg: "Alhamdulillah, you've finished the whole Quran! A new khatma has started automatically 🎉"
+    khatma_completed_msg: "Alhamdulillah, you've finished the whole Quran! A new khatma has started automatically 🎉",
+    khatma_add_new_btn: 'Add new khatma',
+    khatma_cancel_btn: 'Cancel',
+    khatma_plan_label: 'Khatma',
+    khatma_custom_placeholder: 'Custom amount'
   }
 };
 
