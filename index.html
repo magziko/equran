@@ -546,6 +546,38 @@
   }
   .khatma-stat-value{ font-size:19px; font-weight:800; color:var(--accent-soft); }
   .khatma-stat-label{ font-size:12px; color:var(--text-muted); font-weight:600; margin-top:3px; }
+  .khatma-stat-sub{ font-size:10.5px; color:var(--text-faint); font-weight:600; margin-top:2px; }
+
+  /* ---------- Khatma: weekly activity strip ---------- */
+  .khatma-week-wrap{ margin:14px 0 4px; }
+  .khatma-week-title{ font-size:12px; color:var(--text-muted); font-weight:700; margin-bottom:8px; }
+  .khatma-week-row{ display:flex; gap:7px; justify-content:space-between; }
+  .khatma-day{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:5px;
+  }
+  .khatma-day-label{ font-size:10px; color:var(--text-faint); font-weight:700; }
+  .khatma-day-cell{
+    width:100%; max-width:32px; aspect-ratio:1/1; border-radius:8px;
+    border:1.5px solid var(--border); background:var(--surface-2);
+  }
+  .khatma-day-cell.is-met{ background:var(--accent); border-color:var(--accent); }
+  .khatma-day-cell.is-partial{ background:var(--accent-bg); border-color:var(--accent); }
+  .khatma-day-cell.is-missed{ background:transparent; border-color:#e05656; border-style:dashed; }
+  .khatma-day-cell.is-today{ box-shadow:0 0 0 2px var(--accent-bg); }
+  .khatma-day-cell.is-future{ background:transparent; opacity:.4; }
+
+  /* ---------- Khatma: behind-schedule alert ---------- */
+  .khatma-alert{
+    display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;
+    margin-top:14px; padding:10px 12px; border-radius:10px;
+    background:rgba(224,86,86,.1); border:1px solid rgba(224,86,86,.35);
+  }
+  .khatma-alert-text{ font-size:12.5px; color:var(--text); font-weight:600; line-height:1.6; }
+  .khatma-alert-btn{
+    flex-shrink:0; background:#e05656; color:#fff; border:none; font-weight:700; font-size:12px;
+    padding:7px 12px; border-radius:8px; cursor:pointer; white-space:nowrap;
+  }
+  .khatma-alert-btn:hover{ opacity:.9; }
   .khatma-log-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:16px; }
   .khatma-log-input{
     width:110px; background:var(--surface-2); border:1px solid var(--border); color:var(--text);
@@ -2524,6 +2556,75 @@ function khatmaEffectiveDailyTarget(plan){
   const remainingDaysToDeadline = Math.max(1, plan.totalDays - elapsed);
   return remainingUnits / remainingDaysToDeadline;
 }
+function khatmaFormatDate(d){
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+const KHATMA_WEEKDAY_LABELS = {
+  ar: ['ح', 'ن', 'ث', 'ر', 'خ', 'ج', 'س'],
+  en: ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+};
+function khatmaWeekdayLabel(dateStr){
+  const lang = document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar';
+  const d = new Date(dateStr + 'T00:00:00');
+  return KHATMA_WEEKDAY_LABELS[lang][d.getDay()];
+}
+// يحسب التتابع الحالي (streak) وأطول تتابع سابق، بالاعتماد على أيام السجل اللي فيها قراءة فعلية (أكبر من صفر)
+function khatmaComputeStreaks(plan){
+  const startDate = new Date(plan.startDate + 'T00:00:00');
+  const todayStr = khatmaTodayStr();
+  const todayDate = new Date(todayStr + 'T00:00:00');
+  if(startDate > todayDate) return { current: 0, best: 0 };
+
+  let current = 0;
+  const cursor = new Date(todayDate);
+  // النهاردة لسه ممكن يتسجل فيها، فمافيش داعي نكسر التتابع لو لسه محدش سجل حاجة اليوم
+  if(!((plan.log[todayStr] || 0) > 0)) cursor.setDate(cursor.getDate() - 1);
+  while(cursor >= startDate){
+    const ds = khatmaFormatDate(cursor);
+    if((plan.log[ds] || 0) > 0){ current++; cursor.setDate(cursor.getDate() - 1); }
+    else break;
+  }
+
+  let best = 0, run = 0;
+  const c2 = new Date(startDate);
+  while(c2 <= todayDate){
+    const ds = khatmaFormatDate(c2);
+    if((plan.log[ds] || 0) > 0){ run++; best = Math.max(best, run); }
+    else run = 0;
+    c2.setDate(c2.getDate() + 1);
+  }
+  best = Math.max(best, current);
+  return { current, best };
+}
+// يبني بيانات آخر 7 أيام (شامل النهاردة) لعرضها كصف نشاط أسبوعي
+function khatmaComputeWeekStrip(plan){
+  const startDate = new Date(plan.startDate + 'T00:00:00');
+  const todayStr = khatmaTodayStr();
+  const todayDate = new Date(todayStr + 'T00:00:00');
+  const days = [];
+  for(let i = 6; i >= 0; i--){
+    const d = new Date(todayDate);
+    d.setDate(d.getDate() - i);
+    const ds = khatmaFormatDate(d);
+    const amount = plan.log[ds] || 0;
+    let status;
+    if(d > todayDate) status = 'future';
+    else if(d < startDate) status = 'future'; // قبل بداية الخطة، يتعرض فاضي زي المستقبل
+    else if(ds === todayStr && amount === 0) status = 'future'; // النهاردة لسه ممكن يتسجل فيها، معروضة بشكل محايد
+    else if(amount >= plan.dailyAmount && plan.dailyAmount > 0) status = 'met';
+    else if(amount > 0) status = 'partial';
+    else status = 'missed';
+    days.push({ date: ds, amount, status, isToday: ds === todayStr });
+  }
+  return days;
+}
+// هل الخطة متأخرة بشكل ملحوظ عن جدولها الأصلي (أكتر من مقدار يوم كامل)؟
+function khatmaBehindAmount(plan){
+  const elapsed = khatmaDaysElapsed(plan);
+  const expected = Math.min(elapsed, plan.totalDays) * plan.dailyAmount;
+  const behind = expected - plan.completed;
+  return behind > plan.dailyAmount ? behind : 0;
+}
 function toggleKhatmaAutoCatchup(planId, checked){
   const plans = getKhatmaPlans();
   const plan = plans.find(p => p.id === planId);
@@ -2665,6 +2766,10 @@ function renderKhatmaPlanCard(plan, idx){
   const targetBtnText = tf('khatma_log_target_btn_dynamic', { amount: Math.round(effectiveTarget * 10) / 10, unit: khatmaUnitLabel(plan.unit) });
   const showAutoNote = plan.autoCatchup && Math.abs(effectiveTarget - plan.dailyAmount) > 0.05;
   const isEditing = khatmaEditingPlanId === plan.id;
+  const streaks = khatmaComputeStreaks(plan);
+  const weekDays = khatmaComputeWeekStrip(plan);
+  const behind = khatmaBehindAmount(plan);
+  const showBehindAlert = behind > 0 && !plan.autoCatchup;
   return `
     <div class="khatma-dash-card" data-plan-id="${plan.id}">
       <div class="khatma-plan-card-header">
@@ -2685,6 +2790,11 @@ function renderKhatmaPlanCard(plan, idx){
       <div class="khatma-progress-track">
         <div class="khatma-progress-fill" style="width:${pct}%;"></div>
       </div>
+      ${showBehindAlert ? `
+      <div class="khatma-alert">
+        <span class="khatma-alert-text">${tf('khatma_behind_alert_text', { amount: Math.round(behind * 10) / 10, unit: khatmaUnitLabel(plan.unit) })}</span>
+        <button type="button" class="khatma-alert-btn" onclick="toggleKhatmaAutoCatchup('${plan.id}', true)">${t('khatma_behind_alert_btn')}</button>
+      </div>` : ''}
       <div class="khatma-stats-grid">
         <div class="khatma-stat">
           <div class="khatma-stat-value">${remainingDays}</div>
@@ -2695,8 +2805,24 @@ function renderKhatmaPlanCard(plan, idx){
           <div class="khatma-stat-label">${t('khatma_stat_today_target')}</div>
         </div>
         <div class="khatma-stat">
+          <div class="khatma-stat-value">${streaks.current} 🔥</div>
+          <div class="khatma-stat-label">${t('khatma_stat_streak')}</div>
+          ${streaks.best > streaks.current ? `<div class="khatma-stat-sub">${tf('khatma_stat_best_streak', { best: streaks.best })}</div>` : ''}
+        </div>
+        <div class="khatma-stat">
           <div class="khatma-stat-value">${plan.completedKhatmas || 0}</div>
           <div class="khatma-stat-label">${t('khatma_stat_completed_khatmas')}</div>
+        </div>
+      </div>
+      <div class="khatma-week-wrap">
+        <div class="khatma-week-title">${t('khatma_week_title')}</div>
+        <div class="khatma-week-row">
+          ${weekDays.map(day => `
+            <div class="khatma-day">
+              <div class="khatma-day-cell is-${day.status}${day.isToday ? ' is-today' : ''}" title="${day.date}${day.amount ? ' — ' + (Math.round(day.amount*10)/10) + ' ' + khatmaUnitLabel(plan.unit) : ''}"></div>
+              <span class="khatma-day-label">${khatmaWeekdayLabel(day.date)}</span>
+            </div>
+          `).join('')}
         </div>
       </div>
       <div class="khatma-log-row">
@@ -4716,7 +4842,12 @@ const I18N_STRINGS = {
     khatma_edit_save_btn: 'حفظ التعديل',
     khatma_autocatchup_title: 'تعويض المتأخر تلقائيًا',
     khatma_autocatchup_desc: 'لو فاتتك أيام، يُعاد توزيع الباقي تلقائيًا على الأيام المتبقية عشان تلحق موعد ختمتك.',
-    khatma_autocatchup_note: 'تم تعديل مقدار اليوم تلقائيًا لتعويض الأيام الفائتة ✨'
+    khatma_autocatchup_note: 'تم تعديل مقدار اليوم تلقائيًا لتعويض الأيام الفائتة ✨',
+    khatma_stat_streak: 'أيام متتالية',
+    khatma_stat_best_streak: 'أفضل تتابع: {best} يوم',
+    khatma_week_title: 'نشاط آخر ٧ أيام',
+    khatma_behind_alert_text: 'إنت متأخر {amount} {unit} عن خطتك',
+    khatma_behind_alert_btn: 'فعّل التعويض التلقائي'
   },
   en: {
     app_title: 'The Holy Quran',
@@ -4910,7 +5041,12 @@ const I18N_STRINGS = {
     khatma_edit_save_btn: 'Save changes',
     khatma_autocatchup_title: 'Auto catch-up',
     khatma_autocatchup_desc: "If you fall behind, the remaining amount is automatically redistributed over the days left so you still finish on time.",
-    khatma_autocatchup_note: "Today's amount was auto-adjusted to make up for missed days ✨"
+    khatma_autocatchup_note: "Today's amount was auto-adjusted to make up for missed days ✨",
+    khatma_stat_streak: 'Day streak',
+    khatma_stat_best_streak: 'Best streak: {best} days',
+    khatma_week_title: 'Last 7 days activity',
+    khatma_behind_alert_text: "You're {amount} {unit} behind your plan",
+    khatma_behind_alert_btn: 'Enable auto catch-up'
   }
 };
 
