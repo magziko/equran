@@ -426,6 +426,9 @@
     margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);
   }
   .tafsir-modal-title{ font-size:15px; font-weight:700; color:var(--text); }
+  .tafsir-source-select-wrap{ display:inline-flex; align-items:center; gap:5px; }
+  .tafsir-source-select-arrow{ color:var(--text-muted); flex-shrink:0; pointer-events:none; }
+  .tafsir-source-select-wrap:hover .tafsir-source-select-arrow{ color:var(--accent-soft); }
   .tafsir-source-select{
     -webkit-appearance:none; appearance:none; background:transparent; border:none; outline:none;
     padding:0; cursor:pointer; font-family:inherit; max-width:100%;
@@ -1534,7 +1537,7 @@
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
               <span data-i18n="listen">استماع</span>
             </button>
-            <button class="repeat-btn stop-btn" id="listen-stop-btn" onclick="stopFullSurahListen()" style="display:none;">
+            <button class="repeat-btn stop-btn" id="listen-stop-btn" onclick="pauseFullSurahListen()" style="display:none;">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14"/></svg>
               <span data-i18n="stop_listen">إيقاف الاستماع</span>
             </button>
@@ -3000,6 +3003,7 @@ async function getAyahTiming(readId, surahId, ayahId){
 /* ---------- تشغيل صوت الآية بصوت القارئ المختار ---------- */
 let ayahAudioPlayer = null;
 let ayahAudioPlayingCardId = null;
+let lastActiveAyahCardId = null;
 let ayahTimeUpdateHandler = null;
 
 function clearTimedSegmentWatcher(){
@@ -3082,6 +3086,7 @@ function loadAndPlayAyah(surahId, ayahId){
 }
 
 function playAyahAudio(surahId, ayahId, cardId){
+  lastActiveAyahCardId = cardId;
   // أي ضغط يدوي على آية يوقف وضع التكرار أو الاستماع الجاري أولاً
   if(repeatState.active) stopAyahRepeat();
   if(listenState.active) stopFullSurahListen();
@@ -3282,6 +3287,7 @@ function updateRepeatStatus(text){
 /* ---------- استماع متواصل: تشغيل السورة كاملة ثم الانتقال تلقائيًا للسورة التالية ---------- */
 let listenState = {
   active: false,
+  paused: false, // متوقف مؤقتًا (إيقاف/استئناف) وليس إنهاء كامل للجلسة
   sequenceMode: false, // true = تشغيل آية بآية (لقارئ بدون ملف واحد للسورة كاملة)
   verseIndex: 0,
   suppressAutoStop: false
@@ -3340,6 +3346,24 @@ async function startListenTimingWatcher(surahId, readId){
 
 function startFullSurahListen(){
   if(repeatState.active) stopAyahRepeat();
+
+  // لو الجلسة كانت متوقفة مؤقتًا (زر الإيقاف)، نستأنف من نفس نقطة التوقف بدل البدء من جديد
+  if(listenState.active && listenState.paused){
+    listenState.paused = false;
+    const startBtn = document.getElementById('listen-start-btn');
+    const stopBtn = document.getElementById('listen-stop-btn');
+    if(startBtn) startBtn.style.display = 'none';
+    if(stopBtn) stopBtn.style.display = '';
+    if(ayahAudioPlayer && ayahAudioPlayer.src){
+      ayahAudioPlayer.play().catch(() => {
+        console.warn('تعذر استئناف تشغيل السورة من نقطة التوقف.');
+      });
+    }
+    const surah = QURAN.find(s => s.id === currentSurahId);
+    if(surah) updateRepeatStatus(tf('listening_full_surah', { surah: surah.name }));
+    return;
+  }
+
   if(listenState.active) stopFullSurahListen();
 
   const startId = (currentMode === 'surah' && currentSurahId) ? currentSurahId : 1;
@@ -3360,11 +3384,25 @@ function startFullSurahListen(){
 
 function stopFullSurahListen(){
   listenState.active = false;
+  listenState.paused = false;
   listenState.sequenceMode = false;
   if(ayahAudioPlayer) ayahAudioPlayer.pause();
   clearTimedSegmentWatcher();
   clearListenTimingWatcher();
   stopAyahAudioUI();
+
+  const startBtn = document.getElementById('listen-start-btn');
+  const stopBtn = document.getElementById('listen-stop-btn');
+  if(startBtn) startBtn.style.display = '';
+  if(stopBtn) stopBtn.style.display = 'none';
+  updateRepeatStatus('');
+}
+
+// إيقاف مؤقت لجلسة الاستماع المتواصل (يحافظ على موضع التشغيل الحالي داخل السورة لاستئنافه لاحقًا)
+function pauseFullSurahListen(){
+  if(!listenState.active) return;
+  listenState.paused = true;
+  if(ayahAudioPlayer) ayahAudioPlayer.pause();
 
   const startBtn = document.getElementById('listen-start-btn');
   const stopBtn = document.getElementById('listen-stop-btn');
@@ -5311,7 +5349,47 @@ function attachDisplayModeShortcuts(){
       return;
     }
 
+    if(e.key === 'u' || e.key === 'U' || e.key === 'ع'){
+      e.preventDefault();
+      applyLanguage('ar');
+      return;
+    } else if(e.key === 'e' || e.key === 'E' || e.key === 'ث'){
+      e.preventDefault();
+      applyLanguage('en');
+      return;
+    }
+
     if(document.getElementById('read-view').style.display === 'none') return;
+
+    if(e.key === '+' || e.key === '=' || e.key === 'Add'){
+      e.preventDefault();
+      changeFont(1);
+      return;
+    } else if(e.key === '-' || e.key === '_' || e.key === 'Subtract'){
+      e.preventDefault();
+      changeFont(-1);
+      return;
+    } else if(e.key === 'd' || e.key === 'D'){
+      e.preventDefault();
+      toggleTheme();
+      return;
+    } else if(e.key === ' ' || e.code === 'Space'){
+      if(document.activeElement && document.activeElement.tagName === 'BUTTON') return;
+      if(ayahAudioPlayer && ayahAudioPlayer.src){
+        e.preventDefault();
+        if(ayahAudioPlayer.paused){ ayahAudioPlayer.play().catch(()=>{}); }
+        else { ayahAudioPlayer.pause(); }
+      }
+      return;
+    } else if(e.key === 'b' || e.key === 'B'){
+      if(lastActiveAyahCardId){
+        e.preventDefault();
+        const card = document.getElementById(lastActiveAyahCardId);
+        const btn = card && card.querySelector('.ayah-bookmark-btn');
+        if(btn) btn.click();
+      }
+      return;
+    }
 
     const key = e.key.toLowerCase();
     if(key === 's'){
@@ -5366,7 +5444,10 @@ if('serviceWorker' in navigator){
     <div class="tafsir-modal">
       <div class="tafsir-modal-header">
         <div>
-          <select class="tafsir-modal-title tafsir-source-select" id="tafsir-source-select" onchange="onTafsirSourceChange()"></select>
+          <div class="tafsir-source-select-wrap">
+            <select class="tafsir-modal-title tafsir-source-select" id="tafsir-source-select" onchange="onTafsirSourceChange()"></select>
+            <svg class="tafsir-source-select-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </div>
           <div class="tafsir-modal-subtitle" id="tafsir-modal-subtitle"></div>
         </div>
         <button class="tafsir-modal-close" onclick="closeTafsirModal()" title="إغلاق" data-i18n-title="close">
