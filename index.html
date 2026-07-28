@@ -1222,6 +1222,47 @@
     .scroll-top-btn{ bottom:18px; width:42px; height:42px; }
   }
 
+  /* ---------- Floating scroll-position badge (surah/juz/hizb name while scrolling) ---------- */
+  .scroll-position-badge{
+    position:fixed; top:10px; left:50%; z-index:900;
+    display:flex; align-items:center; gap:7px;
+    padding:8px 16px 8px 14px; border-radius:999px;
+    background:var(--bg-elev); border:1px solid var(--border);
+    color:var(--accent); font-family:'Cairo', sans-serif; font-size:13px; font-weight:800;
+    box-shadow:var(--shadow); cursor:pointer;
+    white-space:nowrap; max-width:calc(100vw - 24px); overflow:hidden; text-overflow:ellipsis;
+    opacity:0; visibility:hidden; transform:translate(-50%,-8px);
+    transition:opacity .2s ease, transform .2s ease, visibility .2s ease;
+  }
+  .scroll-position-badge.visible{ opacity:1; visibility:visible; transform:translate(-50%,0); }
+  .scroll-position-badge:hover{ filter:brightness(1.06); }
+  .scroll-position-badge .badge-icon{ display:flex; flex-shrink:0; }
+  .scroll-position-badge .badge-icon svg{ width:14px; height:14px; }
+  .scroll-position-badge span:last-child{ overflow:hidden; text-overflow:ellipsis; }
+
+  @media (max-width:600px){
+    .scroll-position-badge{ top:8px; font-size:12px; padding:7px 14px 7px 12px; }
+  }
+
+  /* ---------- Floating back-to-index button (visible while scrolled) ---------- */
+  .scroll-back-btn{
+    position:fixed; top:10px; right:16px; z-index:900;
+    width:38px; height:38px; border-radius:50%;
+    background:var(--bg-elev); border:1px solid var(--border); color:var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:var(--shadow); cursor:pointer;
+    opacity:0; visibility:hidden; transform:translateY(-8px);
+    transition:opacity .2s ease, transform .2s ease, visibility .2s ease;
+  }
+  .scroll-back-btn.visible{ opacity:1; visibility:visible; transform:translateY(0); }
+  .scroll-back-btn:hover{ filter:brightness(1.06); }
+  .scroll-back-btn svg{ width:17px; height:17px; }
+
+  @media (max-width:600px){
+    .scroll-back-btn{ top:8px; right:12px; width:34px; height:34px; }
+    .scroll-back-btn svg{ width:15px; height:15px; }
+  }
+
   @media (max-width:600px){
     .ayah-card{ padding:16px; }
     .top-header{ align-items:center; }
@@ -1296,6 +1337,17 @@
 <div class="fullscreen-progress" id="reading-progress">
   <div class="fullscreen-progress__bar" id="reading-progress-bar" style="width: 0%"></div>
 </div>
+
+<button class="scroll-position-badge" id="scroll-position-badge" onclick="scrollToSurahTop()" title="العودة لأعلى السورة" aria-label="الموضع الحالي أثناء التصفح">
+  <span class="badge-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4.5A2.5 2.5 0 0 1 4.5 2H12v18H4.5A2.5 2.5 0 0 0 2 22z"/><path d="M22 4.5A2.5 2.5 0 0 0 19.5 2H12v18h7.5a2.5 2.5 0 0 1 2.5 2z"/></svg>
+  </span>
+  <span id="scroll-position-badge-text"></span>
+</button>
+
+<button class="scroll-back-btn" id="scroll-back-btn" onclick="showList()" title="رجوع إلى الفهرس" aria-label="رجوع إلى الفهرس" data-i18n-title="back_to_index" data-i18n-aria-label="back_to_index">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M3 12h18"/></svg>
+</button>
 
 <button class="scroll-top-btn" id="scroll-top-btn" onclick="scrollToSurahTop()" title="العودة لأعلى السورة" aria-label="العودة لأعلى السورة" data-i18n-title="scroll_top">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
@@ -3702,8 +3754,81 @@ function scrollToSurahTop(){
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// نقطة الكشف (بالبكسل من أعلى الشاشة) التي نعتبر عندها أن العنصر "دخل" المشهد
+const SCROLL_BADGE_DETECT_LINE = 130;
+
+// يحدّث شارة عائمة أعلى الشاشة تعرض اسم السورة الحالية (ورقم الجزء/الحزب/الربع/الصفحة إن وجد) أثناء التمرير
+function updateScrollPositionBadge(){
+  const badge = document.getElementById('scroll-position-badge');
+  const textEl = document.getElementById('scroll-position-badge-text');
+  const backBtn = document.getElementById('scroll-back-btn');
+  if(!badge || !textEl) return;
+
+  const readView = document.getElementById('read-view');
+  if(!readView || readView.style.display === 'none'){
+    badge.classList.remove('visible');
+    if(backBtn) backBtn.classList.remove('visible');
+    return;
+  }
+
+  const scrollTop = window.scrollY || document.documentElement.scrollTop;
+  if(backBtn) backBtn.classList.toggle('visible', scrollTop >= 160);
+  if(scrollTop < 160){
+    badge.classList.remove('visible');
+    return;
+  }
+
+  let surahName = null;
+
+  if(currentMode === 'page'){
+    document.querySelectorAll('#ayat-list .mushaf-line-surah-header[data-surah-name]').forEach(el => {
+      if(el.getBoundingClientRect().top <= SCROLL_BADGE_DETECT_LINE) surahName = el.getAttribute('data-surah-name');
+    });
+  } else {
+    let closestSurahId = null;
+    const cards = document.querySelectorAll('#ayat-list .ayah-card[data-surah]');
+    cards.forEach(card => {
+      if(card.getBoundingClientRect().top <= SCROLL_BADGE_DETECT_LINE) closestSurahId = parseInt(card.dataset.surah, 10);
+    });
+    if(closestSurahId == null && cards.length) closestSurahId = parseInt(cards[0].dataset.surah, 10);
+    if(closestSurahId != null){
+      const surah = QURAN.find(s => s.id === closestSurahId);
+      if(surah) surahName = surah.name;
+    }
+  }
+
+  if(!surahName){
+    badge.classList.remove('visible');
+    return;
+  }
+
+  let label = `${t('surah_word')} ${surahName}`;
+  if(currentMode === 'juz' && currentJuzId){
+    label = `${t('juz_word')} ${currentJuzId} — ${t('surah_word')} ${surahName}`;
+  } else if(currentMode === 'hizb' && currentHizbId){
+    label = `${t('hizb_word')} ${currentHizbId} — ${t('surah_word')} ${surahName}`;
+  } else if(currentMode === 'rub' && currentHizbId && currentRubQuarter){
+    const globalIndex = (currentHizbId - 1) * 4 + currentRubQuarter;
+    label = `${t('rub_word')} ${globalIndex} — ${t('surah_word')} ${surahName}`;
+  } else if(currentMode === 'page' && currentPageNum){
+    label = `${t('page_word')} ${currentPageNum} — ${t('surah_word')} ${surahName}`;
+  }
+
+  textEl.textContent = label;
+  badge.classList.add('visible');
+}
+
+let scrollBadgeRafPending = false;
+function scheduleScrollPositionBadgeUpdate(){
+  if(scrollBadgeRafPending) return;
+  scrollBadgeRafPending = true;
+  requestAnimationFrame(() => { scrollBadgeRafPending = false; updateScrollPositionBadge(); });
+}
+
 window.addEventListener('scroll', updateReadingProgress, { passive:true });
 window.addEventListener('resize', updateReadingProgress);
+window.addEventListener('scroll', scheduleScrollPositionBadgeUpdate, { passive:true });
+window.addEventListener('resize', scheduleScrollPositionBadgeUpdate);
 
 function handleReadScroll(){
   if(scrollSaveTimer) clearTimeout(scrollSaveTimer);
@@ -5377,6 +5502,7 @@ function refreshDynamicContent(){
     });
     refreshNavLinks();
   }
+  if(typeof updateScrollPositionBadge === 'function') updateScrollPositionBadge();
 }
 
 function applyLanguage(lang){
