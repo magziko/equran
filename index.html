@@ -1452,6 +1452,10 @@
             <span data-i18n="inline_tafsir_label">إظهار التفسير/الترجمة المختار أسفل كل آية (وضع الآيات المنفصلة فقط)</span>
           </label>
         </div>
+        <div class="control-group">
+          <span class="label" data-i18n="tafsir_source_label">مصدر التفسير/الترجمة</span>
+          <select id="tafsir-source-select-settings" class="font-select" onchange="onTafsirSourceChangeFromSettings()"></select>
+        </div>
         <div class="page-jump-control-row" id="page-jump-control-row" style="display:none;">
           <div class="page-jump-panel">
             <span class="label" data-i18n="page_jump_panel_label">اذهب إلى صفحة من صفحات المصحف (١ - ٦٠٤)، بنفس تقسيم أسطر مصحف المدينة</span>
@@ -2268,8 +2272,8 @@ function setStoredTafsir(slug, surahId, ayahId, text){
   } catch(e){ /* تجاهل أخطاء التخزين */ }
 }
 
-function populateTafsirSourceSelect(){
-  const select = document.getElementById('tafsir-source-select');
+function populateTafsirSourceSelect(selectId){
+  const select = document.getElementById(selectId || 'tafsir-source-select');
   if(!select || select.options.length) return;
   const isEn = document.documentElement.getAttribute('data-lang') === 'en';
   const tafsirGroup = document.createElement('optgroup');
@@ -2299,8 +2303,8 @@ function populateTafsirSourceSelect(){
   }
 }
 
-function refreshTafsirSourceSelectLanguage(){
-  const select = document.getElementById('tafsir-source-select');
+function refreshTafsirSourceSelectLanguage(selectId){
+  const select = document.getElementById(selectId || 'tafsir-source-select');
   if(!select || !select.options.length) return;
   const isEn = document.documentElement.getAttribute('data-lang') === 'en';
   const tafsirGroup = select.querySelector('.tafsir-optgroup');
@@ -2321,7 +2325,7 @@ function showTafsir(surahId, ayahId, surahName){
   const overlay = document.getElementById('tafsir-overlay');
   const subtitle = document.getElementById('tafsir-modal-subtitle');
   const select = document.getElementById('tafsir-source-select');
-  populateTafsirSourceSelect();
+  populateTafsirSourceSelect('tafsir-source-select');
   subtitle.textContent = `${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}`;
   overlay.classList.add('open');
   currentTafsirCtx = { surahId, ayahId };
@@ -2366,11 +2370,22 @@ function navigateTafsir(direction){
   showTafsir(newSurahId, newAyahId, targetSurah.name);
 }
 
-function onTafsirSourceChange(){
-  const select = document.getElementById('tafsir-source-select');
-  setSelectedTafsirSlug(select.value);
+function setTafsirSourceAndSync(slug){
+  setSelectedTafsirSlug(slug);
+  const modalSelect = document.getElementById('tafsir-source-select');
+  const settingsSelect = document.getElementById('tafsir-source-select-settings');
+  if(modalSelect && modalSelect.options.length) modalSelect.value = slug;
+  if(settingsSelect && settingsSelect.options.length) settingsSelect.value = slug;
   if(currentTafsirCtx) loadTafsirContent(currentTafsirCtx.surahId, currentTafsirCtx.ayahId);
   refreshVisibleInlineTafsir();
+}
+function onTafsirSourceChange(){
+  const select = document.getElementById('tafsir-source-select');
+  setTafsirSourceAndSync(select.value);
+}
+function onTafsirSourceChangeFromSettings(){
+  const select = document.getElementById('tafsir-source-select-settings');
+  setTafsirSourceAndSync(select.value);
 }
 
 function loadTafsirContent(surahId, ayahId){
@@ -2443,6 +2458,9 @@ function applyInlineTafsirState(){
   const toggle = document.getElementById('inline-tafsir-toggle');
   const enabled = isInlineTafsirEnabled();
   if(toggle) toggle.checked = enabled;
+  populateTafsirSourceSelect('tafsir-source-select-settings');
+  const settingsSelect = document.getElementById('tafsir-source-select-settings');
+  if(settingsSelect && settingsSelect.options.length) settingsSelect.value = getSelectedTafsirSlug();
   if(!list) return;
   list.classList.toggle('show-inline-tafsir', enabled);
   setupInlineTafsirObserver();
@@ -4906,6 +4924,7 @@ const I18N_STRINGS = {
     next_ayah: 'الآية التالية',
     show_tafsir: 'عرض التفسير',
     inline_tafsir_label: 'إظهار التفسير/الترجمة المختار أسفل كل آية (وضع الآيات المنفصلة فقط)',
+    tafsir_source_label: 'مصدر التفسير/الترجمة',
     inline_tafsir_tafsir_prefix: 'التفسير',
     inline_tafsir_translation_prefix: 'الترجمة',
     add_to_favorites: 'إضافة إلى المفضلة',
@@ -5108,6 +5127,7 @@ const I18N_STRINGS = {
     next_ayah: 'Next Ayah',
     show_tafsir: 'Translation of Meanings & Tafsir',
     inline_tafsir_label: 'Show the selected tafsir/translation under each ayah (separate-ayahs mode only)',
+    tafsir_source_label: 'Tafsir/Translation source',
     inline_tafsir_tafsir_prefix: 'Tafsir',
     inline_tafsir_translation_prefix: 'Translation',
     add_to_favorites: 'Add to favorites',
@@ -5263,7 +5283,10 @@ function refreshDynamicContent(){
     onSideNavSearchInput(sideSearch.value);
   }
   if(typeof renderContinueBanner === 'function') renderContinueBanner();
-  if(typeof refreshTafsirSourceSelectLanguage === 'function') refreshTafsirSourceSelectLanguage();
+  if(typeof refreshTafsirSourceSelectLanguage === 'function'){
+    refreshTafsirSourceSelectLanguage('tafsir-source-select');
+    refreshTafsirSourceSelectLanguage('tafsir-source-select-settings');
+  }
   updateRepeatAvailability();
   const favView = document.getElementById('favorites-view');
   if(favView && favView.style.display !== 'none' && typeof renderFavoritesView === 'function') renderFavoritesView();
