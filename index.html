@@ -463,6 +463,17 @@
   .tafsir-nav-btn:hover:not(:disabled){ border-color:var(--accent); color:var(--accent-soft); }
   .tafsir-nav-btn:disabled{ opacity:.35; cursor:not-allowed; }
   .tafsir-nav-btn svg{ width:15px; height:15px; flex-shrink:0; }
+  .ayah-inline-tafsir{ display:none; }
+  .ayat-list.show-inline-tafsir .ayah-inline-tafsir{
+    display:block; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);
+  }
+  .ayah-inline-tafsir .inline-tafsir-label{
+    display:block; font-size:11.5px; font-weight:700; color:var(--accent-soft); margin-bottom:5px;
+  }
+  .ayah-inline-tafsir .inline-tafsir-text{ color:var(--text-muted); line-height:1.9; }
+  .ayah-inline-tafsir .inline-tafsir-loading,
+  .ayah-inline-tafsir .inline-tafsir-error{ font-size:12.5px; color:var(--text-muted); font-style:italic; }
+  .ayat-list.continuous-mode .ayah-inline-tafsir{ display:none !important; }
 
   /* ---------- Favorites button + view ---------- */
   .favorites-toggle{
@@ -1435,6 +1446,12 @@
             <button id="mode-btn-continuous" class="mode-btn" onclick="setDisplayMode('continuous')" data-i18n="mode_continuous">آيات متتالية (كالمصحف)</button>
           </div>
         </div>
+        <div class="control-group">
+          <label class="test-mode-toggle-row">
+            <input type="checkbox" id="inline-tafsir-toggle" onchange="toggleInlineTafsir(this.checked)">
+            <span data-i18n="inline_tafsir_label">إظهار التفسير/الترجمة المختار أسفل كل آية (وضع الآيات المنفصلة فقط)</span>
+          </label>
+        </div>
         <div class="page-jump-control-row" id="page-jump-control-row" style="display:none;">
           <div class="page-jump-panel">
             <span class="label" data-i18n="page_jump_panel_label">اذهب إلى صفحة من صفحات المصحف (١ - ٦٠٤)، بنفس تقسيم أسطر مصحف المدينة</span>
@@ -2353,6 +2370,7 @@ function onTafsirSourceChange(){
   const select = document.getElementById('tafsir-source-select');
   setSelectedTafsirSlug(select.value);
   if(currentTafsirCtx) loadTafsirContent(currentTafsirCtx.surahId, currentTafsirCtx.ayahId);
+  refreshVisibleInlineTafsir();
 }
 
 function loadTafsirContent(surahId, ayahId){
@@ -2410,6 +2428,92 @@ function loadTafsirContent(surahId, ayahId){
 
 function closeTafsirModal(){
   document.getElementById('tafsir-overlay').classList.remove('open');
+}
+
+/* ===================== إظهار التفسير/الترجمة المختار أسفل كل آية (اختياري من الإعدادات) ===================== */
+function isInlineTafsirEnabled(){
+  try{ return localStorage.getItem('showInlineTafsir') === '1'; } catch(e){ return false; }
+}
+function toggleInlineTafsir(enabled){
+  try{ localStorage.setItem('showInlineTafsir', enabled ? '1' : '0'); } catch(e){ /* تجاهل أخطاء التخزين */ }
+  applyInlineTafsirState();
+}
+function applyInlineTafsirState(){
+  const list = document.getElementById('ayat-list');
+  const toggle = document.getElementById('inline-tafsir-toggle');
+  const enabled = isInlineTafsirEnabled();
+  if(toggle) toggle.checked = enabled;
+  if(!list) return;
+  list.classList.toggle('show-inline-tafsir', enabled);
+  setupInlineTafsirObserver();
+}
+
+let inlineTafsirObserver = null;
+function setupInlineTafsirObserver(){
+  const list = document.getElementById('ayat-list');
+  if(inlineTafsirObserver){ inlineTafsirObserver.disconnect(); inlineTafsirObserver = null; }
+  if(!list || !isInlineTafsirEnabled()) return;
+  inlineTafsirObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => { if(entry.isIntersecting) loadInlineTafsirForElement(entry.target); });
+  }, { root: null, rootMargin: '250px 0px', threshold: 0.01 });
+  list.querySelectorAll('.ayah-inline-tafsir').forEach(el => inlineTafsirObserver.observe(el));
+}
+
+function loadInlineTafsirForElement(el){
+  const surahId = parseInt(el.getAttribute('data-surah'), 10);
+  const ayahId = parseInt(el.getAttribute('data-ayah'), 10);
+  if(!surahId || !ayahId) return;
+  const slug = getSelectedTafsirSlug();
+  if(el.dataset.loadedSlug === slug && el.dataset.loaded === '1') return;
+  const sourceInfo = getSourceInfo(slug);
+  const key = getTafsirCacheKey(slug, surahId, ayahId);
+  const label = (sourceInfo.type === 'translation' ? t('inline_tafsir_translation_prefix') : t('inline_tafsir_tafsir_prefix')) + ' — ' + sourceInfo.name;
+  el.dataset.loadedSlug = slug;
+  el.dataset.loaded = '0';
+
+  function render(text){
+    if(el.dataset.loadedSlug !== slug) return; // المستخدم غيّر المصدر قبل انتهاء التحميل
+    el.dataset.loaded = '1';
+    el.innerHTML = `<span class="inline-tafsir-label">${label}</span><div class="inline-tafsir-text" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
+  }
+
+  if(tafsirCache[key]){ render(tafsirCache[key]); return; }
+  const stored = getStoredTafsir(slug, surahId, ayahId);
+  if(stored){ tafsirCache[key] = stored; render(stored); return; }
+
+  el.innerHTML = `<span class="inline-tafsir-label">${label}</span><div class="inline-tafsir-loading">${sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir')}</div>`;
+  const sources = sourceInfo.type === 'translation'
+    ? [
+        `https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${slug}/${surahId}/${ayahId}.json`,
+        `https://raw.githubusercontent.com/fawazahmed0/quran-api/1/editions/${slug}/${surahId}/${ayahId}.json`
+      ]
+    : [
+        `https://cdn.jsdelivr.net/gh/spa5k/tafsir_api@main/tafsir/${slug}/${surahId}/${ayahId}.json`,
+        `https://raw.githubusercontent.com/spa5k/tafsir_api/main/tafsir/${slug}/${surahId}/${ayahId}.json`
+      ];
+  function tryFetch(i){
+    if(i >= sources.length){
+      if(el.dataset.loadedSlug === slug){
+        el.innerHTML = `<span class="inline-tafsir-label">${label}</span><div class="inline-tafsir-error">${t('tafsir_load_error')}</div>`;
+      }
+      return;
+    }
+    fetch(sources[i])
+      .then(res => { if(!res.ok) throw new Error('inline tafsir fetch failed'); return res.json(); })
+      .then(data => {
+        const text = (data && data.text) ? data.text : null;
+        if(!text) throw new Error('no tafsir text');
+        tafsirCache[key] = text;
+        setStoredTafsir(slug, surahId, ayahId, text);
+        render(text);
+      })
+      .catch(() => tryFetch(i + 1));
+  }
+  tryFetch(0);
+}
+
+function refreshVisibleInlineTafsir(){
+  document.querySelectorAll('#ayat-list .ayah-inline-tafsir[data-loaded="1"]').forEach(el => loadInlineTafsirForElement(el));
 }
 
 function removeBookmark(surahId, ayahId){
@@ -4027,6 +4131,7 @@ function openSurah(id, scrollToAyah){
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
+      <div class="ayah-inline-tafsir" data-surah="${id}" data-ayah="${v.id}" onclick="event.stopPropagation()"></div>
     </div>
   `;
   }).join('');
@@ -4130,6 +4235,7 @@ function openJuz(juzNum, scrollToSurahAyah){
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
+      <div class="ayah-inline-tafsir" data-surah="${v.surahId}" data-ayah="${v.ayahId}" onclick="event.stopPropagation()"></div>
     </div>
   `;
   }).join('');
@@ -4243,6 +4349,7 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
+      <div class="ayah-inline-tafsir" data-surah="${v.surahId}" data-ayah="${v.ayahId}" onclick="event.stopPropagation()"></div>
     </div>
   `;
   }).join('');
@@ -4348,6 +4455,7 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
       </div>
+      <div class="ayah-inline-tafsir" data-surah="${v.surahId}" data-ayah="${v.ayahId}" onclick="event.stopPropagation()"></div>
     </div>
   `;
   }).join('');
@@ -4653,6 +4761,7 @@ function applyDisplayMode(){
   if(contBtn) contBtn.classList.toggle('active', displayMode === 'continuous');
   const pageJumpRow = document.getElementById('page-jump-control-row');
   if(pageJumpRow) pageJumpRow.style.display = displayMode === 'continuous' ? '' : 'none';
+  applyInlineTafsirState();
 }
 
 function setDisplayMode(mode){
@@ -4796,6 +4905,9 @@ const I18N_STRINGS = {
     prev_ayah: 'الآية السابقة',
     next_ayah: 'الآية التالية',
     show_tafsir: 'عرض التفسير',
+    inline_tafsir_label: 'إظهار التفسير/الترجمة المختار أسفل كل آية (وضع الآيات المنفصلة فقط)',
+    inline_tafsir_tafsir_prefix: 'التفسير',
+    inline_tafsir_translation_prefix: 'الترجمة',
     add_to_favorites: 'إضافة إلى المفضلة',
     remove_from_favorites: 'إزالة من المفضلة',
     tap_to_listen: 'اضغط للاستماع لهذه الآية بصوت',
@@ -4995,6 +5107,9 @@ const I18N_STRINGS = {
     prev_ayah: 'Previous Ayah',
     next_ayah: 'Next Ayah',
     show_tafsir: 'Translation of Meanings & Tafsir',
+    inline_tafsir_label: 'Show the selected tafsir/translation under each ayah (separate-ayahs mode only)',
+    inline_tafsir_tafsir_prefix: 'Tafsir',
+    inline_tafsir_translation_prefix: 'Translation',
     add_to_favorites: 'Add to favorites',
     remove_from_favorites: 'Remove from favorites',
     tap_to_listen: 'Tap to listen to this ayah, recited by',
