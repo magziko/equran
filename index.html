@@ -744,6 +744,28 @@
   }
   .control-group{ display:flex; flex-direction:column; align-items:flex-start; gap:5px; min-width:0; }
   .control-group .label{ font-size:12.5px; color:var(--text-muted); font-weight:600; }
+  .control-group-tafsir{
+    grid-column:1 / -1; width:100%;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:15px 18px 16px; gap:13px;
+  }
+  .control-group-tafsir .test-mode-toggle-row{ margin-top:0; gap:9px; }
+  .control-group-tafsir .test-mode-toggle-row svg{ flex-shrink:0; color:var(--accent-soft); }
+  .control-group-tafsir.is-disabled{ opacity:.5; }
+  .control-group-tafsir.is-disabled .test-mode-toggle-row,
+  .control-group-tafsir.is-disabled .tafsir-source-row{ pointer-events:none; }
+  .control-group-tafsir.is-disabled .test-mode-toggle-row,
+  .control-group-tafsir.is-disabled .test-mode-toggle-row input{ cursor:not-allowed; }
+  .tafsir-source-row{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; width:100%;
+    padding-top:12px; border-top:1px dashed var(--border);
+  }
+  .tafsir-source-row .label{ white-space:nowrap; font-size:12.5px; }
+  .tafsir-source-row .font-select{ flex:1 1 240px; min-width:200px; max-width:380px; width:auto; }
+  @media (max-width:600px){
+    .control-group-tafsir{ padding:13px 14px 14px; }
+    .tafsir-source-row .font-select{ max-width:none; }
+  }
   .font-controls{ display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
   .font-controls button{
     width:30px; height:30px; border-radius:8px; border:1px solid var(--border);
@@ -1446,16 +1468,6 @@
             <button id="mode-btn-continuous" class="mode-btn" onclick="setDisplayMode('continuous')" data-i18n="mode_continuous">آيات متتالية (كالمصحف)</button>
           </div>
         </div>
-        <div class="control-group">
-          <label class="test-mode-toggle-row">
-            <input type="checkbox" id="inline-tafsir-toggle" onchange="toggleInlineTafsir(this.checked)">
-            <span data-i18n="inline_tafsir_label">إظهار التفسير/الترجمة المختار أسفل كل آية (وضع الآيات المنفصلة فقط)</span>
-          </label>
-        </div>
-        <div class="control-group">
-          <span class="label" data-i18n="tafsir_source_label">مصدر التفسير/الترجمة</span>
-          <select id="tafsir-source-select-settings" class="font-select" onchange="onTafsirSourceChangeFromSettings()"></select>
-        </div>
         <div class="page-jump-control-row" id="page-jump-control-row" style="display:none;">
           <div class="page-jump-panel">
             <span class="label" data-i18n="page_jump_panel_label">اذهب إلى صفحة من صفحات المصحف (١ - ٦٠٤)، بنفس تقسيم أسطر مصحف المدينة</span>
@@ -1523,6 +1535,17 @@
             <option value="badr_turki" data-i18n="reciter_badr_turki">الشيخ بدر التركي (مصحف مرتل)</option>
             <option value="islam_sobhy" data-i18n="reciter_islam_sobhy">الشيخ إسلام صبحي (مصحف مرتل)</option>
           </select>
+        </div>
+        <div class="control-group control-group-tafsir" id="control-group-tafsir">
+          <label class="test-mode-toggle-row">
+            <input type="checkbox" id="inline-tafsir-toggle" onchange="toggleInlineTafsir(this.checked)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span data-i18n="inline_tafsir_label">إظهار التفسير/الترجمة المختار أسفل كل آية (وضع الآيات المنفصلة فقط)</span>
+          </label>
+          <div class="tafsir-source-row">
+            <span class="label" data-i18n="tafsir_source_label">مصدر التفسير/الترجمة</span>
+            <select id="tafsir-source-select-settings" class="font-select" onchange="onTafsirSourceChangeFromSettings()"></select>
+          </div>
         </div>
         <div class="control-group repeat-group">
           <span class="label" data-i18n="repeat_section_label">تكرار الآيات للحفظ</span>
@@ -2456,13 +2479,19 @@ function toggleInlineTafsir(enabled){
 function applyInlineTafsirState(){
   const list = document.getElementById('ayat-list');
   const toggle = document.getElementById('inline-tafsir-toggle');
+  const wrap = document.getElementById('control-group-tafsir');
+  const isContinuous = displayMode === 'continuous';
   const enabled = isInlineTafsirEnabled();
-  if(toggle) toggle.checked = enabled;
+  if(toggle){ toggle.checked = enabled; toggle.disabled = isContinuous; }
   populateTafsirSourceSelect('tafsir-source-select-settings');
   const settingsSelect = document.getElementById('tafsir-source-select-settings');
-  if(settingsSelect && settingsSelect.options.length) settingsSelect.value = getSelectedTafsirSlug();
+  if(settingsSelect){
+    if(settingsSelect.options.length) settingsSelect.value = getSelectedTafsirSlug();
+    settingsSelect.disabled = isContinuous;
+  }
+  if(wrap) wrap.classList.toggle('is-disabled', isContinuous);
   if(!list) return;
-  list.classList.toggle('show-inline-tafsir', enabled);
+  list.classList.toggle('show-inline-tafsir', enabled && !isContinuous);
   setupInlineTafsirObserver();
 }
 
@@ -2470,7 +2499,7 @@ let inlineTafsirObserver = null;
 function setupInlineTafsirObserver(){
   const list = document.getElementById('ayat-list');
   if(inlineTafsirObserver){ inlineTafsirObserver.disconnect(); inlineTafsirObserver = null; }
-  if(!list || !isInlineTafsirEnabled()) return;
+  if(!list || !isInlineTafsirEnabled() || displayMode === 'continuous') return;
   inlineTafsirObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => { if(entry.isIntersecting) loadInlineTafsirForElement(entry.target); });
   }, { root: null, rootMargin: '250px 0px', threshold: 0.01 });
