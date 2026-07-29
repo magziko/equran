@@ -198,13 +198,13 @@
   .go-btn{
     background:var(--accent); color:#fff; border:none; font-weight:700;
     font-size:14px; height:40px; box-sizing:border-box; padding:0 20px; border-radius:10px;
-    box-shadow:0 4px 14px rgba(108,123,250,.35);
+    box-shadow:0 4px 14px rgba(108,123,250,.35); min-width:110px; text-align:center;
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .go-btn:hover{ transform:translateY(-1px); box-shadow:0 6px 18px rgba(108,123,250,.45); }
 
   .search-box{
-    flex:1 1 180px; max-width:320px; min-width:150px; position:relative;
+    flex:1 1 260px; max-width:none; min-width:220px; position:relative;
   }
   .search-box input{
     width:100%; height:40px; box-sizing:border-box;
@@ -238,6 +238,14 @@
     background:var(--accent); color:#fff;
     box-shadow:0 3px 10px rgba(108,123,250,.35);
   }
+  @media (min-width:701px) and (max-width:980px){
+    .toolbar{ flex-direction:column; align-items:stretch; gap:10px; }
+    .browse-tabs{ width:100%; }
+    .toolbar-actions{ width:100%; min-width:0; flex-wrap:nowrap; }
+    .search-box{ flex:1 1 auto; max-width:none; min-width:0; order:1; }
+    .go-btn{ order:2; flex-shrink:0; }
+    .count-pill{ order:3; flex-shrink:0; }
+  }
   @media (max-width:700px){
     .toolbar{ flex-direction:column; align-items:stretch; gap:10px; }
     .browse-tabs{ width:100%; }
@@ -251,8 +259,14 @@
   @media (max-width:480px){
     .browse-tab{ padding:0 4px; font-size:12.5px; }
     .toolbar-actions{ gap:6px; }
-    .go-btn{ padding:0 12px; font-size:13px; }
+    .go-btn{ padding:0 12px; font-size:13px; min-width:0; }
     .count-pill{ padding:0 10px; font-size:12.5px; }
+  }
+  @media (max-width:360px){
+    .toolbar-actions{ flex-wrap:wrap; }
+    .search-box{ flex:1 1 100%; order:1; }
+    .go-btn{ order:2; flex:1 1 auto; }
+    .count-pill{ order:3; }
   }
   @media (max-width:420px){
     .tab-full{ display:none; }
@@ -362,12 +376,18 @@
     text-align:center; padding:60px 20px; color:var(--text-muted); font-size:15px;
   }
 
+  /* ---------- Stack of home status cards (ayah of day / radio promo / continue reading) ---------- */
+  .home-cards-stack{
+    display:flex; flex-direction:column; gap:14px; margin-bottom:10px;
+  }
+  .home-cards-stack:empty{ display:none; margin:0; }
+
   /* ---------- Continue reading banner ---------- */
   .continue-card{
     display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
     background:linear-gradient(135deg, var(--accent-bg), transparent);
     border:1px solid var(--ring); border-radius:var(--radius-md);
-    padding:16px 20px; margin-bottom:20px;
+    padding:16px 20px;
   }
   .continue-card .cc-info{ display:flex; align-items:center; gap:14px; }
   .continue-card .cc-icon{
@@ -380,7 +400,7 @@
   .continue-card .cc-actions{ display:flex; align-items:center; gap:8px; }
   .continue-card .cc-go{
     background:var(--accent); color:#fff; border:none; font-weight:700; font-size:13.5px;
-    padding:9px 18px; border-radius:9px;
+    padding:9px 18px; border-radius:9px; min-width:110px; text-align:center;
   }
   .continue-card .cc-dismiss{
     background:transparent; border:1px solid var(--border); color:var(--text-muted);
@@ -392,10 +412,10 @@
   .aod-card{
     background:linear-gradient(135deg, var(--accent-bg), transparent);
     border:1px solid var(--ring); border-radius:var(--radius-md);
-    padding:18px 20px 16px; margin-bottom:16px;
+    padding:18px 20px 16px;
   }
-  .aod-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
-  .aod-label{ display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:var(--accent-soft); }
+  .aod-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .aod-label{ display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:var(--accent-soft); min-width:0; }
   .aod-label svg{ width:16px; height:16px; flex-shrink:0; }
   .aod-refresh{
     width:32px; height:32px; border-radius:9px; flex-shrink:0;
@@ -418,10 +438,17 @@
   .aod-nav svg{ width:16px; height:16px; }
   .aod-footer{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding-top:10px; border-top:1px dashed var(--border); }
   .aod-ref{ font-size:13px; font-weight:700; color:var(--text-muted); }
+  .aod-footer-actions{ display:flex; align-items:center; gap:8px; }
   .aod-go{
     background:var(--accent); color:#fff; border:none; font-weight:700; font-size:13.5px;
-    padding:8px 16px; border-radius:9px;
+    padding:8px 16px; border-radius:9px; min-width:110px; text-align:center;
   }
+  .aod-close{
+    flex-shrink:0; width:26px; height:26px; border-radius:50%; border:none;
+    background:transparent; color:var(--text-faint); font-size:18px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; transition:background .15s ease;
+  }
+  .aod-close:hover{ background:var(--surface-2); color:var(--text); }
 
   /* ---------- Saved-position marker on ayah card ---------- */
   .ayah-card.is-saved{
@@ -1309,7 +1336,7 @@
     display:none; align-items:center; gap:14px;
     background:linear-gradient(135deg, var(--accent-bg), transparent), var(--surface);
     border:1px solid var(--border); border-radius:var(--radius-md);
-    padding:14px 16px; margin:14px 0 4px;
+    padding:14px 16px;
     animation:radioPromoIn .35s ease;
   }
   @keyframes radioPromoIn{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:translateY(0); } }
@@ -1324,7 +1351,7 @@
   .radio-promo-banner__btn{
     flex-shrink:0; background:var(--accent); color:#fff; font-weight:700; font-size:13.5px;
     padding:9px 18px; border-radius:10px; text-decoration:none; white-space:nowrap;
-    transition:filter .15s ease;
+    transition:filter .15s ease; min-width:110px; text-align:center;
   }
   .radio-promo-banner__btn:hover{ filter:brightness(1.08); }
   .radio-promo-banner__close{
@@ -1440,21 +1467,23 @@
       </div>
     </div>
 
-    <div id="ayah-of-day-card"></div>
+    <div class="home-cards-stack">
+      <div id="ayah-of-day-card"></div>
 
-    <div class="radio-promo-banner" id="radio-promo-banner">
-      <div class="radio-promo-banner__icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+      <div class="radio-promo-banner" id="radio-promo-banner">
+        <div class="radio-promo-banner__icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
+        </div>
+        <div class="radio-promo-banner__text">
+          <strong data-i18n="radio_banner_title">استمتع بإذاعة القرآن الكريم المباشرة 🎧</strong>
+          <span data-i18n="radio_banner_subtitle">بث مباشر بأصوات نخبة القراء، وأذكار وتلاوات على مدار الساعة</span>
+        </div>
+        <a class="radio-promo-banner__btn" href="https://magziko.github.io/Radio/" target="_blank" rel="noopener" onclick="dismissRadioPromoBanner()" data-i18n="listen_now">استمع الآن</a>
+        <button class="radio-promo-banner__close" onclick="dismissRadioPromoBanner()" title="إغلاق" aria-label="إغلاق" data-i18n-title="close">×</button>
       </div>
-      <div class="radio-promo-banner__text">
-        <strong data-i18n="radio_banner_title">استمتع بإذاعة القرآن الكريم المباشرة 🎧</strong>
-        <span data-i18n="radio_banner_subtitle">بث مباشر بأصوات نخبة القراء، وأذكار وتلاوات على مدار الساعة</span>
-      </div>
-      <a class="radio-promo-banner__btn" href="https://magziko.github.io/Radio/" target="_blank" rel="noopener" onclick="dismissRadioPromoBanner()" data-i18n="listen_now">استمع الآن</a>
-      <button class="radio-promo-banner__close" onclick="dismissRadioPromoBanner()" title="إغلاق" aria-label="إغلاق" data-i18n-title="close">×</button>
+
+      <div id="continue-banner" style="display:none;"></div>
     </div>
-
-    <div id="continue-banner" style="display:none;"></div>
 
     <div class="toolbar">
       <div class="browse-tabs">
@@ -3804,11 +3833,26 @@ function pickRandomAyahOfDay(){
   return { surahId: surah.id, ayahId: verse.id, surahName: surah.name, text: verse.text };
 }
 
+function isAyahOfDayDismissedToday(){
+  const today = new Date().toDateString();
+  let dismissedDate = null;
+  try{ dismissedDate = localStorage.getItem('ayahOfDayDismissedDate'); }catch(e){}
+  return dismissedDate === today;
+}
+
+function dismissAyahOfDay(){
+  const wrap = document.getElementById('ayah-of-day-card');
+  if(wrap){ wrap.innerHTML = ''; wrap.style.display = 'none'; }
+  try{ localStorage.setItem('ayahOfDayDismissedDate', new Date().toDateString()); }catch(e){}
+}
+
 function renderAyahOfDayCard(){
   const wrap = document.getElementById('ayah-of-day-card');
   if(!wrap || !QURAN.length) return;
+  if(isAyahOfDayDismissedToday()){ wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
   if(!currentAyahOfDay) currentAyahOfDay = pickRandomAyahOfDay();
-  if(!currentAyahOfDay){ wrap.innerHTML = ''; return; }
+  if(!currentAyahOfDay){ wrap.innerHTML = ''; wrap.style.display = 'none'; return; }
   const a = currentAyahOfDay;
   wrap.innerHTML = `
     <div class="aod-card">
@@ -3832,7 +3876,10 @@ function renderAyahOfDayCard(){
       </div>
       <div class="aod-footer">
         <div class="aod-ref">${t('surah_word')} ${a.surahName} — ${t('ayah_word')} ${a.ayahId}</div>
-        <button class="aod-go" onclick="readAyahOfDayFromHere()">${t('ayah_of_day_read_here')}</button>
+        <div class="aod-footer-actions">
+          <button class="aod-go" onclick="readAyahOfDayFromHere()">${t('ayah_of_day_read_here')}</button>
+          <button class="aod-close" onclick="dismissAyahOfDay()" title="${t('close')}" aria-label="${t('close')}">×</button>
+        </div>
       </div>
     </div>
   `;
