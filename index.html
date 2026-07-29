@@ -388,6 +388,41 @@
   }
   .continue-card .cc-dismiss svg{ width:15px; height:15px; }
 
+  /* ---------- Ayah of the day card ---------- */
+  .aod-card{
+    background:linear-gradient(135deg, var(--accent-bg), transparent);
+    border:1px solid var(--ring); border-radius:var(--radius-md);
+    padding:18px 20px 16px; margin-bottom:16px;
+  }
+  .aod-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .aod-label{ display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; color:var(--accent-soft); }
+  .aod-label svg{ width:16px; height:16px; flex-shrink:0; }
+  .aod-refresh{
+    width:32px; height:32px; border-radius:9px; flex-shrink:0;
+    background:transparent; border:1px solid var(--border); color:var(--text-muted);
+    display:flex; align-items:center; justify-content:center;
+    transition:transform .35s ease;
+  }
+  .aod-refresh svg{ width:15px; height:15px; }
+  .aod-refresh.spinning svg{ animation:aod-spin .5s linear; }
+  @keyframes aod-spin{ from{ transform:rotate(0deg);} to{ transform:rotate(360deg);} }
+  .aod-text{ text-align:center; line-height:2.2; padding:6px 4px 14px; }
+  .aod-body{ display:flex; align-items:center; gap:10px; }
+  .aod-body .aod-text{ flex:1 1 auto; min-width:0; }
+  .aod-nav{
+    flex-shrink:0; width:34px; height:34px; border-radius:9px;
+    background:transparent; border:1px solid var(--border); color:var(--text-muted);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .aod-nav:hover{ background:var(--surface-2); color:var(--text); }
+  .aod-nav svg{ width:16px; height:16px; }
+  .aod-footer{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding-top:10px; border-top:1px dashed var(--border); }
+  .aod-ref{ font-size:13px; font-weight:700; color:var(--text-muted); }
+  .aod-go{
+    background:var(--accent); color:#fff; border:none; font-weight:700; font-size:13.5px;
+    padding:8px 16px; border-radius:9px;
+  }
+
   /* ---------- Saved-position marker on ayah card ---------- */
   .ayah-card.is-saved{
     border-color:var(--accent);
@@ -1405,6 +1440,8 @@
       </div>
     </div>
 
+    <div id="ayah-of-day-card"></div>
+
     <div class="radio-promo-banner" id="radio-promo-banner">
       <div class="radio-promo-banner__icon">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
@@ -1795,6 +1832,18 @@ let currentMode = 'surah';
 let browseMode = 'surah';
 let scrollSaveTimer = null;
 
+/* ---------- Ayah of the day + "browsing mark" guard ----------
+   لما المستخدم يدخل السورة عبر زر "اقرأ من هنا" في بطاقة آية اليوم، نفعّل
+   ayahOfDayBrowsing عشان نمنع أي تمرير/تصفح داخل هذه الجلسة من الكتابة فوق
+   "موضع القراءة" المحفوظ. أي تنقّل طبيعي (فتح سورة من القائمة، التالي/السابق،
+   أكمل من هنا...) يعيد الوضع لطبيعته تلقائيًا لأنه يمر بنفس نقاط الدخول
+   (openSurah / openJuz / openHizb / openRub / openMushafPage) التي تصفّر
+   العلامة إلا إذا كانت جايه فعليًا من بطاقة آية اليوم. */
+let ayahOfDayBrowsing = false;
+let pendingAyahOfDayNav = false;
+let currentAyahOfDay = null;
+let ayahOfDayFlatIndex = null;
+
 /* ---------- Mushaf page browsing (Madinah-style pages) ---------- */
 const MUSHAF_PAGE_COUNT = 604;
 const MUSHAF_BASE_URL = 'https://raw.githubusercontent.com/zonetecde/mushaf-layout/refs/heads/main/mushaf/';
@@ -2058,6 +2107,9 @@ async function init(){
   renderHizbGrid('');
   document.getElementById('count-pill').textContent = browseMode === 'juz' ? '1-30' : (browseMode === 'hizb' ? '1-60' : '1-114');
   renderContinueBanner();
+  currentAyahOfDay = pickRandomAyahOfDay();
+  renderAyahOfDayCard();
+  attachAyahOfDaySwipeNavigation();
   updateFavoritesCount();
   buildAyahSearchIndex();
   initRadioPromoBanner();
@@ -2066,15 +2118,16 @@ async function init(){
 function initRadioPromoBanner(){
   const el = document.getElementById('radio-promo-banner');
   if(!el) return;
-  let dismissed = false;
-  try{ dismissed = localStorage.getItem('radioPromoBannerDismissed') === '1'; }catch(e){}
-  if(!dismissed) el.style.display = 'flex';
+  const today = new Date().toDateString();
+  let dismissedDate = null;
+  try{ dismissedDate = localStorage.getItem('radioPromoBannerDismissedDate'); }catch(e){}
+  if(dismissedDate !== today) el.style.display = 'flex';
 }
 
 function dismissRadioPromoBanner(){
   const el = document.getElementById('radio-promo-banner');
   if(el) el.style.display = 'none';
-  try{ localStorage.setItem('radioPromoBannerDismissed', '1'); }catch(e){}
+  try{ localStorage.setItem('radioPromoBannerDismissedDate', new Date().toDateString()); }catch(e){}
 }
 
 function normalizeArabicChar(ch){
@@ -3726,6 +3779,132 @@ function dismissContinueBanner(){
   renderContinueBanner();
 }
 
+/* ---------- Ayah of the day ---------- */
+function getAyahOfDayFlatIndex(){
+  if(ayahOfDayFlatIndex && ayahOfDayFlatIndex.length) return ayahOfDayFlatIndex;
+  const flat = [];
+  for(const surah of QURAN){
+    for(const v of surah.verses){
+      flat.push({ surahId: surah.id, ayahId: v.id });
+    }
+  }
+  ayahOfDayFlatIndex = flat;
+  return flat;
+}
+
+// يختار آية عشوائية واحدة من بين كل آيات القرآن (احتمال متساوٍ لكل آية)
+function pickRandomAyahOfDay(){
+  const flat = getAyahOfDayFlatIndex();
+  if(!flat.length) return null;
+  const pick = flat[Math.floor(Math.random() * flat.length)];
+  const surah = QURAN.find(s => s.id === pick.surahId);
+  if(!surah) return null;
+  const verse = surah.verses.find(v => v.id === pick.ayahId);
+  if(!verse) return null;
+  return { surahId: surah.id, ayahId: verse.id, surahName: surah.name, text: verse.text };
+}
+
+function renderAyahOfDayCard(){
+  const wrap = document.getElementById('ayah-of-day-card');
+  if(!wrap || !QURAN.length) return;
+  if(!currentAyahOfDay) currentAyahOfDay = pickRandomAyahOfDay();
+  if(!currentAyahOfDay){ wrap.innerHTML = ''; return; }
+  const a = currentAyahOfDay;
+  wrap.innerHTML = `
+    <div class="aod-card">
+      <div class="aod-head">
+        <div class="aod-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8H20l-4.95 3.6 1.9 5.8L12 14.6l-4.95 3.6 1.9-5.8L3 8.8h6.1z"/></svg>
+          <span>${t('ayah_of_day_label')}</span>
+        </div>
+        <button class="aod-refresh" id="aod-refresh-btn" onclick="refreshAyahOfDay()" title="${t('ayah_of_day_refresh')}" aria-label="${t('ayah_of_day_refresh')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
+      <div class="aod-body">
+        <button class="aod-nav aod-nav-prev" onclick="navigateAyahOfDay(-1)" title="${t('ayah_of_day_prev')}" aria-label="${t('ayah_of_day_prev')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <div class="aod-text ayah-text" style="font-size:${Math.min(fontSize + 4, 34)}px;">${renderAyahTextSpans(a.text)}</div>
+        <button class="aod-nav aod-nav-next" onclick="navigateAyahOfDay(1)" title="${t('ayah_of_day_next')}" aria-label="${t('ayah_of_day_next')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+      </div>
+      <div class="aod-footer">
+        <div class="aod-ref">${t('surah_word')} ${a.surahName} — ${t('ayah_word')} ${a.ayahId}</div>
+        <button class="aod-go" onclick="readAyahOfDayFromHere()">${t('ayah_of_day_read_here')}</button>
+      </div>
+    </div>
+  `;
+}
+
+// يتنقل خطوة واحدة للأمام (+1) أو للخلف (-1) عبر كل آيات القرآن بالترتيب،
+// ويلف تلقائيًا من آخر آية لأول آية والعكس
+function navigateAyahOfDay(direction){
+  if(!QURAN.length) return;
+  if(!currentAyahOfDay){ currentAyahOfDay = pickRandomAyahOfDay(); renderAyahOfDayCard(); return; }
+  const flat = getAyahOfDayFlatIndex();
+  if(!flat.length) return;
+  let idx = flat.findIndex(p => p.surahId === currentAyahOfDay.surahId && p.ayahId === currentAyahOfDay.ayahId);
+  if(idx === -1) idx = 0;
+  idx = (idx + direction + flat.length) % flat.length;
+  const pick = flat[idx];
+  const surah = QURAN.find(s => s.id === pick.surahId);
+  const verse = surah && surah.verses.find(v => v.id === pick.ayahId);
+  if(!surah || !verse) return;
+  currentAyahOfDay = { surahId: surah.id, ayahId: verse.id, surahName: surah.name, text: verse.text };
+  renderAyahOfDayCard();
+}
+
+// سحب باللمس فوق بطاقة آية اليوم: يمينًا للآية التالية، يسارًا للآية السابقة
+function attachAyahOfDaySwipeNavigation(){
+  const wrap = document.getElementById('ayah-of-day-card');
+  if(!wrap) return;
+  let startX = 0, startY = 0, startTime = 0, tracking = false;
+  const MIN_DIST = 50;
+  const MAX_OFF_AXIS = 60;
+  const MAX_TIME = 700;
+
+  wrap.addEventListener('touchstart', function(e){
+    if(e.touches.length !== 1) return;
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    startTime = Date.now();
+    tracking = true;
+  }, { passive: true });
+
+  wrap.addEventListener('touchend', function(e){
+    if(!tracking) return;
+    tracking = false;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - startX;
+    const dy = touch.clientY - startY;
+    const dt = Date.now() - startTime;
+    if(Math.abs(dx) < MIN_DIST || Math.abs(dy) > MAX_OFF_AXIS || dt > MAX_TIME) return;
+    if(dx > 0) navigateAyahOfDay(1);
+    else navigateAyahOfDay(-1);
+  }, { passive: true });
+}
+
+function refreshAyahOfDay(){
+  currentAyahOfDay = pickRandomAyahOfDay();
+  renderAyahOfDayCard();
+  const btn = document.getElementById('aod-refresh-btn');
+  if(btn){
+    btn.classList.remove('spinning');
+    void btn.offsetWidth; // إعادة تشغيل الأنيميشن حتى لو ضغط المستخدم أكتر من مرة بسرعة
+    btn.classList.add('spinning');
+  }
+}
+
+// ينقل المستخدم لمكان آية اليوم داخل السورة، مع تفعيل علامة "تصفح آية اليوم"
+// حتى لا يتم الكتابة فوق موضع القراءة المحفوظ أثناء هذه الجولة
+function readAyahOfDayFromHere(){
+  if(!currentAyahOfDay) return;
+  pendingAyahOfDayNav = true;
+  openSurah(currentAyahOfDay.surahId, currentAyahOfDay.ayahId);
+}
+
 function updateReadingProgress(){
   const readView = document.getElementById('read-view');
   const progressWrap = document.getElementById('reading-progress');
@@ -3833,6 +4012,7 @@ window.addEventListener('resize', scheduleScrollPositionBadgeUpdate);
 function handleReadScroll(){
   if(scrollSaveTimer) clearTimeout(scrollSaveTimer);
   scrollSaveTimer = setTimeout(() => {
+    if(ayahOfDayBrowsing) return; // جلسة تصفح من "آية اليوم": لا نحدّث موضع القراءة المحفوظ
     if(currentMode === 'surah' && !currentSurahId) return;
     if(currentMode === 'juz' && !currentJuzId) return;
     if(currentMode === 'hizb' && !currentHizbId) return;
@@ -4243,6 +4423,7 @@ function showList(){
   document.getElementById('khatma-view').style.display = 'none';
   document.getElementById('surah-side-nav').classList.add('side-nav-hidden');
   renderContinueBanner();
+  renderAyahOfDayCard();
   window.scrollTo(0,0);
   updateReadingProgress();
 }
@@ -4250,6 +4431,11 @@ function showList(){
 function openSurah(id, scrollToAyah){
   const surah = QURAN.find(s => s.id === id);
   if(!surah) return;
+
+  // تفعيل علامة "تصفح آية اليوم" فقط لو التنقل جاي فعليًا من زر "اقرأ من هنا"،
+  // وإلا فأي تنقل عادي يرجّع الوضع الطبيعي لحفظ موضع القراءة
+  if(pendingAyahOfDayNav){ ayahOfDayBrowsing = true; pendingAyahOfDayNav = false; }
+  else{ ayahOfDayBrowsing = false; }
 
   stopAyahRepeat();
   if(listenState.active && !listenState.suppressAutoStop) stopFullSurahListen();
@@ -4342,10 +4528,39 @@ function openSurah(id, scrollToAyah){
 
   const target = scrollToAyah || (saved && saved.surahId === id ? saved.ayahId : null);
   if(target){
-    setTimeout(() => {
-      const el = document.getElementById('ayah-' + target);
+    // نوقف تحميل التفسير المضمّن التلقائي مؤقتًا (لو مفعّل من الإعدادات) لحد
+    // ما نوصل لمكان الآية الهدف بالظبط، لأن تحميله بيغيّر ارتفاع البطاقات
+    // ويزحلق موضع السكرول لو حصل أثناء ما إحنا لسه بنتنقل للآية
+    const tafsirWasEnabled = typeof isInlineTafsirEnabled === 'function' && isInlineTafsirEnabled();
+    if(tafsirWasEnabled && typeof inlineTafsirObserver !== 'undefined' && inlineTafsirObserver){
+      inlineTafsirObserver.disconnect();
+      inlineTafsirObserver = null;
+    }
+
+    const targetElId = 'ayah-' + target;
+    const scrollToTargetAyah = () => {
+      const el = document.getElementById(targetElId);
       if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
-    }, 60);
+    };
+    // ننتظر تحميل خط القرآن قبل أول سكرول، لأنه لو اتحمّل بعد اللحظة دي
+    // هيغيّر ارتفاع البطاقات ويحرّف موضع الآية الهدف عن مكانها الصحيح
+    const doInitialScroll = () => {
+      requestAnimationFrame(() => requestAnimationFrame(scrollToTargetAyah));
+    };
+    if(document.fonts && document.fonts.ready){
+      document.fonts.ready.then(doInitialScroll).catch(doInitialScroll);
+    } else {
+      setTimeout(doInitialScroll, 60);
+    }
+    // سكرول تصحيحي نهائي، وبعده بنرجّع تفعيل تحميل التفسير المضمّن تلقائيًا
+    // (لو كان مفعّلاً) بعد ما يكون السكرول استقرّ فعلاً على الآية الصحيحة
+    setTimeout(() => {
+      scrollToTargetAyah();
+      if(tafsirWasEnabled && currentSurahId === id) setupInlineTafsirObserver();
+    }, 700);
+  } else if(typeof isInlineTafsirEnabled === 'function' && isInlineTafsirEnabled() && typeof setupInlineTafsirObserver === 'function'){
+    // مفيش آية هدف نتنقل لها: التفسير المضمّن يشتغل عادي من غير تأجيل
+    setupInlineTafsirObserver();
   }
 }
 
@@ -4353,6 +4568,7 @@ function openJuz(juzNum, scrollToSurahAyah){
   const verses = getJuzVerses(juzNum);
   if(!verses.length) return;
 
+  ayahOfDayBrowsing = false;
   stopAyahRepeat();
   if(listenState.active) stopFullSurahListen();
   currentMode = 'juz';
@@ -4456,6 +4672,7 @@ function openJuz(juzNum, scrollToSurahAyah){
 function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   const verses = getHizbVerses(hizbNum);
   if(!verses.length) return;
+  ayahOfDayBrowsing = false;
   stopAyahRepeat();
   if(listenState.active) stopFullSurahListen();
   const rubStarts = getRubStartsForHizb(hizbNum);
@@ -4567,6 +4784,7 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
 function openRub(hizbNum, quarter, scrollToSurahAyah){
   const verses = getRubVerses(hizbNum, quarter);
   if(!verses.length) return;
+  ayahOfDayBrowsing = false;
   stopAyahRepeat();
   if(listenState.active) stopFullSurahListen();
 
@@ -4725,6 +4943,7 @@ async function openMushafPage(pageNum){
   pageNum = parseInt(pageNum, 10);
   if(isNaN(pageNum) || pageNum < 1 || pageNum > MUSHAF_PAGE_COUNT) return;
 
+  ayahOfDayBrowsing = false;
   stopAyahRepeat();
   if(listenState.active) stopFullSurahListen();
   currentMode = 'page';
@@ -5069,6 +5288,11 @@ const I18N_STRINGS = {
     surah_word: 'سورة',
     ayah_word: 'الآية',
     continue_from_here: 'أكمل من هنا',
+    ayah_of_day_label: 'آية اليوم',
+    ayah_of_day_refresh: 'آية عشوائية أخرى',
+    ayah_of_day_read_here: 'اقرأ من هنا',
+    ayah_of_day_prev: 'الآية السابقة',
+    ayah_of_day_next: 'الآية التالية',
     dismiss: 'حذف',
     loading_translation: 'جارٍ تحميل الترجمة...',
     loading_tafsir: 'جارٍ تحميل التفسير...',
@@ -5272,6 +5496,11 @@ const I18N_STRINGS = {
     surah_word: 'Surah',
     ayah_word: 'Ayah',
     continue_from_here: 'Continue from here',
+    ayah_of_day_label: 'Ayah of the Day',
+    ayah_of_day_refresh: 'Another random ayah',
+    ayah_of_day_read_here: 'Read from here',
+    ayah_of_day_prev: 'Previous ayah',
+    ayah_of_day_next: 'Next ayah',
     dismiss: 'Dismiss',
     loading_translation: 'Loading translation...',
     loading_tafsir: 'Loading tafsir...',
@@ -5437,6 +5666,7 @@ function refreshDynamicContent(){
     onSideNavSearchInput(sideSearch.value);
   }
   if(typeof renderContinueBanner === 'function') renderContinueBanner();
+  if(typeof renderAyahOfDayCard === 'function') renderAyahOfDayCard();
   if(typeof refreshTafsirSourceSelectLanguage === 'function'){
     refreshTafsirSourceSelectLanguage('tafsir-source-select');
     refreshTafsirSourceSelectLanguage('tafsir-source-select-settings');
@@ -5623,6 +5853,23 @@ function attachDisplayModeShortcuts(){
     if(e.ctrlKey || e.metaKey || e.altKey) return;
     const tag = (e.target && e.target.tagName) || '';
     if(tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+
+    // اسهم الكيبورد للتنقل بين آيات بطاقة "آية اليوم" وإحنا في الصفحة الرئيسية
+    // (يمين = الآية التالية، يسار = الآية السابقة)
+    const listViewEl = document.getElementById('list-view');
+    const aodCardEl = document.getElementById('ayah-of-day-card');
+    if(listViewEl && listViewEl.style.display !== 'none' && aodCardEl && aodCardEl.querySelector('.aod-card')){
+      const aodKey = e.key.toLowerCase();
+      if(aodKey === 'arrowright'){
+        e.preventDefault();
+        navigateAyahOfDay(-1);
+        return;
+      } else if(aodKey === 'arrowleft'){
+        e.preventDefault();
+        navigateAyahOfDay(1);
+        return;
+      }
+    }
 
     const tafsirOverlay = document.getElementById('tafsir-overlay');
     if(tafsirOverlay && tafsirOverlay.classList.contains('open')){
