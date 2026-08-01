@@ -896,6 +896,10 @@
   html[data-font="madinah"] .ayah-text{ font-family:'UthmanicHafs Madinah', serif; }
   html[data-bold="on"] .ayah-text{ font-weight:700; }
 
+  /* تظليل الكلمة أثناء التلاوة (تقديري: يوزّع مدة الآية على عدد كلماتها) */
+  .wbw-word{ transition:color .15s ease, background-color .15s ease; border-radius:4px; padding:0 1px; }
+  .wbw-word.wbw-active{ color:#fff; background-color:var(--accent); }
+
   /* وضع اختبار الحفظ: يخفي نص الآية كله حتى يُكشف بمرور الماوس أو الضغط باللمس */
   html[data-test-mode="on"] .ayah-text .ayah-first-word,
   html[data-test-mode="on"] .ayah-text .ayah-rest-text{
@@ -1666,6 +1670,13 @@
             <option value="2" data-i18n="speed_2">2×</option>
           </select>
         </div>
+        <div class="control-group">
+          <label class="test-mode-toggle-row">
+            <input type="checkbox" id="wbw-highlight-toggle" onchange="toggleWbwHighlight(this.checked)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <span data-i18n="wbw_highlight_label">تظليل الكلمة أثناء التلاوة (تقديري)</span>
+          </label>
+        </div>
         <div class="control-group control-group-tafsir" id="control-group-tafsir">
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="inline-tafsir-toggle" onchange="toggleInlineTafsir(this.checked)">
@@ -2140,6 +2151,8 @@ async function init(){
   if(boldBtn) boldBtn.classList.toggle('active', boldActive);
   document.getElementById('reciter-select').value = selectedReciter;
   document.getElementById('playback-speed-select').value = playbackSpeed;
+  const wbwToggle = document.getElementById('wbw-highlight-toggle');
+  if(wbwToggle) wbwToggle.checked = isWbwHighlightEnabled();
   updateRepeatAvailability();
   document.getElementById('test-mode-toggle').checked = testModeActive;
   document.documentElement.setAttribute('data-test-mode', testModeActive ? 'on' : 'off');
@@ -3317,6 +3330,56 @@ let ayahAudioPlayingCardId = null;
 let lastActiveAyahCardId = null;
 let ayahTimeUpdateHandler = null;
 
+/* ---------- تظليل الكلمة أثناء التلاوة (تقديري) ---------- */
+let wbwActiveCardId = null;
+let wbwWordEls = [];
+let wbwBoundsMs = null; // {start, end} بالمللي ثانية داخل ملف الصوت الحالي
+let wbwLastIdx = -1;
+
+function isWbwHighlightEnabled(){
+  try{ return localStorage.getItem('wbwHighlightEnabled') === '1'; } catch(e){ return false; }
+}
+function toggleWbwHighlight(enabled){
+  try{ localStorage.setItem('wbwHighlightEnabled', enabled ? '1' : '0'); } catch(e){ /* تجاهل أخطاء التخزين */ }
+  const toggle = document.getElementById('wbw-highlight-toggle');
+  if(toggle) toggle.checked = enabled;
+  if(!enabled) clearWbwHighlight();
+}
+
+function setupWbwForCard(cardId){
+  clearWbwHighlight();
+  if(!isWbwHighlightEnabled()) return;
+  const card = document.getElementById(cardId);
+  if(!card) return;
+  const words = card.querySelectorAll('.ayah-text .wbw-word');
+  if(!words.length) return;
+  wbwActiveCardId = cardId;
+  wbwWordEls = Array.from(words);
+}
+
+function clearWbwHighlight(){
+  if(wbwWordEls.length) wbwWordEls.forEach(w => w.classList.remove('wbw-active'));
+  wbwActiveCardId = null;
+  wbwWordEls = [];
+  wbwBoundsMs = null;
+  wbwLastIdx = -1;
+}
+
+function updateWbwHighlightFromTime(currentTimeSec){
+  if(!wbwActiveCardId || !wbwWordEls.length || !wbwBoundsMs) return;
+  const curMs = currentTimeSec * 1000;
+  const start = wbwBoundsMs.start, end = wbwBoundsMs.end;
+  if(!(end > start)) return;
+  let frac = (curMs - start) / (end - start);
+  if(frac < 0) frac = 0; else if(frac > 1) frac = 1;
+  let idx = Math.floor(frac * wbwWordEls.length);
+  if(idx >= wbwWordEls.length) idx = wbwWordEls.length - 1;
+  if(idx === wbwLastIdx) return;
+  if(wbwLastIdx >= 0 && wbwWordEls[wbwLastIdx]) wbwWordEls[wbwLastIdx].classList.remove('wbw-active');
+  wbwWordEls[idx].classList.add('wbw-active');
+  wbwLastIdx = idx;
+}
+
 function clearTimedSegmentWatcher(){
   if(ayahTimeUpdateHandler && ayahAudioPlayer){
     ayahAudioPlayer.removeEventListener('timeupdate', ayahTimeUpdateHandler);
@@ -3345,6 +3408,7 @@ function playTimedSegment(folderUrl, surahId, startMs, endMs){
     }
   };
   ayahAudioPlayer.addEventListener('timeupdate', ayahTimeUpdateHandler);
+  wbwBoundsMs = { start: startMs, end: endMs };
 
   if(ayahAudioPlayer.src !== audioUrl){
     ayahAudioPlayer.src = audioUrl;
@@ -3389,6 +3453,9 @@ function loadAndPlayAyah(surahId, ayahId){
     const surahPart = String(surahId).padStart(3, '0');
     const ayahPart = String(ayahId).padStart(3, '0');
     ayahAudioPlayer.src = `https://everyayah.com/data/${reciter.folder}/${surahPart}${ayahPart}.mp3`;
+    ayahAudioPlayer.addEventListener('loadedmetadata', () => {
+      if(isFinite(ayahAudioPlayer.duration)) wbwBoundsMs = { start: 0, end: ayahAudioPlayer.duration * 1000 };
+    }, { once:true });
     ayahAudioPlayer.play().catch(() => {
       console.warn('تعذر تشغيل الصوت.');
       if(repeatState.active) stopAyahRepeat(); else if(listenState.active) stopFullSurahListen(); else stopAyahAudioUI();
@@ -3416,6 +3483,7 @@ function playAyahAudio(surahId, ayahId, cardId){
   ayahAudioPlayingCardId = cardId;
   const card = document.getElementById(cardId);
   if(card) card.classList.add('is-playing');
+  setupWbwForCard(cardId);
   loadAndPlayAyah(surahId, ayahId);
 }
 
@@ -3424,6 +3492,7 @@ function ensureAyahAudioPlayer(){
   ayahAudioPlayer = new Audio();
   ayahAudioPlayer.playbackRate = playbackSpeed;
   ayahAudioPlayer.addEventListener('play', () => { ayahAudioPlayer.playbackRate = playbackSpeed; });
+  ayahAudioPlayer.addEventListener('timeupdate', () => updateWbwHighlightFromTime(ayahAudioPlayer.currentTime));
   ayahAudioPlayer.addEventListener('ended', onAyahAudioEnded);
   ayahAudioPlayer.addEventListener('error', () => {
     console.warn('تعذر تحميل تلاوة هذه الآية.');
@@ -3445,6 +3514,7 @@ function onAyahAudioEnded(){
 function stopAyahAudioUI(){
   document.querySelectorAll('.ayah-card.is-playing').forEach(el => el.classList.remove('is-playing'));
   ayahAudioPlayingCardId = null;
+  clearWbwHighlight();
 }
 
 /* ---------- تكرار الآيات للمساعدة على الحفظ ---------- */
@@ -3566,6 +3636,7 @@ function playRepeatStep(){
     card.classList.add('is-playing');
     card.scrollIntoView({ behavior:'smooth', block:'center' });
   }
+  setupWbwForCard(cardId);
 
   const segmentInfo = repeatState.segmentTimes > 1
     ? tf('repeat_segment_round', { seg: repeatState.currentSegment, segTotal: repeatState.segmentTimes })
@@ -3652,6 +3723,8 @@ async function startListenTimingWatcher(surahId, readId){
         card.classList.add('is-playing');
         card.scrollIntoView({ behavior:'smooth', block:'center' });
       }
+      setupWbwForCard(cardId);
+      wbwBoundsMs = { start: current.start_time, end: current.end_time || (current.start_time + 8000) };
     }
   };
   ayahAudioPlayer.addEventListener('timeupdate', listenTimeUpdateHandler);
@@ -3777,6 +3850,7 @@ function playListenAyahStep(){
     card.classList.add('is-playing');
     card.scrollIntoView({ behavior:'smooth', block:'center' });
   }
+  setupWbwForCard(cardId);
   loadAndPlayAyah(currentSurahId, v.id);
 }
 
@@ -4374,12 +4448,14 @@ let testModeActive = localStorage.getItem('testModeActive') === '1';
 
 function renderAyahTextSpans(text){
   const trimmed = (text || '').trim();
-  const spaceIndex = trimmed.indexOf(' ');
-  if(spaceIndex === -1){
-    return `<span class="ayah-first-word">${trimmed}</span>`;
+  if(!trimmed) return '';
+  const words = trimmed.split(/\s+/);
+  const wrapped = words.map((w, i) => `<span class="wbw-word" data-widx="${i}">${w}</span>`);
+  if(wrapped.length === 1){
+    return `<span class="ayah-first-word">${wrapped[0]}</span>`;
   }
-  const first = trimmed.slice(0, spaceIndex);
-  const rest = trimmed.slice(spaceIndex);
+  const first = wrapped[0];
+  const rest = ' ' + wrapped.slice(1).join(' ');
   return `<span class="ayah-first-word">${first}</span><span class="ayah-rest-text">${rest}</span>`;
 }
 
@@ -5350,6 +5426,7 @@ const I18N_STRINGS = {
     speed_1_5: '1.5×',
     speed_1_75: '1.75×',
     speed_2: '2×',
+    wbw_highlight_label: 'تظليل الكلمة أثناء التلاوة (تقديري)',
     repeat_section_label: 'تكرار الآيات للحفظ',
     repeat_from: 'من آية',
     repeat_to: 'إلى آية',
@@ -5566,6 +5643,7 @@ const I18N_STRINGS = {
     speed_1_5: '1.5×',
     speed_1_75: '1.75×',
     speed_2: '2×',
+    wbw_highlight_label: 'Highlight the word being recited (estimated)',
     repeat_section_label: 'Verse repetition for memorization',
     repeat_from: 'From ayah',
     repeat_to: 'To ayah',
