@@ -1442,6 +1442,42 @@
     .radio-fab{ bottom:18px; right:16px; width:46px; height:46px; }
     .radio-fab svg{ width:20px; height:20px; }
   }
+
+  /* ---------- Auto-scroll (hands-free reading) button ---------- */
+  .auto-scroll-btn{
+    position:fixed; bottom:26px; right:22px; z-index:997;
+    width:42px; height:42px; border-radius:50%;
+    background:var(--accent); color:#fff; border:none; cursor:pointer;
+    display:none; align-items:center; justify-content:center;
+    box-shadow:0 6px 18px rgba(0,0,0,.3);
+    transition:filter .15s ease, transform .15s ease, background .15s ease;
+  }
+  .auto-scroll-btn.visible{ display:flex; }
+  .auto-scroll-btn:hover{ filter:brightness(1.08); transform:translateY(-2px); }
+  .auto-scroll-btn svg{ width:17px; height:17px; position:relative; z-index:1; }
+  .auto-scroll-btn.active{ background:#e0473c; }
+  .auto-scroll-btn.active .auto-scroll-btn__pulse{
+    position:absolute; inset:-4px; border-radius:50%;
+    border:2px solid #e0473c; opacity:.55;
+    animation:radioFabPulse 2.4s ease-out infinite;
+    pointer-events:none;
+  }
+  .auto-scroll-speed{
+    position:fixed; bottom:72px; right:22px; z-index:997;
+    display:none; align-items:center; gap:6px;
+    padding:6px 12px; border-radius:999px;
+    background:var(--bg-elev); border:1px solid var(--border); color:var(--text);
+    font-family:'Cairo', sans-serif; font-size:12.5px; font-weight:700;
+    box-shadow:var(--shadow); cursor:pointer; white-space:nowrap;
+  }
+  .auto-scroll-speed.visible{ display:flex; }
+  .auto-scroll-speed:hover{ filter:brightness(1.06); }
+  .auto-scroll-speed svg{ width:13px; height:13px; color:var(--accent); }
+  @media (max-width:600px){
+    .auto-scroll-btn{ bottom:18px; right:16px; width:36px; height:36px; }
+    .auto-scroll-btn svg{ width:15px; height:15px; }
+    .auto-scroll-speed{ bottom:60px; right:16px; }
+  }
 </style>
 </head>
 <body>
@@ -1469,6 +1505,17 @@
   <span class="radio-fab__pulse"></span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
 </a>
+
+<button type="button" class="auto-scroll-speed" id="auto-scroll-speed-btn" onclick="cycleAutoScrollSpeed()" title="سرعة التمرير التلقائي" aria-label="سرعة التمرير التلقائي" data-i18n-title="auto_scroll_speed" data-i18n-aria-label="auto_scroll_speed">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+  <span id="auto-scroll-speed-text">السرعة: متوسطة</span>
+</button>
+
+<button type="button" class="auto-scroll-btn" id="auto-scroll-btn" onclick="toggleAutoScroll()" title="بدء التمرير التلقائي للقراءة بدون لمس الشاشة" aria-label="بدء التمرير التلقائي للقراءة بدون لمس الشاشة" data-i18n-title="auto_scroll_start" data-i18n-aria-label="auto_scroll_start">
+  <span class="auto-scroll-btn__pulse"></span>
+  <svg id="auto-scroll-icon-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8l5 5 5-5"/><path d="M7 15l5 5 5-5"/></svg>
+  <svg id="auto-scroll-icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+</button>
 
 <div class="page-shell">
 <aside class="surah-side-nav side-nav-hidden" id="surah-side-nav" aria-label="قائمة السور والأجزاء" data-i18n-aria-label="surah_juz_list_label">
@@ -3972,8 +4019,15 @@ function updateReadingProgress(){
   const bar = document.getElementById('reading-progress-bar');
   const btn = document.getElementById('scroll-top-btn');
   const radioFab = document.getElementById('radio-fab');
+  const autoBtn = document.getElementById('auto-scroll-btn');
 
-  if(radioFab) radioFab.style.display = (readView.style.display === 'block') ? 'none' : '';
+  const inReadView = (readView.style.display === 'block');
+  if(radioFab) radioFab.style.display = inReadView ? 'none' : '';
+  if(autoBtn) autoBtn.classList.toggle('visible', inReadView);
+
+  if(!inReadView){
+    stopAutoScroll();
+  }
 
   if(readView.style.display === 'none'){
     bar.style.width = '0%';
@@ -3992,6 +4046,139 @@ function updateReadingProgress(){
 
 function scrollToSurahTop(){
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ================= التمرير التلقائي للقراءة بدون لمس (Auto-scroll) ================= */
+// يسمح للمستخدم بالقراءة بشكل مريح دون الحاجة للمس الشاشة أو الفأرة، مع إبقاء الشاشة مضاءة أثناء ذلك
+const AUTO_SCROLL_SPEEDS = [
+  { key: 'slow',   px: 0.35 },
+  { key: 'medium', px: 0.7  },
+  { key: 'fast',   px: 1.2  }
+];
+let autoScrollActive = false;
+let autoScrollRafId = null;
+let autoScrollSpeedIndex = parseInt(localStorage.getItem('autoScrollSpeedIndex') || '1', 10);
+if(isNaN(autoScrollSpeedIndex) || autoScrollSpeedIndex < 0 || autoScrollSpeedIndex >= AUTO_SCROLL_SPEEDS.length){
+  autoScrollSpeedIndex = 1;
+}
+let wakeLockRef = null;
+let autoScrollPausedByUser = false;
+
+async function requestWakeLockForAutoScroll(){
+  try{
+    if('wakeLock' in navigator){
+      wakeLockRef = await navigator.wakeLock.request('screen');
+      wakeLockRef.addEventListener('release', () => { wakeLockRef = null; });
+    }
+  }catch(e){ wakeLockRef = null; }
+}
+
+function releaseWakeLock(){
+  if(wakeLockRef){
+    try{ wakeLockRef.release(); }catch(e){}
+    wakeLockRef = null;
+  }
+}
+
+// إعادة طلب قفل الإيقاظ عند رجوع علامة التبويب لتكون مرئية (المتصفحات تفقده تلقائيًا عند التبديل بينها)
+document.addEventListener('visibilitychange', () => {
+  if(autoScrollActive && document.visibilityState === 'visible' && !wakeLockRef){
+    requestWakeLockForAutoScroll();
+  }
+});
+
+function autoScrollStep(){
+  if(!autoScrollActive) return;
+  const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+  const scrollTop = window.scrollY || document.documentElement.scrollTop;
+
+  if(docHeight <= 0 || scrollTop >= docHeight - 1){
+    stopAutoScroll();
+    return;
+  }
+
+  window.scrollBy(0, AUTO_SCROLL_SPEEDS[autoScrollSpeedIndex].px);
+  autoScrollRafId = requestAnimationFrame(autoScrollStep);
+}
+
+// إيقاف مؤقت للتمرير عند تدخل المستخدم يدويًا (لمس/سحب أو عجلة الفأرة) حتى لا يتعارض مع تمريره
+// بنستثني لمس زري التحكم نفسيهما (تشغيل/إيقاف والسرعة) عشان الضغط عليهم ميوقفش التمرير التلقائي فورًا
+function pauseAutoScrollOnManualInput(e){
+  if(e && e.target && e.target.closest && e.target.closest('#auto-scroll-btn, #auto-scroll-speed-btn')) return;
+  if(autoScrollActive){
+    autoScrollPausedByUser = true;
+    stopAutoScroll();
+  }
+}
+
+function toggleAutoScroll(){
+  if(autoScrollActive){
+    stopAutoScroll();
+  } else {
+    startAutoScroll();
+  }
+}
+
+function startAutoScroll(){
+  const readView = document.getElementById('read-view');
+  if(!readView || readView.style.display !== 'block') return;
+
+  autoScrollActive = true;
+  autoScrollPausedByUser = false;
+  requestWakeLockForAutoScroll();
+
+  const btn = document.getElementById('auto-scroll-btn');
+  const speedBtn = document.getElementById('auto-scroll-speed-btn');
+  const playIcon = document.getElementById('auto-scroll-icon-play');
+  const pauseIcon = document.getElementById('auto-scroll-icon-pause');
+  if(btn) btn.classList.add('active');
+  if(speedBtn) speedBtn.classList.add('visible');
+  if(playIcon) playIcon.style.display = 'none';
+  if(pauseIcon) pauseIcon.style.display = '';
+  if(btn){
+    btn.title = t('auto_scroll_stop');
+    btn.setAttribute('aria-label', t('auto_scroll_stop'));
+  }
+
+  window.addEventListener('wheel', pauseAutoScrollOnManualInput, { passive:true });
+  window.addEventListener('touchstart', pauseAutoScrollOnManualInput, { passive:true });
+
+  autoScrollRafId = requestAnimationFrame(autoScrollStep);
+}
+
+function stopAutoScroll(){
+  autoScrollActive = false;
+  if(autoScrollRafId){ cancelAnimationFrame(autoScrollRafId); autoScrollRafId = null; }
+  releaseWakeLock();
+
+  window.removeEventListener('wheel', pauseAutoScrollOnManualInput);
+  window.removeEventListener('touchstart', pauseAutoScrollOnManualInput);
+
+  const btn = document.getElementById('auto-scroll-btn');
+  const speedBtn = document.getElementById('auto-scroll-speed-btn');
+  const playIcon = document.getElementById('auto-scroll-icon-play');
+  const pauseIcon = document.getElementById('auto-scroll-icon-pause');
+  if(btn) btn.classList.remove('active');
+  if(speedBtn) speedBtn.classList.remove('visible');
+  if(playIcon) playIcon.style.display = '';
+  if(pauseIcon) pauseIcon.style.display = 'none';
+  if(btn){
+    btn.title = t('auto_scroll_start');
+    btn.setAttribute('aria-label', t('auto_scroll_start'));
+  }
+}
+
+function cycleAutoScrollSpeed(){
+  autoScrollSpeedIndex = (autoScrollSpeedIndex + 1) % AUTO_SCROLL_SPEEDS.length;
+  localStorage.setItem('autoScrollSpeedIndex', String(autoScrollSpeedIndex));
+  updateAutoScrollSpeedLabel();
+}
+
+function updateAutoScrollSpeedLabel(){
+  const el = document.getElementById('auto-scroll-speed-text');
+  if(!el) return;
+  const key = AUTO_SCROLL_SPEEDS[autoScrollSpeedIndex].key;
+  el.textContent = t('auto_scroll_speed_' + key);
 }
 
 // نقطة الكشف (بالبكسل من أعلى الشاشة) التي نعتبر عندها أن العنصر "دخل" المشهد
@@ -5271,6 +5458,12 @@ const I18N_STRINGS = {
     no_results: 'لا توجد نتائج مطابقة.',
     loading_text: 'جاري تحميل بيانات القرآن الكريم...',
     scroll_top: 'العودة لأعلى السورة',
+    auto_scroll_start: 'بدء التمرير التلقائي للقراءة بدون لمس الشاشة',
+    auto_scroll_stop: 'إيقاف التمرير التلقائي',
+    auto_scroll_speed: 'سرعة التمرير التلقائي',
+    auto_scroll_speed_slow: 'السرعة: بطيئة',
+    auto_scroll_speed_medium: 'السرعة: متوسطة',
+    auto_scroll_speed_fast: 'السرعة: سريعة',
     toggle_side_nav: 'طي/فتح القائمة',
     next_surah: 'السورة التالية',
     prev_surah: 'السورة السابقة',
@@ -5490,6 +5683,12 @@ const I18N_STRINGS = {
     no_results: 'No matching results.',
     loading_text: 'Loading the Holy Quran data...',
     scroll_top: 'Back to top of surah',
+    auto_scroll_start: 'Start hands-free auto-scroll',
+    auto_scroll_stop: 'Stop auto-scroll',
+    auto_scroll_speed: 'Auto-scroll speed',
+    auto_scroll_speed_slow: 'Speed: Slow',
+    auto_scroll_speed_medium: 'Speed: Medium',
+    auto_scroll_speed_fast: 'Speed: Fast',
     toggle_side_nav: 'Collapse/expand menu',
     next_surah: 'Next Surah',
     prev_surah: 'Previous Surah',
@@ -5752,6 +5951,7 @@ function refreshDynamicContent(){
   }
   if(typeof renderContinueBanner === 'function') renderContinueBanner();
   if(typeof renderAyahOfDayCard === 'function') renderAyahOfDayCard();
+  if(typeof updateAutoScrollSpeedLabel === 'function') updateAutoScrollSpeedLabel();
   if(typeof refreshTafsirSourceSelectLanguage === 'function'){
     refreshTafsirSourceSelectLanguage('tafsir-source-select');
     refreshTafsirSourceSelectLanguage('tafsir-source-select-settings');
@@ -6053,6 +6253,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   attachSwipeNavigation();
   attachDisplayModeShortcuts();
+  updateAutoScrollSpeedLabel();
 });
 
 // تفعيل العمل بدون إنترنت (Service Worker)
