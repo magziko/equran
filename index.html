@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
+<script>
+// كشف مبكر لأجهزة اللمس (موبايل/تابلت) — بعض الأجهزة زي الآيباد بتقول للمتصفح إنها بتدعم hover
+// و pointer:fine زي الكمبيوتر تمامًا رغم إنها تاتش، فمينفعش نعتمد على CSS media query لوحده
+// لتمييز الكمبيوتر عن التابلت؛ فبنضيف كلاس صريح بناءً على فحص خاصية اللمس الفعلية للجهاز.
+(function(){
+  try{
+    var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
+    if(isTouch){ document.documentElement.classList.add('is-touch-device'); }
+  }catch(e){}
+})();
+</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>القرآن الكريم | قراءة واستماع وتفسير وترجمة معاني برواية حفص</title>
@@ -1444,8 +1455,12 @@
   }
 
   /* ---------- Auto-scroll (hands-free reading) button ---------- */
-  .auto-scroll-btn{
+  .auto-scroll-group{
     position:fixed; bottom:26px; right:22px; z-index:997;
+    width:42px; height:42px;
+  }
+  .auto-scroll-btn{
+    position:absolute; inset:0;
     width:42px; height:42px; border-radius:50%;
     background:var(--accent); color:#fff; border:none; cursor:pointer;
     display:none; align-items:center; justify-content:center;
@@ -1463,20 +1478,36 @@
     pointer-events:none;
   }
   .auto-scroll-speed{
-    position:fixed; bottom:72px; right:22px; z-index:997;
-    display:none; align-items:center; gap:6px;
-    padding:6px 12px; border-radius:999px;
-    background:var(--bg-elev); border:1px solid var(--border); color:var(--text);
-    font-family:'Cairo', sans-serif; font-size:12.5px; font-weight:700;
+    position:absolute; top:-6px; left:-6px; z-index:998;
+    display:none; align-items:center; justify-content:center;
+    width:21px; height:21px; border-radius:50%; padding:0;
+    background:var(--bg-elev); border:1.5px solid var(--accent); color:var(--accent);
+    font-family:'Cairo', sans-serif; font-size:10.5px; font-weight:800;
     box-shadow:var(--shadow); cursor:pointer; white-space:nowrap;
   }
   .auto-scroll-speed.visible{ display:flex; }
   .auto-scroll-speed:hover{ filter:brightness(1.06); }
-  .auto-scroll-speed svg{ width:13px; height:13px; color:var(--accent); }
+  /* في شاشات الكمبيوتر (اللي بتدعم الماوس والتمرير عليها): بعد تشغيل التمرير التلقائي
+     يختفي الزر تلقائيًا ولا يظهر إلا عند تمرير الماوس فوق مكانه (لتغييره أو إيقافه)
+     حتى لا يحجب النص أثناء القراءة. في الموبايل/التابلت (تاتش) يفضل ظاهر باستمرار.
+     بنجمع بين media query وكلاس is-touch-device المحدد بالجافاسكريبت لأن بعض أجهزة
+     التابلت (زي الآيباد) بتقول للمتصفح إنها بتدعم hover و pointer:fine رغم إنها تاتش. */
+  @media (hover:hover) and (pointer:fine){
+    html:not(.is-touch-device) .auto-scroll-group.auto-scroll-running .auto-scroll-btn,
+    html:not(.is-touch-device) .auto-scroll-group.auto-scroll-running .auto-scroll-speed{
+      opacity:0;
+      transition:opacity .2s ease;
+    }
+    html:not(.is-touch-device) .auto-scroll-group.auto-scroll-running:hover .auto-scroll-btn,
+    html:not(.is-touch-device) .auto-scroll-group.auto-scroll-running:hover .auto-scroll-speed.visible{
+      opacity:1;
+    }
+  }
   @media (max-width:600px){
-    .auto-scroll-btn{ bottom:18px; right:16px; width:36px; height:36px; }
+    .auto-scroll-group{ bottom:18px; right:16px; width:36px; height:36px; }
+    .auto-scroll-btn{ width:36px; height:36px; }
     .auto-scroll-btn svg{ width:15px; height:15px; }
-    .auto-scroll-speed{ bottom:60px; right:16px; }
+    .auto-scroll-speed{ width:18px; height:18px; font-size:9.5px; top:-5px; left:-5px; }
   }
 </style>
 </head>
@@ -1506,16 +1537,16 @@
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
 </a>
 
-<button type="button" class="auto-scroll-speed" id="auto-scroll-speed-btn" onclick="cycleAutoScrollSpeed()" title="سرعة التمرير التلقائي" aria-label="سرعة التمرير التلقائي" data-i18n-title="auto_scroll_speed" data-i18n-aria-label="auto_scroll_speed">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-  <span id="auto-scroll-speed-text">السرعة: متوسطة</span>
-</button>
-
-<button type="button" class="auto-scroll-btn" id="auto-scroll-btn" onclick="toggleAutoScroll()" title="بدء التمرير التلقائي للقراءة بدون لمس الشاشة" aria-label="بدء التمرير التلقائي للقراءة بدون لمس الشاشة" data-i18n-title="auto_scroll_start" data-i18n-aria-label="auto_scroll_start">
-  <span class="auto-scroll-btn__pulse"></span>
-  <svg id="auto-scroll-icon-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8l5 5 5-5"/><path d="M7 15l5 5 5-5"/></svg>
-  <svg id="auto-scroll-icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
-</button>
+<div class="auto-scroll-group" id="auto-scroll-group">
+  <button type="button" class="auto-scroll-btn" id="auto-scroll-btn" onclick="toggleAutoScroll()" title="بدء التمرير التلقائي للقراءة بدون لمس الشاشة" aria-label="بدء التمرير التلقائي للقراءة بدون لمس الشاشة" data-i18n-title="auto_scroll_start" data-i18n-aria-label="auto_scroll_start">
+    <span class="auto-scroll-btn__pulse"></span>
+    <svg id="auto-scroll-icon-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8l5 5 5-5"/><path d="M7 15l5 5 5-5"/></svg>
+    <svg id="auto-scroll-icon-pause" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+  </button>
+  <button type="button" class="auto-scroll-speed" id="auto-scroll-speed-btn" onclick="cycleAutoScrollSpeed()" title="سرعة التمرير التلقائي" aria-label="سرعة التمرير التلقائي" data-i18n-title="auto_scroll_speed" data-i18n-aria-label="auto_scroll_speed">
+    <span id="auto-scroll-speed-text">2</span>
+  </button>
+</div>
 
 <div class="page-shell">
 <aside class="surah-side-nav side-nav-hidden" id="surah-side-nav" aria-label="قائمة السور والأجزاء" data-i18n-aria-label="surah_juz_list_label">
@@ -4051,12 +4082,13 @@ function scrollToSurahTop(){
 /* ================= التمرير التلقائي للقراءة بدون لمس (Auto-scroll) ================= */
 // يسمح للمستخدم بالقراءة بشكل مريح دون الحاجة للمس الشاشة أو الفأرة، مع إبقاء الشاشة مضاءة أثناء ذلك
 const AUTO_SCROLL_SPEEDS = [
-  { key: 'slow',   px: 0.35 },
-  { key: 'medium', px: 0.7  },
-  { key: 'fast',   px: 1.2  }
+  { key: 'slow',   px: 0.6 },
+  { key: 'medium', px: 1.6 },
+  { key: 'fast',   px: 3.2 }
 ];
 let autoScrollActive = false;
 let autoScrollRafId = null;
+let autoScrollAccumulator = 0;
 let autoScrollSpeedIndex = parseInt(localStorage.getItem('autoScrollSpeedIndex') || '1', 10);
 if(isNaN(autoScrollSpeedIndex) || autoScrollSpeedIndex < 0 || autoScrollSpeedIndex >= AUTO_SCROLL_SPEEDS.length){
   autoScrollSpeedIndex = 1;
@@ -4097,7 +4129,15 @@ function autoScrollStep(){
     return;
   }
 
-  window.scrollBy(0, AUTO_SCROLL_SPEEDS[autoScrollSpeedIndex].px);
+  // بنجمّع الكسور (زي 0.6px لكل فريم) لحد ما توصل لبكسل كامل ونبعته دفعة واحدة،
+  // لأن بعض المتصفحات بتقرّب قيم scrollBy الكسرية لأقرب رقم صحيح فبتلغي السرعات البطيئة تمامًا
+  autoScrollAccumulator += AUTO_SCROLL_SPEEDS[autoScrollSpeedIndex].px;
+  const wholePixels = Math.floor(autoScrollAccumulator);
+  if(wholePixels >= 1){
+    window.scrollBy(0, wholePixels);
+    autoScrollAccumulator -= wholePixels;
+  }
+
   autoScrollRafId = requestAnimationFrame(autoScrollStep);
 }
 
@@ -4125,14 +4165,17 @@ function startAutoScroll(){
 
   autoScrollActive = true;
   autoScrollPausedByUser = false;
+  autoScrollAccumulator = 0;
   requestWakeLockForAutoScroll();
 
   const btn = document.getElementById('auto-scroll-btn');
   const speedBtn = document.getElementById('auto-scroll-speed-btn');
+  const group = document.getElementById('auto-scroll-group');
   const playIcon = document.getElementById('auto-scroll-icon-play');
   const pauseIcon = document.getElementById('auto-scroll-icon-pause');
   if(btn) btn.classList.add('active');
   if(speedBtn) speedBtn.classList.add('visible');
+  if(group) group.classList.add('auto-scroll-running');
   if(playIcon) playIcon.style.display = 'none';
   if(pauseIcon) pauseIcon.style.display = '';
   if(btn){
@@ -4148,6 +4191,7 @@ function startAutoScroll(){
 
 function stopAutoScroll(){
   autoScrollActive = false;
+  autoScrollAccumulator = 0;
   if(autoScrollRafId){ cancelAnimationFrame(autoScrollRafId); autoScrollRafId = null; }
   releaseWakeLock();
 
@@ -4156,10 +4200,12 @@ function stopAutoScroll(){
 
   const btn = document.getElementById('auto-scroll-btn');
   const speedBtn = document.getElementById('auto-scroll-speed-btn');
+  const group = document.getElementById('auto-scroll-group');
   const playIcon = document.getElementById('auto-scroll-icon-play');
   const pauseIcon = document.getElementById('auto-scroll-icon-pause');
   if(btn) btn.classList.remove('active');
   if(speedBtn) speedBtn.classList.remove('visible');
+  if(group) group.classList.remove('auto-scroll-running');
   if(playIcon) playIcon.style.display = '';
   if(pauseIcon) pauseIcon.style.display = 'none';
   if(btn){
@@ -4177,8 +4223,7 @@ function cycleAutoScrollSpeed(){
 function updateAutoScrollSpeedLabel(){
   const el = document.getElementById('auto-scroll-speed-text');
   if(!el) return;
-  const key = AUTO_SCROLL_SPEEDS[autoScrollSpeedIndex].key;
-  el.textContent = t('auto_scroll_speed_' + key);
+  el.textContent = String(autoScrollSpeedIndex + 1);
 }
 
 // نقطة الكشف (بالبكسل من أعلى الشاشة) التي نعتبر عندها أن العنصر "دخل" المشهد
@@ -5461,9 +5506,6 @@ const I18N_STRINGS = {
     auto_scroll_start: 'بدء التمرير التلقائي للقراءة بدون لمس الشاشة',
     auto_scroll_stop: 'إيقاف التمرير التلقائي',
     auto_scroll_speed: 'سرعة التمرير التلقائي',
-    auto_scroll_speed_slow: 'السرعة: بطيئة',
-    auto_scroll_speed_medium: 'السرعة: متوسطة',
-    auto_scroll_speed_fast: 'السرعة: سريعة',
     toggle_side_nav: 'طي/فتح القائمة',
     next_surah: 'السورة التالية',
     prev_surah: 'السورة السابقة',
@@ -5686,9 +5728,6 @@ const I18N_STRINGS = {
     auto_scroll_start: 'Start hands-free auto-scroll',
     auto_scroll_stop: 'Stop auto-scroll',
     auto_scroll_speed: 'Auto-scroll speed',
-    auto_scroll_speed_slow: 'Speed: Slow',
-    auto_scroll_speed_medium: 'Speed: Medium',
-    auto_scroll_speed_fast: 'Speed: Fast',
     toggle_side_nav: 'Collapse/expand menu',
     next_surah: 'Next Surah',
     prev_surah: 'Previous Surah',
