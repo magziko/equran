@@ -536,6 +536,10 @@
   .tafsir-nav-btn:hover:not(:disabled){ border-color:var(--accent); color:var(--accent-soft); }
   .tafsir-nav-btn:disabled{ opacity:.35; cursor:not-allowed; }
   .tafsir-nav-btn svg{ width:15px; height:15px; flex-shrink:0; }
+  /* أسهم "الآية السابقة/التالية" متصممة أصلاً تناسب اتجاه القراءة بالعربي (RTL).
+     في الإنجليزي (LTR) الترتيب بيتقلب فعليًا (السابقة يمين->شمال) فبنعكس اتجاه
+     السهمين بس في وضع اللغة الإنجليزية عشان يفضلوا منطقيين مع اتجاه القراءة. */
+  html[data-lang="en"] .tafsir-nav-btn svg{ transform:rotate(180deg); }
   .ayah-inline-tafsir{ display:none; }
   .ayat-list.show-inline-tafsir .ayah-inline-tafsir{
     display:block; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);
@@ -1222,10 +1226,12 @@
       display:flex;
       flex:0 0 220px;
       width:220px;
-      /* تثبيت القائمة فى مكانها أثناء التمرير بدل ما تفضل تتحرك مع الصفحة */
+      /* تثبيت القائمة فى مكانها أثناء التمرير بدل ما تفضل تتحرك مع الصفحة.
+         top زودناها شوية (بدل 20) عشان تسيب مسافة كافية تحت زر "رجوع للفهرس"
+         العائم فوقها، فمايبقاش في تصادف/تراكب مع رأس القائمة (كلمة "الفهرس"). */
       position:sticky;
-      top:20px;
-      max-height:calc(100vh - 40px);
+      top:46px;
+      max-height:calc(100vh - 66px);
       overflow-y:auto;
     }
   }
@@ -1233,6 +1239,15 @@
   .surah-side-nav h3{
     margin:0 2px 6px; font-size:11.5px; font-weight:700; color:var(--text-muted);
     display:flex; align-items:center; justify-content:space-between; line-height:1.2;
+  }
+  @media (min-width:1480px){
+    /* رأس القائمة (الفهرس + زر الطي) بيفضل ثابت فوق وهو عائم أثناء ما قائمة السور
+       بتتسكرول تحته، بدل ما يختفي هو كمان مع باقي القائمة لو نزلنا لآخر سورة. */
+    .surah-side-nav h3{
+      position:sticky; top:0; z-index:2;
+      background:var(--surface);
+      padding-bottom:4px;
+    }
   }
   .side-nav-collapse-btn{
     flex-shrink:0; width:22px; height:22px; display:flex; align-items:center; justify-content:center;
@@ -1248,6 +1263,11 @@
   .surah-side-nav.collapsed .surah-side-list{ display:none !important; }
   .surah-side-nav.collapsed h3{ margin:0; justify-content:center; }
   .surah-side-nav.collapsed .side-nav-collapse-btn svg{ transform:rotate(180deg); }
+  /* اتجاه السهم ده معكوس عن قصد باللغة العربية بس (RTL) — القائمة مفتوحة يبقى
+     السهم شايل يمين (اتجاه القفل)، ومطوية يبقى شايل يسار (اتجاه الفتح).
+     في الإنجليزية (LTR) بيفضل زي الأصل. */
+  html[data-lang="ar"] .side-nav-collapse-btn svg{ transform:rotate(180deg); }
+  html[data-lang="ar"] .surah-side-nav.collapsed .side-nav-collapse-btn svg{ transform:rotate(0deg); }
   .side-nav-tabs{
     display:none; gap:6px; margin-bottom:8px;
   }
@@ -1264,6 +1284,14 @@
     outline:none; margin-bottom:8px;
   }
   .surah-side-nav-search:focus{ border-color:var(--accent); }
+  @media (min-width:1480px){
+    /* خانة البحث كمان بتفضل عائمة تحت رأس القائمة مباشرة أثناء التمرير، عشان تقدر
+       تبحث عن سورة في أي وقت من غير ما تحتاج ترجع لفوق. top:32px = ارتفاع رأس
+       القائمة (h3) بالظبط عشان تلزق تحته من غير فراغ أو تراكب. */
+    .surah-side-nav-search{
+      position:sticky; top:32px; z-index:1;
+    }
+  }
   .surah-side-list{
     display:flex; flex-direction:column; gap:1px; padding-right:2px;
   }
@@ -1386,6 +1414,18 @@
     .scroll-back-btn svg{ width:15px; height:15px; }
   }
 
+  /* من عرض 1480px القائمة الجانبية بتاخد عمود ثابت المكان جنب حافة الشاشة. لما تكون
+     "مفتوحة" (عرضها 220px) سهم طي/فتحها بيقع أقصى يسار رأس القائمة، بعيد عن زر
+     "رجوع للفهرس" فمفيش تصادف افقيًا معاه، لكن كان بيتصادف رأسيًا مع كلمة "الفهرس"
+     نفسها لأن الاتنين قريبين من أعلى الشاشة. رفعنا زر الرجوع شوية لفوق (بدل top:10)
+     وسبنا مسافة أكبر تحت القائمة (top الخاص بيها) عشان الاتنين ميتلاقوش. ولما القائمة
+     "مطوية" (عمود ضيق ~38px) بنزحزح زر الرجوع افقيًا كمان (الكلاس ده بيتضاف/بيتشال
+     من الجافاسكريبت toggleSideNavCollapse على عنصر <html> حسب حالة القائمة). */
+  @media (min-width:1480px){
+    .scroll-back-btn{ top:2px; }
+    html.side-nav-collapsed .scroll-back-btn{ right:70px; }
+  }
+
   @media (max-width:600px){
     .ayah-card{ padding:16px; }
     .top-header{ align-items:center; }
@@ -1458,6 +1498,11 @@
   .auto-scroll-group{
     position:fixed; bottom:26px; right:22px; z-index:997;
     width:42px; height:42px;
+    pointer-events:none;
+  }
+  .auto-scroll-btn,
+  .auto-scroll-speed{
+    pointer-events:auto;
   }
   .auto-scroll-btn{
     position:absolute; inset:0;
@@ -1525,7 +1570,7 @@
 </button>
 
 <button class="scroll-back-btn" id="scroll-back-btn" onclick="showList()" title="رجوع إلى الفهرس" aria-label="رجوع إلى الفهرس" data-i18n-title="back_to_index" data-i18n-aria-label="back_to_index">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M3 12h18"/></svg>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l6 6-6 6M3 12h18"/></svg>
 </button>
 
 <button class="scroll-top-btn" id="scroll-top-btn" onclick="scrollToSurahTop()" title="العودة لأعلى السورة" aria-label="العودة لأعلى السورة" data-i18n-title="scroll_top">
@@ -4530,6 +4575,7 @@ function setJuzSideNavActive(juzNum){
 function toggleSideNavCollapse(){
   const aside = document.getElementById('surah-side-nav');
   const collapsed = aside.classList.toggle('collapsed');
+  document.documentElement.classList.toggle('side-nav-collapsed', collapsed);
   try{ localStorage.setItem('sideNavCollapsed', collapsed ? '1' : '0'); }catch(e){}
 }
 
@@ -4537,6 +4583,7 @@ function restoreSideNavCollapseState(){
   try{
     if(localStorage.getItem('sideNavCollapsed') === '1'){
       document.getElementById('surah-side-nav').classList.add('collapsed');
+      document.documentElement.classList.add('side-nav-collapsed');
     }
   }catch(e){}
 }
