@@ -4500,11 +4500,95 @@ function renderHizbGrid(query){
   }).join('');
 }
 
+// ===== بحث ذكي عن السور (يتجاهل الهمزات/التشكيل ويتحمل أخطاء إملائية بسيطة) =====
+function normalizeArabicSearch(str){
+  if(!str) return '';
+  let s = String(str);
+  // إزالة التشكيل وعلامات القرآن
+  s = s.replace(/[\u064B-\u065F\u0670\u06D6-\u06ED\u08D3-\u08E1\u08E3-\u08FF]/g, '');
+  // إزالة التطويل
+  s = s.replace(/\u0640/g, '');
+  // توحيد الألف بأشكالها (أ إ آ ٱ) إلى ا
+  s = s.replace(/[إأآٱ]/g, 'ا');
+  // توحيد التاء المربوطة مع الهاء
+  s = s.replace(/ة/g, 'ه');
+  // توحيد الألف المقصورة مع الياء
+  s = s.replace(/ى/g, 'ي');
+  // توحيد الهمزات على واو/ياء وإزالة الهمزة المفردة
+  s = s.replace(/ؤ/g, 'و');
+  s = s.replace(/ئ/g, 'ي');
+  s = s.replace(/ء/g, '');
+  s = s.toLowerCase().replace(/\s+/g, ' ').trim();
+  return s;
+}
+
+function levenshteinDistance(a, b){
+  const m = a.length, n = b.length;
+  if(m === 0) return n;
+  if(n === 0) return m;
+  let prev = new Array(n + 1);
+  let curr = new Array(n + 1);
+  for(let j = 0; j <= n; j++) prev[j] = j;
+  for(let i = 1; i <= m; i++){
+    curr[0] = i;
+    for(let j = 1; j <= n; j++){
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+// يرجع أفضل درجة تطابق (0 = تطابق فرعي مباشر، رقم أكبر = عدد الأخطاء الإملائية المسموح بها، Infinity = لا تطابق)
+function fuzzyMatchScore(target, query){
+  if(!query) return 0;
+  if(!target) return Infinity;
+  if(target.includes(query)) return 0;
+  const qLen = query.length;
+  if(qLen < 2) return Infinity;
+  const threshold = qLen <= 3 ? 1 : (qLen <= 6 ? 2 : 3);
+  let best = Infinity;
+  for(let winLen = Math.max(1, qLen - threshold); winLen <= qLen + threshold; winLen++){
+    for(let start = 0; start <= target.length - winLen; start++){
+      const dist = levenshteinDistance(target.substr(start, winLen), query);
+      if(dist < best) best = dist;
+      if(best === 0) return 0;
+    }
+  }
+  return best <= threshold ? best : Infinity;
+}
+
+function surahSearchScore(s, rawQuery, normQuery){
+  if(!rawQuery) return 0;
+  if(String(s.id) === rawQuery) return -3; // تطابق برقم السورة: أولوية قصوى
+  const normName = normalizeArabicSearch(s.name);
+  const translit = (s.transliteration || '').toLowerCase();
+  // تطابق كامل للاسم (زي سورة "ص" أو "ق"): أعلى أولوية
+  if(normName === normQuery || translit === normQuery) return -2;
+  // الاسم يبدأ بالبحث: أولوية عالية
+  if(normName.startsWith(normQuery) || translit.startsWith(normQuery)) return -1;
+  const nameScore = fuzzyMatchScore(normName, normQuery);
+  const translitScore = fuzzyMatchScore(translit, normQuery);
+  return Math.min(nameScore, translitScore);
+}
+
+function searchSurahs(query){
+  const q = (query || '').trim();
+  if(!q) return QURAN.slice();
+  const normQ = normalizeArabicSearch(q);
+  return QURAN
+    .map((s, idx) => ({ s, idx, score: surahSearchScore(s, q, normQ) }))
+    .filter(r => r.score !== Infinity)
+    .sort((a, b) => (a.score - b.score) || (a.idx - b.idx))
+    .map(r => r.s);
+}
+
 function renderGrid(query){
   const grid = document.getElementById('surah-grid');
   const noRes = document.getElementById('no-results');
   const q = (query || '').trim();
-  const filtered = QURAN.filter(s => !q || s.name.includes(q) || s.transliteration.toLowerCase().includes(q.toLowerCase()) || String(s.id) === q);
+  const filtered = searchSurahs(q);
 
   document.getElementById('count-pill').textContent = q ? `${filtered.length} ${t('results_word')}` : '1-114';
 
@@ -4530,7 +4614,7 @@ function renderSurahSideNav(query){
   const list = document.getElementById('surah-side-list');
   if(!list) return;
   const q = (query || '').trim();
-  const items = QURAN.filter(s => !q || s.name.includes(q) || s.transliteration.toLowerCase().includes(q.toLowerCase()) || String(s.id) === q);
+  const items = searchSurahs(q);
   list.innerHTML = items.map(s => `
     <button type="button" class="surah-side-item${s.id === currentSurahId ? ' active' : ''}" data-side-id="${s.id}" onclick="openSurah(${s.id}); return false;">
       <span class="side-num">${s.id}</span>
@@ -4753,8 +4837,8 @@ function goToFirstMatch(){
     if(match) openHizb(match.hizb);
     return;
   }
-  const match = QURAN.find(s => s.name.includes(q) || String(s.id) === q);
-  if(match) openSurah(match.id);
+  const matches = searchSurahs(q);
+  if(matches.length) openSurah(matches[0].id);
 }
 
 function showList(){
