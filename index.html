@@ -937,6 +937,16 @@
   }
   .tafsir-source-row .label{ white-space:nowrap; font-size:12.5px; }
   .tafsir-source-row .font-select{ flex:1 1 240px; min-width:200px; max-width:380px; width:auto; }
+  .tafsir-collapse-all-btn{
+    display:inline-flex; align-items:center; gap:6px; flex-shrink:0;
+    padding:7px 11px; border-radius:9px; border:1px solid var(--border);
+    background:transparent; color:var(--text-muted); font-family:inherit; font-size:12px; font-weight:600;
+    cursor:pointer; white-space:nowrap;
+  }
+  .tafsir-collapse-all-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .tafsir-collapse-all-icon{ width:12px; height:12px; flex-shrink:0; transition:transform .15s; }
+  .tafsir-collapse-all-btn.is-collapsed .tafsir-collapse-all-icon{ transform:rotate(-90deg); }
+  .tafsir-collapse-all-btn-modal{ margin-inline-end:8px; }
   @media (max-width:600px){
     .control-group-tafsir{ padding:13px 14px 14px; }
     .tafsir-source-row .font-select{ max-width:none; }
@@ -2685,16 +2695,45 @@ function toggleTafsirBlockCollapse(headingEl){
   if(block) block.classList.toggle('collapsed');
 }
 
+// ---------- طي/فتح كل بلوكات التفسير دفعة واحدة (في كل الآيات، والمودال) ----------
+let tafsirAllCollapsedCache = null;
+function getTafsirAllCollapsed(){
+  if(tafsirAllCollapsedCache !== null) return tafsirAllCollapsedCache;
+  let val = false;
+  try{ val = localStorage.getItem('tafsirAllCollapsed') === '1'; } catch(e){ /* تجاهل أخطاء التخزين */ }
+  tafsirAllCollapsedCache = val;
+  return val;
+}
+function setTafsirAllCollapsed(collapsed){
+  tafsirAllCollapsedCache = collapsed;
+  try{ localStorage.setItem('tafsirAllCollapsed', collapsed ? '1' : '0'); } catch(e){ /* تجاهل أخطاء التخزين */ }
+  // نطبّق الحالة فورًا على كل البلوكات الموجودة حاليًا في الصفحة (المودال + كل الآيات المعروضة)
+  document.querySelectorAll('.tafsir-source-block, .inline-tafsir-block').forEach(block => {
+    block.classList.toggle('collapsed', collapsed);
+  });
+  renderTafsirCollapseAllButtons();
+}
+function toggleTafsirAllCollapsed(){
+  setTafsirAllCollapsed(!getTafsirAllCollapsed());
+}
+function renderTafsirCollapseAllButtons(){
+  const collapsed = getTafsirAllCollapsed();
+  document.querySelectorAll('.tafsir-collapse-all-btn').forEach(btn => {
+    btn.classList.toggle('is-collapsed', collapsed);
+    const label = btn.querySelector('span');
+    if(label) label.textContent = collapsed ? t('tafsir_expand_all') : t('tafsir_collapse_all');
+  });
+}
+
 function loadTafsirContent(surahId, ayahId){
   const body = document.getElementById('tafsir-modal-body');
   const slugs = getSelectedTafsirSlugs();
   body.innerHTML = '';
-  // لو اختار المستخدم أكتر من مصدرين، نطوي كل المصادر ما عدا الأول تلقائيًا
-  // عشان القايمة متبقاش طويلة جدًا؛ المستخدم يقدر يفتح أي مصدر بالنقر على عنوانه.
-  const autoCollapse = slugs.length > 2;
+  // نبدأ كل بلوك بحالة الطي العامة الحالية (اللي المستخدم ضبطها بزرار "اطوِ الكل/افتح الكل")
+  const collapseByDefault = getTafsirAllCollapsed();
   slugs.forEach((slug, i) => {
     const block = document.createElement('div');
-    block.className = 'tafsir-source-block' + (autoCollapse && i > 0 ? ' collapsed' : '');
+    block.className = 'tafsir-source-block' + (collapseByDefault ? ' collapsed' : '');
     body.appendChild(block);
     loadTafsirSourceBlock(slug, surahId, ayahId, block);
   });
@@ -2819,11 +2858,11 @@ function loadInlineTafsirForElement(el){
   el.dataset.loadedSlugs = slugsKey;
   el.dataset.loaded = '1';
   el.innerHTML = '';
-  // نفس مبدأ الطي التلقائي المستخدم في المودال: لو أكتر من مصدرين، نطوي كل حاجة ما عدا الأول
-  const autoCollapse = slugs.length > 2;
+  // نبدأ كل بلوك بحالة الطي العامة الحالية (نفس الحالة في كل الآيات وفي المودال)
+  const collapseByDefault = getTafsirAllCollapsed();
   slugs.forEach((slug, i) => {
     const block = document.createElement('div');
-    block.className = 'inline-tafsir-block' + (autoCollapse && i > 0 ? ' collapsed' : '');
+    block.className = 'inline-tafsir-block' + (collapseByDefault ? ' collapsed' : '');
     el.appendChild(block);
     loadInlineTafsirSourceBlock(slug, surahId, ayahId, block, el, slugsKey);
   });
@@ -5864,6 +5903,8 @@ const I18N_STRINGS = {
     show_tafsir: 'عرض التفسير',
     inline_tafsir_label: 'إظهار التفسير/الترجمة المختار أسفل كل آية (وضع الآيات المنفصلة فقط)',
     tafsir_source_label: 'مصدر التفسير/الترجمة',
+    tafsir_collapse_all: 'اطوِ الكل',
+    tafsir_expand_all: 'افتح الكل',
     inline_tafsir_tafsir_prefix: 'التفسير',
     inline_tafsir_translation_prefix: 'الترجمة',
     add_to_favorites: 'إضافة إلى المفضلة',
@@ -6086,6 +6127,8 @@ const I18N_STRINGS = {
     show_tafsir: 'Translation of Meanings & Tafsir',
     inline_tafsir_label: 'Show the selected tafsir/translation under each ayah (separate-ayahs mode only)',
     tafsir_source_label: 'Tafsir/Translation source',
+    tafsir_collapse_all: 'Collapse all',
+    tafsir_expand_all: 'Expand all',
     inline_tafsir_tafsir_prefix: 'Tafsir',
     inline_tafsir_translation_prefix: 'Translation',
     add_to_favorites: 'Add to favorites',
@@ -6335,6 +6378,7 @@ function applyLanguage(lang){
     const key = el.getAttribute('data-i18n-aria-label');
     if(dict[key] !== undefined) el.setAttribute('aria-label', dict[key]);
   });
+  if(typeof renderTafsirCollapseAllButtons === 'function') renderTafsirCollapseAllButtons();
 
   const langBtnText = lang === 'ar' ? 'EN' : 'ع';
   document.querySelectorAll('.lang-toggle-text').forEach(el => { el.textContent = langBtnText; });
@@ -6673,6 +6717,10 @@ if('serviceWorker' in navigator){
               </button>
               <div class="tafsir-multiselect-panel" id="tafsir-multiselect-panel-settings"></div>
             </div>
+            <button type="button" class="tafsir-collapse-all-btn" onclick="toggleTafsirAllCollapsed()">
+              <svg class="tafsir-collapse-all-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              <span></span>
+            </button>
           </div>
         </div>
         <div class="control-group repeat-group" id="repeat-group">
@@ -6733,6 +6781,10 @@ if('serviceWorker' in navigator){
           </div>
           <div class="tafsir-modal-subtitle" id="tafsir-modal-subtitle"></div>
         </div>
+        <button type="button" class="tafsir-collapse-all-btn tafsir-collapse-all-btn-modal" onclick="toggleTafsirAllCollapsed()">
+          <svg class="tafsir-collapse-all-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <span></span>
+        </button>
         <button class="tafsir-modal-close" onclick="closeTafsirModal()" title="إغلاق" data-i18n-title="close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
