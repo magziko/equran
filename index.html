@@ -545,7 +545,9 @@
     display:block; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);
   }
   .ayah-inline-tafsir .inline-tafsir-label{
-    display:block; font-size:11.5px; font-weight:700; color:var(--accent-soft); margin-bottom:5px;
+    display:flex; align-items:center; justify-content:space-between; gap:6px;
+    font-size:11.5px; font-weight:700; color:var(--accent-soft); margin-bottom:5px;
+    cursor:pointer; user-select:none;
   }
   .ayah-inline-tafsir .inline-tafsir-text{ color:var(--text-muted); line-height:1.9; }
   .ayah-inline-tafsir .inline-tafsir-loading,
@@ -553,7 +555,23 @@
   .ayat-list.continuous-mode .ayah-inline-tafsir{ display:none !important; }
   .inline-tafsir-block + .inline-tafsir-block{ margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
   .tafsir-source-block + .tafsir-source-block{ margin-top:20px; padding-top:18px; border-top:1px solid var(--border); }
-  .tafsir-source-heading{ font-size:12.5px; font-weight:700; color:var(--accent-soft); margin-bottom:8px; }
+  .tafsir-source-heading{
+    font-size:12.5px; font-weight:700; color:var(--accent-soft); margin-bottom:8px;
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    cursor:pointer; user-select:none;
+  }
+  .tafsir-collapse-icon{ width:13px; height:13px; flex-shrink:0; color:var(--text-muted); transition:transform .15s; }
+  .tafsir-source-block.collapsed .tafsir-source-heading{ margin-bottom:0; }
+  .tafsir-source-block.collapsed .tafsir-collapse-icon{ transform:rotate(-90deg); }
+  .tafsir-source-block.collapsed .tafsir-modal-body,
+  .tafsir-source-block.collapsed .tafsir-modal-loading,
+  .tafsir-source-block.collapsed .tafsir-modal-error{ display:none; }
+  .ayah-inline-tafsir .inline-tafsir-collapse-icon{ width:12px; height:12px; flex-shrink:0; color:var(--text-muted); transition:transform .15s; }
+  .inline-tafsir-block.collapsed .inline-tafsir-label{ margin-bottom:0; }
+  .inline-tafsir-block.collapsed .inline-tafsir-collapse-icon{ transform:rotate(-90deg); }
+  .inline-tafsir-block.collapsed .inline-tafsir-text,
+  .inline-tafsir-block.collapsed .inline-tafsir-loading,
+  .inline-tafsir-block.collapsed .inline-tafsir-error{ display:none; }
 
   /* ---------- قائمة اختيار عدة مصادر تفسير/ترجمة معًا ---------- */
   .tafsir-multiselect-wrap{ position:relative; }
@@ -2659,13 +2677,24 @@ function navigateTafsir(direction){
   showTafsir(newSurahId, newAyahId, targetSurah.name);
 }
 
+const TAFSIR_CHEVRON_SVG = '<svg class="tafsir-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+const INLINE_TAFSIR_CHEVRON_SVG = '<svg class="inline-tafsir-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+// يفتح/يقفل بلوك مصدر تفسير واحد (بالنقر على عنوانه)
+function toggleTafsirBlockCollapse(headingEl){
+  const block = headingEl.closest('.tafsir-source-block, .inline-tafsir-block');
+  if(block) block.classList.toggle('collapsed');
+}
+
 function loadTafsirContent(surahId, ayahId){
   const body = document.getElementById('tafsir-modal-body');
   const slugs = getSelectedTafsirSlugs();
   body.innerHTML = '';
-  slugs.forEach(slug => {
+  // لو اختار المستخدم أكتر من مصدرين، نطوي كل المصادر ما عدا الأول تلقائيًا
+  // عشان القايمة متبقاش طويلة جدًا؛ المستخدم يقدر يفتح أي مصدر بالنقر على عنوانه.
+  const autoCollapse = slugs.length > 2;
+  slugs.forEach((slug, i) => {
     const block = document.createElement('div');
-    block.className = 'tafsir-source-block';
+    block.className = 'tafsir-source-block' + (autoCollapse && i > 0 ? ' collapsed' : '');
     body.appendChild(block);
     loadTafsirSourceBlock(slug, surahId, ayahId, block);
   });
@@ -2676,6 +2705,7 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
   const key = getTafsirCacheKey(slug, surahId, ayahId);
   const isEn = document.documentElement.getAttribute('data-lang') === 'en';
   const sourceLabel = isEn ? (sourceInfo.nameEn || sourceInfo.name) : sourceInfo.name;
+  const heading = `<div class="tafsir-source-heading" onclick="toggleTafsirBlockCollapse(this)"><span>${sourceLabel}</span>${TAFSIR_CHEVRON_SVG}</div>`;
 
   // نتأكد إن البلوك لسه ممثل نفس السياق (المودال لسه فاتح على نفس الآية والمصدر لسه مختار) قبل الكتابة فيه
   function stillValid(){
@@ -2685,14 +2715,14 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
   }
   function renderBody(text){
     if(!stillValid()) return;
-    block.innerHTML = `<div class="tafsir-source-heading">${sourceLabel}</div><div class="tafsir-modal-body" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
+    block.innerHTML = `${heading}<div class="tafsir-modal-body" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
   }
   function renderLoading(){
-    block.innerHTML = `<div class="tafsir-source-heading">${sourceLabel}</div><div class="tafsir-modal-loading">${sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir')}</div>`;
+    block.innerHTML = `${heading}<div class="tafsir-modal-loading">${sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir')}</div>`;
   }
   function renderError(){
     if(!stillValid()) return;
-    block.innerHTML = `<div class="tafsir-source-heading">${sourceLabel}</div><div class="tafsir-modal-error">${t('tafsir_load_error')}</div>`;
+    block.innerHTML = `${heading}<div class="tafsir-modal-error">${t('tafsir_load_error')}</div>`;
   }
 
   if(tafsirCache[key]){ renderBody(tafsirCache[key]); return; }
@@ -2789,9 +2819,11 @@ function loadInlineTafsirForElement(el){
   el.dataset.loadedSlugs = slugsKey;
   el.dataset.loaded = '1';
   el.innerHTML = '';
-  slugs.forEach(slug => {
+  // نفس مبدأ الطي التلقائي المستخدم في المودال: لو أكتر من مصدرين، نطوي كل حاجة ما عدا الأول
+  const autoCollapse = slugs.length > 2;
+  slugs.forEach((slug, i) => {
     const block = document.createElement('div');
-    block.className = 'inline-tafsir-block';
+    block.className = 'inline-tafsir-block' + (autoCollapse && i > 0 ? ' collapsed' : '');
     el.appendChild(block);
     loadInlineTafsirSourceBlock(slug, surahId, ayahId, block, el, slugsKey);
   });
@@ -2801,22 +2833,23 @@ function loadInlineTafsirSourceBlock(slug, surahId, ayahId, block, containerEl, 
   const sourceInfo = getSourceInfo(slug);
   const key = getTafsirCacheKey(slug, surahId, ayahId);
   const label = (sourceInfo.type === 'translation' ? t('inline_tafsir_translation_prefix') : t('inline_tafsir_tafsir_prefix')) + ' — ' + sourceInfo.name;
+  const labelHtml = `<span class="inline-tafsir-label" onclick="toggleTafsirBlockCollapse(this)"><span>${label}</span>${INLINE_TAFSIR_CHEVRON_SVG}</span>`;
 
   function stillValid(){ return block.isConnected && containerEl.dataset.loadedSlugs === slugsKey; }
   function render(text){
     if(!stillValid()) return;
-    block.innerHTML = `<span class="inline-tafsir-label">${label}</span><div class="inline-tafsir-text" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
+    block.innerHTML = `${labelHtml}<div class="inline-tafsir-text" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
   }
   function renderError(){
     if(!stillValid()) return;
-    block.innerHTML = `<span class="inline-tafsir-label">${label}</span><div class="inline-tafsir-error">${t('tafsir_load_error')}</div>`;
+    block.innerHTML = `${labelHtml}<div class="inline-tafsir-error">${t('tafsir_load_error')}</div>`;
   }
 
   if(tafsirCache[key]){ render(tafsirCache[key]); return; }
   const stored = getStoredTafsir(slug, surahId, ayahId);
   if(stored){ tafsirCache[key] = stored; render(stored); return; }
 
-  block.innerHTML = `<span class="inline-tafsir-label">${label}</span><div class="inline-tafsir-loading">${sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir')}</div>`;
+  block.innerHTML = `${labelHtml}<div class="inline-tafsir-loading">${sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir')}</div>`;
   const sources = sourceInfo.type === 'translation'
     ? [
         `https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${slug}/${surahId}/${ayahId}.json`,
