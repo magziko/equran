@@ -45,7 +45,7 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link id="google-fonts-link" href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Amiri:wght@400;700&family=Scheherazade+New:wght@400;700&family=Lateef&family=Noto+Naskh+Arabic:wght@400;500;600;700&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet"
+<link id="google-fonts-link" href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet"
       onerror="this.remove()">
 <script type="application/ld+json">
 {
@@ -517,7 +517,7 @@
   .tafsir-modal-close:hover{ border-color:var(--accent); color:var(--accent-soft); }
   .tafsir-modal-close svg{ width:14px; height:14px; }
   .tafsir-modal-body{
-    line-height:2.3; color:var(--text); font-family:'Noto Naskh Arabic', serif;
+    line-height:2.3; color:var(--text); font-family:'Amiri Quran', serif;
   }
   .tafsir-modal-loading, .tafsir-modal-error{
     font-size:13.5px; color:var(--text-muted); text-align:center; padding:20px 0;
@@ -1014,10 +1014,6 @@
     line-height:2.3; color:var(--text);
     font-family:'Amiri Quran', serif;
   }
-  html[data-font="amiri"] .ayah-text{ font-family:'Amiri', serif; }
-  html[data-font="scheherazade"] .ayah-text{ font-family:'Scheherazade New', serif; }
-  html[data-font="lateef"] .ayah-text{ font-family:'Lateef', serif; }
-  html[data-font="noto"] .ayah-text{ font-family:'Noto Naskh Arabic', serif; }
   html[data-font="madinah"] .ayah-text{ font-family:'UthmanicHafs Madinah', serif; }
   html[data-bold="on"] .ayah-text{ font-weight:700; }
 
@@ -1190,10 +1186,6 @@
     padding-bottom:16px;
     border-bottom:1px solid var(--border);
   }
-  html[data-font="amiri"] .basmala{ font-family:'Amiri', serif; }
-  html[data-font="scheherazade"] .basmala{ font-family:'Scheherazade New', serif; }
-  html[data-font="lateef"] .basmala{ font-family:'Lateef', serif; }
-  html[data-font="noto"] .basmala{ font-family:'Noto Naskh Arabic', serif; }
   html[data-font="madinah"] .basmala{ font-family:'UthmanicHafs Madinah', serif; }
   .juz-surah-divider + .basmala{
     margin-top:-4px; margin-bottom:18px; border-bottom:none; padding-bottom:0;
@@ -1252,10 +1244,6 @@
     direction:rtl; text-align:center; line-height:2.35; color:var(--text);
     font-family:'Amiri Quran', serif;
   }
-  html[data-font="amiri"] .mushaf-line{ font-family:'Amiri', serif; }
-  html[data-font="scheherazade"] .mushaf-line{ font-family:'Scheherazade New', serif; }
-  html[data-font="lateef"] .mushaf-line{ font-family:'Lateef', serif; }
-  html[data-font="noto"] .mushaf-line{ font-family:'Noto Naskh Arabic', serif; }
   html[data-font="madinah"] .mushaf-line{ font-family:'UthmanicHafs Madinah', serif; }
   html[data-bold="on"] .mushaf-line{ font-weight:700; }
   /* ---------- Side surah navigator (desktop) ---------- */
@@ -2205,7 +2193,7 @@ function getRubVerses(hizbNum, quarter){
 let fontFamily = (function(){
   try{
     const saved = localStorage.getItem('quran-font-family');
-    if(saved) return saved;
+    if(saved === 'amiri-quran' || saved === 'madinah') return saved;
   }catch(e){}
   return 'amiri-quran';
 })();
@@ -5834,10 +5822,6 @@ const I18N_STRINGS = {
     font_type_label: 'نوع الخط',
     font_amiri_quran: 'الخط العثماني (Amiri Quran)',
     font_madinah: 'خط مصحف المدينة (عثمان طه)',
-    font_scheherazade: 'شهرزاد (واضح للقراءة)',
-    font_noto: 'نوتو نسخ (عصري وواضح)',
-    font_amiri: 'أميري (نسخي تقليدي)',
-    font_lateef: 'لطيف (بسيط)',
     reciter_label: 'القارئ',
     reciter_mustafa_ismail: 'الشيخ مصطفى إسماعيل (مرتل)',
     reciter_mustafa_ismail_mujawwad: 'الشيخ مصطفى إسماعيل (مجود)',
@@ -6058,10 +6042,6 @@ const I18N_STRINGS = {
     font_type_label: 'Font style',
     font_amiri_quran: 'Uthmanic Script (Amiri Quran)',
     font_madinah: 'Madinah Mushaf Script (Uthman Taha)',
-    font_scheherazade: 'Scheherazade (Clear for Reading)',
-    font_noto: 'Noto Naskh (Modern and Clear)',
-    font_amiri: 'Amiri (Traditional Naskh)',
-    font_lateef: 'Lateef (Simple)',
     reciter_label: 'Reciter',
     reciter_mustafa_ismail: 'Sheikh Mustafa Ismail (Murattal)',
     reciter_mustafa_ismail_mujawwad: 'Sheikh Mustafa Ismail (Mujawwad)',
@@ -6654,10 +6634,6 @@ if('serviceWorker' in navigator){
           <select id="font-family-select" class="font-select" onchange="changeFontFamily(this.value)">
             <option value="amiri-quran" data-i18n="font_amiri_quran">الخط العثماني (Amiri Quran)</option>
             <option value="madinah" data-i18n="font_madinah">خط مصحف المدينة (عثمان طه)</option>
-            <option value="scheherazade" data-i18n="font_scheherazade">شهرزاد (واضح للقراءة)</option>
-            <option value="noto" data-i18n="font_noto">نوتو نسخ (عصري وواضح)</option>
-            <option value="amiri" data-i18n="font_amiri">أميري (نسخي تقليدي)</option>
-            <option value="lateef" data-i18n="font_lateef">لطيف (بسيط)</option>
           </select>
         </div>
         <div class="control-group">
