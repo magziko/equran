@@ -235,7 +235,7 @@
     width:100%; height:40px; box-sizing:border-box;
     background:var(--surface); border:1px solid var(--border);
     color:var(--text); font-family:inherit; font-size:14px;
-    padding:0 14px; border-radius:10px; outline:none;
+    padding:0 14px 0 40px; border-radius:10px; outline:none;
     transition:border-color .15s ease, box-shadow .15s ease;
   }
   .search-box input:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
@@ -331,11 +331,25 @@
   .ayah-search-box input{
     width:100%; background:var(--surface); border:1px solid var(--border);
     color:var(--text); font-family:inherit; font-size:14.5px;
-    padding:12px 16px; border-radius:10px; outline:none;
+    padding:12px 16px 12px 44px; border-radius:10px; outline:none;
     transition:border-color .15s ease, box-shadow .15s ease;
   }
   .ayah-search-box input:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
   .ayah-search-box input::placeholder{ color:var(--text-faint); }
+  .ayah-search-mic{
+    position:absolute; top:50%; left:6px; transform:translateY(-50%);
+    width:32px; height:32px; border:none; border-radius:8px; background:transparent;
+    color:var(--text-muted); display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:background .15s ease, color .15s ease;
+  }
+  .ayah-search-mic:hover{ background:var(--surface-2); color:var(--accent-soft); }
+  .ayah-search-mic svg{ width:18px; height:18px; }
+  .ayah-search-mic.listening{ color:#fff; background:#e0433c; animation:micPulse 1.2s ease-in-out infinite; }
+  @keyframes micPulse{
+    0%{ box-shadow:0 0 0 0 rgba(224,67,60,.45); }
+    70%{ box-shadow:0 0 0 8px rgba(224,67,60,0); }
+    100%{ box-shadow:0 0 0 0 rgba(224,67,60,0); }
+  }
   .ayah-search-dropdown{
     position:absolute; top:calc(100% + 6px); left:0; right:0;
     background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-md);
@@ -1739,6 +1753,9 @@
       <div class="toolbar-actions">
         <div class="search-box">
           <input type="text" id="search-input" placeholder="ابحث عن سورة..." oninput="onSearchInput(this.value)" data-i18n-placeholder="search_surah">
+          <button type="button" class="ayah-search-mic" id="surah-search-mic" onclick="toggleSurahVoiceSearch(this)" title="بحث صوتي" aria-label="بحث صوتي" data-i18n-title="voice_search" data-i18n-aria-label="voice_search" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
         </div>
         <button class="go-btn" onclick="goToFirstMatch()" data-i18n="go">اذهب</button>
         <div class="count-pill" id="count-pill">1-114</div>
@@ -1748,6 +1765,9 @@
     <div class="ayah-search-section">
       <div class="ayah-search-box" id="ayah-search-box">
         <input type="text" id="ayah-search-input" placeholder="ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)" autocomplete="off" oninput="renderAyahSearchResults(this.value)" onkeydown="onAyahSearchKeydown(event)" data-i18n-placeholder="search_ayah">
+        <button type="button" class="ayah-search-mic" id="ayah-search-mic" onclick="toggleAyahVoiceSearch('ayah-search-input','ayah-search-dropdown', this)" title="بحث صوتي" aria-label="بحث صوتي" data-i18n-title="voice_search" data-i18n-aria-label="voice_search" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
         <div class="ayah-search-dropdown" id="ayah-search-dropdown" style="display:none;"></div>
       </div>
     </div>
@@ -1811,6 +1831,9 @@
     <div class="ayah-search-section" id="ayah-search-section-read">
       <div class="ayah-search-box" id="ayah-search-box-read">
         <input type="text" id="ayah-search-input-read" placeholder="ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)" autocomplete="off" oninput="renderAyahSearchResults(this.value, 'ayah-search-dropdown-read')" onkeydown="onAyahSearchKeydown(event)" data-i18n-placeholder="search_ayah">
+        <button type="button" class="ayah-search-mic" id="ayah-search-mic-read" onclick="toggleAyahVoiceSearch('ayah-search-input-read','ayah-search-dropdown-read', this)" title="بحث صوتي" aria-label="بحث صوتي" data-i18n-title="voice_search" data-i18n-aria-label="voice_search" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
         <div class="ayah-search-dropdown" id="ayah-search-dropdown-read" style="display:none;"></div>
       </div>
     </div>
@@ -4991,6 +5014,93 @@ function onAyahSearchKeydown(e){
   }
 }
 
+// ===== البحث الصوتي (Web Speech API) — مشترك بين البحث في الآيات والبحث بالسور =====
+const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+let activeVoiceRecognition = null;
+let activeVoiceBtn = null;
+
+function initVoiceSearchButtons(){
+  if(!SpeechRecognitionCtor) return; // المتصفح لا يدعم التعرف على الصوت، فتفضل الأزرار مخفية
+  document.querySelectorAll('.ayah-search-mic').forEach(btn => { btn.style.display = 'flex'; });
+}
+
+function stopVoiceSearch(){
+  if(activeVoiceRecognition){
+    try{ activeVoiceRecognition.stop(); }catch(e){}
+  }
+}
+
+// onTranscript(text) بتتنفذ مع كل نتيجة (نهائية أو جزئية) أثناء الكلام
+function startVoiceSearch(btn, onTranscript){
+  if(!SpeechRecognitionCtor) return;
+
+  // لو في تسجيل شغال بالفعل على نفس الزر نوقفه (toggle)
+  if(activeVoiceRecognition && activeVoiceBtn === btn){
+    stopVoiceSearch();
+    return;
+  }
+
+  // لو في تسجيل شغال على زر تاني، نوقفه الأول
+  stopVoiceSearch();
+
+  const recognition = new SpeechRecognitionCtor();
+  activeVoiceRecognition = recognition;
+  activeVoiceBtn = btn;
+
+  recognition.lang = (document.documentElement.getAttribute('data-lang') === 'en') ? 'en-US' : 'ar-SA';
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  btn.classList.add('listening');
+
+  recognition.onresult = function(event){
+    let transcript = '';
+    for(let i = 0; i < event.results.length; i++){
+      transcript += event.results[i][0].transcript;
+    }
+    onTranscript(transcript);
+  };
+
+  recognition.onerror = function(){
+    btn.classList.remove('listening');
+  };
+
+  recognition.onend = function(){
+    btn.classList.remove('listening');
+    if(activeVoiceBtn === btn){
+      activeVoiceRecognition = null;
+      activeVoiceBtn = null;
+    }
+  };
+
+  try{
+    recognition.start();
+  }catch(e){
+    btn.classList.remove('listening');
+  }
+}
+
+function toggleAyahVoiceSearch(inputId, dropdownId, btn){
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  startVoiceSearch(btn, function(transcript){
+    input.value = transcript;
+    renderAyahSearchResults(transcript, dropdownId);
+  });
+}
+
+function toggleSurahVoiceSearch(btn){
+  const input = document.getElementById('search-input');
+  if(!input) return;
+  startVoiceSearch(btn, function(transcript){
+    input.value = transcript;
+    onSearchInput(transcript);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initVoiceSearchButtons);
+if(document.readyState === 'complete' || document.readyState === 'interactive') initVoiceSearchButtons();
+
 document.addEventListener('click', function(e){
   document.querySelectorAll('.ayah-search-box').forEach(box => {
     if(!box.contains(e.target)){
@@ -5805,6 +5915,7 @@ const I18N_STRINGS = {
     browse_hizb_short: 'الأحزاب',
     search_surah: 'ابحث عن سورة...',
     search_ayah: 'ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)',
+    voice_search: 'بحث صوتي',
     go: 'اذهب',
     no_results: 'لا توجد نتائج مطابقة.',
     loading_text: 'جاري تحميل بيانات القرآن الكريم...',
@@ -6026,6 +6137,7 @@ const I18N_STRINGS = {
     browse_hizb_short: 'Hizb',
     search_surah: 'Search for a surah...',
     search_ayah: 'Search ayah text... (type a word or part of an ayah)',
+    voice_search: 'Voice search',
     go: 'Go',
     no_results: 'No matching results.',
     loading_text: 'Loading the Holy Quran data...',
