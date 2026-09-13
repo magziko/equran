@@ -5030,7 +5030,7 @@ function stopVoiceSearch(){
   }
 }
 
-// onTranscript(text) بتتنفذ مع كل نتيجة (نهائية أو جزئية) أثناء الكلام
+// onTranscript(text, isFinal) بتتنفذ مع كل نتيجة (نهائية أو جزئية) أثناء الكلام
 function startVoiceSearch(btn, onTranscript){
   if(!SpeechRecognitionCtor) return;
 
@@ -5058,7 +5058,8 @@ function startVoiceSearch(btn, onTranscript){
     for(let i = 0; i < event.results.length; i++){
       transcript += event.results[i][0].transcript;
     }
-    onTranscript(transcript);
+    const isFinal = event.results.length > 0 && event.results[event.results.length - 1].isFinal;
+    onTranscript(transcript, isFinal);
   };
 
   recognition.onerror = function(){
@@ -5080,11 +5081,175 @@ function startVoiceSearch(btn, onTranscript){
   }
 }
 
+// ===== أوامر التنقل الصوتية: "تشغيل سورة كذا" / "فتح سورة كذا" / "افتح آية كذا" / "تشغيل آية كذا" =====
+// تشغيل سورة   -> يفتح السورة ويشغّل تلاوتها كاملة (استماع متواصل)
+// فتح سورة     -> يفتح السورة فقط بدون تشغيل صوت
+// افتح آية     -> يفتح السورة (المذكورة أو الحالية) وينتقل للآية مباشرة بدون تشغيل صوت
+// تشغيل آية    -> يفتح السورة (المذكورة أو الحالية) وينتقل للآية ويشغّل صوتها
+
+// تحويل الأرقام العربية (١٢٣) للأرقام العادية (123)
+function normalizeVoiceDigits(str){
+  const map = {'٠':'0','١':'1','٢':'2','٣':'3','٤':'4','٥':'5','٦':'6','٧':'7','٨':'8','٩':'9'};
+  return String(str || '').replace(/[٠-٩]/g, d => map[d]);
+}
+
+// بعض المتصفحات بترجّع أرقام الآيات الصغيرة منطوقة بالحروف بدل الأرقام
+const VOICE_NUMBER_WORDS = {
+  'واحد':1, 'اول':1,
+  'اثنين':2, 'اثنان':2, 'ثاني':2,
+  'ثلاثة':3, 'ثلاثه':3,
+  'اربعة':4, 'اربعه':4,
+  'خمسة':5, 'خمسه':5,
+  'ستة':6, 'سته':6,
+  'سبعة':7, 'سبعه':7,
+  'ثمانية':8, 'ثمانيه':8,
+  'تسعة':9, 'تسعه':9,
+  'عشرة':10, 'عشره':10
+};
+
+// يستخرج رقم الآية من نص منطوق سواء كان رقمًا أو كلمة عدد بسيطة
+function extractVoiceAyahNumber(text){
+  const digitsOnly = normalizeVoiceDigits(text || '');
+  const digitMatch = digitsOnly.match(/\d+/);
+  if(digitMatch) return parseInt(digitMatch[0], 10);
+  const normWords = normalizeArabicSearch(text);
+  for(const word in VOICE_NUMBER_WORDS){
+    if(normWords.includes(normalizeArabicSearch(word))) return VOICE_NUMBER_WORDS[word];
+  }
+  return null;
+}
+
+// أفضل تطابق لاسم سورة منطوق (بيستخدم نفس محرك البحث الذكي عن السور)
+function findSurahByVoiceName(name){
+  const results = searchSurahs((name || '').trim());
+  return results.length ? results[0] : null;
+}
+
+// اقتراحات "هل تقصد" لاسم سورة مش متعرّف عليه بثقة: بيرجع أقرب السور بالاسم/الترجمة
+// بغض النظر عن حد التطابق المعتاد (عشان نقدر نقترح حتى لو النطق مش دقيق خالص)
+function suggestSurahsForVoice(name, limit){
+  limit = limit || 3;
+  const q = (name || '').trim();
+  if(!q) return [];
+  const normQ = normalizeArabicSearch(q);
+  return QURAN
+    .map(s => {
+      const normName = normalizeArabicSearch(s.name);
+      const translit = (s.transliteration || '').toLowerCase();
+      const dist = Math.min(levenshteinDistance(normName, normQ), levenshteinDistance(translit, normQ));
+      return { s, dist };
+    })
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, limit)
+    .map(r => r.s);
+}
+
+// يحاول تفسير نص مسموع كأمر تنقّل. يرجع:
+// - null                                لو النص مش أمر أصلاً (نسيبه يتعامل كبحث عادي)
+// - { type:'executed' }                 لو اتنفذ الأمر بنجاح
+// - { type:'need_surah', query, ... }   لو الصيغة أمر فعلاً لكن اسم السورة مش متعرّف عليه بثقة (نعرض اقتراحات)
+function tryHandleVoiceNavigationCommand(rawTranscript){
+  const text = (rawTranscript || '').replace(/[.،,؟!]+$/g, '').trim();
+  if(!text) return null;
+
+  const playVerbs = 'شغل|شغّل|شغلي|تشغيل';
+  const openVerbs = 'افتح|فتح|افتحي|فتحي';
+
+  const re = new RegExp(
+    '^(' + playVerbs + '|' + openVerbs + ')\\s+(?:' +
+      'سورة\\s+(.+?)(?:\\s+(?:آية|اية)\\s+(.+))?' +
+      '|' +
+      '(?:آية|اية)\\s+(.+?)(?:\\s+(?:من\\s+)?سورة\\s+(.+))?' +
+    ')$'
+  );
+
+  const m = text.match(re);
+  if(!m) return null;
+
+  const isPlay = new RegExp('^(?:' + playVerbs + ')$').test(m[1]);
+  const surahNameRaw = m[2] || m[5] || null;
+  const ayahRaw = m[3] || m[4] || null;
+  const ayahNumParsed = ayahRaw ? extractVoiceAyahNumber(ayahRaw) : null;
+
+  let surah = null;
+  if(surahNameRaw){
+    surah = findSurahByVoiceName(surahNameRaw);
+    if(!surah){
+      // الصيغة أمر واضح، لكن اسم السورة مش متعرّف عليه بثقة: نرجّع بيانات كافية لعرض اقتراحات
+      return { type:'need_surah', query: surahNameRaw, ayahNum: ayahNumParsed, isPlay };
+    }
+  } else if(currentMode === 'surah' && currentSurahId){
+    surah = QURAN.find(s => s.id === currentSurahId); // مفيش اسم سورة في الأمر: نستخدم السورة المفتوحة حاليًا
+  }
+  if(!surah) return null; // مفيش اسم سورة ولا سورة حالية نقدر نقترح أو ننفذ عليها
+
+  let ayahNum = ayahNumParsed;
+  if(ayahNum){
+    ayahNum = Math.max(1, Math.min(ayahNum, surah.total_verses));
+    openSurah(surah.id, ayahNum);
+    if(isPlay){
+      setTimeout(() => playAyahAudio(surah.id, ayahNum, getAyahCardId(surah.id, ayahNum)), 150);
+    }
+  } else {
+    openSurah(surah.id);
+    if(isPlay) startFullSurahListen();
+  }
+  return { type:'executed' };
+}
+
+// يعرض اقتراحات "هل تقصد" داخل قائمة بحث الآيات المنسدلة، كل اقتراح بيكمّل نفس الأمر
+// (فتح/تشغيل، ومع رقم آية لو كان موجودًا) بمجرد الضغط عليه
+function renderVoiceSurahSuggestions(suggestions, ayahNum, isPlay, dropdownId){
+  const dropdown = document.getElementById(dropdownId);
+  if(!dropdown) return;
+  if(!suggestions.length){
+    dropdown.innerHTML = `<div class="ayah-search-empty">${t('voice_no_match')}</div>`;
+    dropdown.style.display = 'block';
+    return;
+  }
+  dropdown.innerHTML =
+    `<div class="ayah-search-empty">${t('voice_did_you_mean')}</div>` +
+    suggestions.map(s => `
+      <div class="ayah-search-result" onclick="applyVoiceSurahSuggestion(${s.id}, ${ayahNum || 'null'}, ${isPlay ? 'true' : 'false'})">
+        <div class="ayah-search-meta">${t('surah_word')} ${s.name}-${s.transliteration}</div>
+      </div>
+    `).join('');
+  dropdown.style.display = 'block';
+}
+
+// يُستدعى عند الضغط على أحد اقتراحات "هل تقصد" فينفّذ نفس الأمر الصوتي الأصلي على السورة المختارة
+function applyVoiceSurahSuggestion(surahId, ayahNum, isPlay){
+  document.querySelectorAll('.ayah-search-dropdown').forEach(d => { d.style.display = 'none'; d.innerHTML = ''; });
+  document.querySelectorAll('.ayah-search-box input').forEach(i => { i.value = ''; });
+  const surah = QURAN.find(s => s.id === surahId);
+  if(!surah) return;
+  if(ayahNum){
+    const clamped = Math.max(1, Math.min(ayahNum, surah.total_verses));
+    openSurah(surahId, clamped);
+    if(isPlay) setTimeout(() => playAyahAudio(surahId, clamped, getAyahCardId(surahId, clamped)), 150);
+  } else {
+    openSurah(surahId);
+    if(isPlay) startFullSurahListen();
+  }
+}
+
 function toggleAyahVoiceSearch(inputId, dropdownId, btn){
   const input = document.getElementById(inputId);
   if(!input) return;
-  startVoiceSearch(btn, function(transcript){
+  startVoiceSearch(btn, function(transcript, isFinal){
     input.value = transcript;
+    if(isFinal){
+      const cmd = tryHandleVoiceNavigationCommand(transcript);
+      if(cmd && cmd.type === 'executed'){
+        input.value = '';
+        renderAyahSearchResults('', dropdownId);
+        return;
+      }
+      if(cmd && cmd.type === 'need_surah'){
+        renderVoiceSurahSuggestions(suggestSurahsForVoice(cmd.query), cmd.ayahNum, cmd.isPlay, dropdownId);
+        return;
+      }
+    }
     renderAyahSearchResults(transcript, dropdownId);
   });
 }
@@ -5092,8 +5257,23 @@ function toggleAyahVoiceSearch(inputId, dropdownId, btn){
 function toggleSurahVoiceSearch(btn){
   const input = document.getElementById('search-input');
   if(!input) return;
-  startVoiceSearch(btn, function(transcript){
+  startVoiceSearch(btn, function(transcript, isFinal){
     input.value = transcript;
+    if(isFinal){
+      const cmd = tryHandleVoiceNavigationCommand(transcript);
+      if(cmd && cmd.type === 'executed'){
+        input.value = '';
+        onSearchInput('');
+        return;
+      }
+      if(cmd && cmd.type === 'need_surah'){
+        // مفيش قائمة منسدلة في صندوق تصفح السور، فبنستخدم اسم السورة المستخلص فقط
+        // (من غير كلمات الأمر زي "افتح/شغل") لتصفية الشبكة، فتظهر أقرب السور كاقتراحات مباشرة
+        input.value = cmd.query;
+        onSearchInput(cmd.query);
+        return;
+      }
+    }
     onSearchInput(transcript);
   });
 }
@@ -5916,6 +6096,8 @@ const I18N_STRINGS = {
     search_surah: 'ابحث عن سورة...',
     search_ayah: 'ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)',
     voice_search: 'بحث صوتي',
+    voice_did_you_mean: 'لم أتعرّف على اسم السورة بدقة، هل تقصد:',
+    voice_no_match: 'تعذّر التعرف على اسم السورة، حاول نطقه بوضوح أكثر.',
     go: 'اذهب',
     no_results: 'لا توجد نتائج مطابقة.',
     loading_text: 'جاري تحميل بيانات القرآن الكريم...',
@@ -6138,6 +6320,8 @@ const I18N_STRINGS = {
     search_surah: 'Search for a surah...',
     search_ayah: 'Search ayah text... (type a word or part of an ayah)',
     voice_search: 'Voice search',
+    voice_did_you_mean: "Couldn't recognize the surah name exactly, did you mean:",
+    voice_no_match: "Couldn't recognize the surah name, please try saying it more clearly.",
     go: 'Go',
     no_results: 'No matching results.',
     loading_text: 'Loading the Holy Quran data...',
