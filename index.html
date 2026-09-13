@@ -5231,11 +5231,12 @@ function suggestSurahsForVoice(name, limit){
     .map(r => r.s);
 }
 
-// يحاول تفسير نص مسموع كأمر تنقّل. يرجع:
-// - null                                لو النص مش أمر أصلاً (نسيبه يتعامل كبحث عادي)
-// - { type:'executed' }                 لو اتنفذ الأمر بنجاح
-// - { type:'need_surah', query, ... }   لو الصيغة أمر فعلاً لكن اسم السورة مش متعرّف عليه بثقة (نعرض اقتراحات)
-function tryHandleVoiceNavigationCommand(rawTranscript){
+// بيحلّل نص مسموع (كامل أو جزئي) عشان يحدد نوعه: أمر "تشغيل" ولا أمر "فتح" ولا
+// مجرد "بحث عادي" (مفيش كلمة أمر معروفة في أوله). بيرجع null لو مفيش صيغة أمر
+// متعرّف عليها (يبقى بحث عادي)، أو object فيه isPlay/surahNameRaw/ayahRaw.
+// النتيجة دي بتتستخدم في حالتين: أثناء الكلام (نتيجة جزئية) عشان نعرف نفلتر
+// بالاسم بس من غير كلمات الأمر، وبعد اكتمال الكلام (نتيجة نهائية) عشان ننفّذ فعليًا.
+function parseVoiceCommand(rawTranscript){
   const trimmed = (rawTranscript || '').replace(/[.،,؟!]+$/g, '').trim();
   if(!trimmed) return null;
   // بنطبّع النص (توحيد ة/ه، الهمزات، إزالة التشكيل...) قبل مطابقته بصيغة الأمر،
@@ -5262,6 +5263,48 @@ function tryHandleVoiceNavigationCommand(rawTranscript){
   const isPlay = new RegExp('^(?:' + playVerbs + ')$').test(m[1]);
   const surahNameRaw = m[2] || m[5] || null;
   const ayahRaw = m[3] || m[4] || null;
+  return { isPlay, surahNameRaw, ayahRaw };
+}
+
+// نسخة مبسّطة من parseVoiceCommand بتتسامح مع أول الجملة قبل ما المستخدم يكمّل
+// كلمة "سورة": كفاية إن الجملة تبدأ بكلمة أمر (تشغيل/فتح) عشان نصنّفها، حتى لو
+// اسم السورة لسه ملوش وجود أو ناقص. مفيدة لعرض تصنيف حي (بحث/تشغيل/فتح) أثناء الكلام.
+// بترجع: { type:'play'|'open', query } أو { type:'search', query } (بحث عادي بالاسم زي ما هو)
+function classifyVoiceCommand(rawTranscript){
+  const trimmed = (rawTranscript || '').replace(/[.،,؟!]+$/g, '').trim();
+  if(!trimmed) return { type:'search', query:'' };
+
+  const full = parseVoiceCommand(trimmed);
+  if(full){
+    return { type: full.isPlay ? 'play' : 'open', query: (full.surahNameRaw || '').trim() };
+  }
+
+  // مفيش تطابق كامل (يمكن لسه بيتكلم قبل ما يقول "سورة")؛ نجرّب نتعرف بس على
+  // إن الجملة بادئة بكلمة أمر، ونشيلها (وكلمة "سورة" لو موجودة) ونسيب الباقي كاسم مبدئي
+  const text = normalizeArabicSearch(trimmed);
+  const playVerbs = VOICE_PLAY_VERBS.map(normalizeArabicSearch).join('|');
+  const openVerbs = VOICE_OPEN_VERBS.map(normalizeArabicSearch).join('|');
+
+  let m = text.match(new RegExp('^(?:' + playVerbs + ')(?:\\s+(?:سوره\\s+)?(.*))?$'));
+  if(m) return { type:'play', query: (m[1] || '').trim() };
+
+  m = text.match(new RegExp('^(?:' + openVerbs + ')(?:\\s+(?:سوره\\s+)?(.*))?$'));
+  if(m) return { type:'open', query: (m[1] || '').trim() };
+
+  // مفيش كلمة أمر معروفة في أول الجملة خالص: يبقى بحث عادي بالاسم زي ما هو
+  return { type:'search', query: trimmed };
+}
+
+// يحاول تفسير نص مسموع كأمر تنقّل. يرجع:
+// - null                                لو النص مش أمر أصلاً (نسيبه يتعامل كبحث عادي)
+// - { type:'executed' }                 لو اتنفذ الأمر بنجاح
+// - { type:'need_surah', query, ... }   لو الصيغة أمر فعلاً لكن اسم السورة مش متعرّف عليه بثقة (نعرض اقتراحات)
+function tryHandleVoiceNavigationCommand(rawTranscript){
+  const parsed = parseVoiceCommand(rawTranscript);
+  if(!parsed) return null;
+  const isPlay = parsed.isPlay;
+  const surahNameRaw = parsed.surahNameRaw;
+  const ayahRaw = parsed.ayahRaw;
   const ayahNumParsed = ayahRaw ? extractVoiceAyahNumber(ayahRaw) : null;
 
   let surah = null;
@@ -5351,23 +5394,29 @@ function toggleSurahVoiceSearch(btn){
   const input = document.getElementById('search-input');
   if(!input) return;
   startVoiceSearch(btn, function(transcript, isFinal){
-    input.value = transcript;
-    if(isFinal){
-      const cmd = tryHandleVoiceNavigationCommand(transcript);
-      if(cmd && cmd.type === 'executed'){
-        input.value = '';
-        onSearchInput('');
-        return;
-      }
-      if(cmd && cmd.type === 'need_surah'){
-        // مفيش قائمة منسدلة في صندوق تصفح السور، فبنستخدم اسم السورة المستخلص فقط
-        // (من غير كلمات الأمر زي "افتح/شغل") لتصفية الشبكة، فتظهر أقرب السور كاقتراحات مباشرة
-        input.value = cmd.query;
-        onSearchInput(cmd.query);
-        return;
-      }
+    // نصنّف كل نتيجة (جزئية أو نهائية) لمعرفة هل هي بحث عادي بالاسم، أو أمر
+    // "تشغيل"، أو أمر "فتح"، عشان نقدر نفلتر الشبكة باسم السورة بس أول بأول
+    // أثناء الكلام، من غير ما تفضل كلمات زي "شغل سورة" ظاهرة كأنها بحث فاشل
+    const cls = classifyVoiceCommand(transcript);
+    const displayQuery = cls.type === 'search' ? transcript : cls.query;
+    input.value = displayQuery;
+    onSearchInput(displayQuery);
+
+    if(!isFinal) return;
+
+    if(cls.type === 'search'){
+      return; // بحث عادي، مفيش أمر لازم يتنفذ؛ الشبكة اتفلترت بالفعل فوق
     }
-    onSearchInput(transcript);
+
+    // أمر تشغيل/فتح مكتمل: نحاول نلاقي السورة المقصودة وننفّذ الأمر عليها
+    const cmd = tryHandleVoiceNavigationCommand(transcript);
+    if(cmd && cmd.type === 'executed'){
+      input.value = '';
+      onSearchInput('');
+      return;
+    }
+    // لسه معندناش اسم سورة متعرّف عليه بثقة (يمكن لسه بيتكلم أو نطق غير واضح):
+    // نسيب الشبكة مفلترة باسم السورة المستخلص كاقتراح لحد ما يتأكد الاسم
   });
 }
 
