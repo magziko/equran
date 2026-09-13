@@ -4757,6 +4757,13 @@ function fuzzyMatchScore(target, query){
   return best <= threshold ? best : Infinity;
 }
 
+// نسخة أكثر تسامحًا من التطبيع: بعد توحيد الهمزات/ة‑ه/ى‑ي بتشيل كمان كل
+// أشكال الألف والهمزة تمامًا، عشان تتحمّل فروق نطق بسيطة زي همزة زيادة أو
+// ناقصة (مثلاً "القارعة" مقابل "القارعه" مع همزة مختلفة، أو "إبراهيم/ابراهيم")
+function normalizeArabicLoose(str){
+  return normalizeArabicSearch(str).replace(/[اء]/g, '');
+}
+
 function surahSearchScore(s, rawQuery, normQuery){
   if(!rawQuery) return 0;
   if(String(s.id) === rawQuery) return -3; // تطابق برقم السورة: أولوية قصوى
@@ -4766,6 +4773,17 @@ function surahSearchScore(s, rawQuery, normQuery){
   if(normName === normQuery || translit === normQuery) return -2;
   // الاسم يبدأ بالبحث: أولوية عالية
   if(normName.startsWith(normQuery) || translit.startsWith(normQuery)) return -1;
+
+  // مطابقة متسامحة: بعد تجاهل الألف والهمزة تمامًا من الطرفين، عشان فروق
+  // النطق أو الكتابة البسيطة في الهمزات متمنعش التعرف على اسم السورة
+  const looseQuery = normalizeArabicLoose(normQuery);
+  if(looseQuery){
+    const looseName = normalizeArabicLoose(normName);
+    const looseTranslit = normalizeArabicLoose(translit);
+    if(looseName === looseQuery || looseTranslit === looseQuery) return -1.5;
+    if(looseName.startsWith(looseQuery) || looseTranslit.startsWith(looseQuery)) return -0.5;
+  }
+
   const nameScore = fuzzyMatchScore(normName, normQuery);
   const translitScore = fuzzyMatchScore(translit, normQuery);
   return Math.min(nameScore, translitScore);
@@ -5107,7 +5125,68 @@ const VOICE_NUMBER_WORDS = {
   'عشرة':10, 'عشره':10
 };
 
-// يستخرج رقم الآية من نص منطوق سواء كان رقمًا أو كلمة عدد بسيطة
+// كلمات "تشغيل" و"فتح" بلغات منتشرة عالميًا، عشان أوامر التنقل الصوتية تتعرف
+// عليها حتى لو اتقالت بلغة غير العربية أو الإنجليزية. الكلمات مكتوبة هنا بالشكل
+// اللي المفروض يوصل بيه بعد التطبيع (توحيد ة/ه والهمزات)، وده بينفع أساسًا مع
+// اللغات اللي بتستخدم نفس حروف اللغة العربية (فارسي/أردو)، أو مع أي نص مكتوب/منقول
+// بلغة تانية؛ مع العلم إن محرك التعرف الصوتي نفسه (Web Speech API) شغال حاليًا
+// بالعربي أو الإنجليزي بس (recognition.lang)، فالكلمات دي بتفيد أكتر لو دعمنا
+// لغة تانية للتعرف الصوتي لاحقًا، أو لو النص جاي مكتوب مباشرة
+const VOICE_PLAY_VERBS = [
+  // العربية (فصحى وعامية)
+  'شغل','شغلي','شغللي','تشغيل','استمع','اسمع','اسمعني','سمعني','ابدا','ابدا تشغيل',
+  // English
+  'play','run','start',
+  // Français (بالحروف المميزة وبدونها، لتحمّل الاختلاف في كتابة النص المفرّغ)
+  'jouer','joue','lance','démarre','demarre','démarrer','demarrer',
+  // Español
+  'reproducir','reproduce','jugar','inicia','iniciar',
+  // Deutsch
+  'spielen','spiel','abspielen','starte',
+  // Türkçe
+  'çal','cal','oynat','başlat','baslat',
+  // فارسی (Persian)
+  'پخش','اجرا کن','شروع کن',
+  // اردو (Urdu)
+  'چلاؤ','پلے کرو','شروع کرو',
+  // Bahasa (Indonesia/Melayu)
+  'putar','mainkan','mulai',
+  // Русский
+  'играть','включи','запусти',
+  // हिन्दी (Hindi)
+  'चलाओ','बजाओ','शुरू करो',
+  // Kiswahili
+  'cheza','anzisha'
+];
+
+const VOICE_OPEN_VERBS = [
+  // العربية (فصحى وعامية)
+  'افتح','فتح','افتحي','فتحي','اعرض','وريني','اظهر',
+  // English
+  'open','show',
+  // Français
+  'ouvrir','ouvre','affiche',
+  // Español
+  'abrir','abre','muestra',
+  // Deutsch
+  'öffnen','offnen','öffne','offne','zeige',
+  // Türkçe
+  'aç','ac','göster','goster',
+  // فارسی (Persian)
+  'باز کن','نشان بده',
+  // اردو (Urdu)
+  'کھولو','دکھاؤ',
+  // Bahasa (Indonesia/Melayu)
+  'buka','tunjukkan',
+  // Русский
+  'открой','покажи',
+  // हिन्दी (Hindi)
+  'खोलो','दिखाओ',
+  // Kiswahili
+  'fungua','onyesha'
+];
+
+
 function extractVoiceAyahNumber(text){
   const digitsOnly = normalizeVoiceDigits(text || '');
   const digitMatch = digitsOnly.match(/\d+/);
@@ -5132,11 +5211,19 @@ function suggestSurahsForVoice(name, limit){
   const q = (name || '').trim();
   if(!q) return [];
   const normQ = normalizeArabicSearch(q);
+  const looseQ = normalizeArabicLoose(normQ);
   return QURAN
     .map(s => {
       const normName = normalizeArabicSearch(s.name);
       const translit = (s.transliteration || '').toLowerCase();
-      const dist = Math.min(levenshteinDistance(normName, normQ), levenshteinDistance(translit, normQ));
+      // بناخد أقل مسافة تحرير، سواء على النص العادي أو على نسخته المتسامحة
+      // (بعد تجاهل الألف/الهمزة تمامًا)، عشان فروق الهمزات ما تبعدش الاقتراح الصح
+      const dist = Math.min(
+        levenshteinDistance(normName, normQ),
+        levenshteinDistance(translit, normQ),
+        levenshteinDistance(normalizeArabicLoose(normName), looseQ),
+        levenshteinDistance(normalizeArabicLoose(translit), looseQ)
+      );
       return { s, dist };
     })
     .sort((a, b) => a.dist - b.dist)
@@ -5149,17 +5236,23 @@ function suggestSurahsForVoice(name, limit){
 // - { type:'executed' }                 لو اتنفذ الأمر بنجاح
 // - { type:'need_surah', query, ... }   لو الصيغة أمر فعلاً لكن اسم السورة مش متعرّف عليه بثقة (نعرض اقتراحات)
 function tryHandleVoiceNavigationCommand(rawTranscript){
-  const text = (rawTranscript || '').replace(/[.،,؟!]+$/g, '').trim();
-  if(!text) return null;
+  const trimmed = (rawTranscript || '').replace(/[.،,؟!]+$/g, '').trim();
+  if(!trimmed) return null;
+  // بنطبّع النص (توحيد ة/ه، الهمزات، إزالة التشكيل...) قبل مطابقته بصيغة الأمر،
+  // عشان فروق النطق أو التفريغ الصوتي البسيطة (زي "سوره" بدل "سورة") متمنعش التعرف على الأمر
+  const text = normalizeArabicSearch(trimmed);
 
-  const playVerbs = 'شغل|شغّل|شغلي|تشغيل';
-  const openVerbs = 'افتح|فتح|افتحي|فتحي';
+  // قائمة موسّعة من صيغ الأمر بعدة لغات (راجع VOICE_PLAY_VERBS / VOICE_OPEN_VERBS)،
+  // وبنطبّعها بنفس دالة تطبيع النص المسموع، عشان أي حرف عربي (زي الهمزة على
+  // الواو في كلمات أردو/فارسية) يتوحّد بنفس الطريقة اللي بيتوحّد بيها النص المسموع
+  const playVerbs = VOICE_PLAY_VERBS.map(normalizeArabicSearch).join('|');
+  const openVerbs = VOICE_OPEN_VERBS.map(normalizeArabicSearch).join('|');
 
   const re = new RegExp(
     '^(' + playVerbs + '|' + openVerbs + ')\\s+(?:' +
-      'سورة\\s+(.+?)(?:\\s+(?:آية|اية)\\s+(.+))?' +
+      'سوره\\s+(.+?)(?:\\s+ايه\\s+(.+))?' +
       '|' +
-      '(?:آية|اية)\\s+(.+?)(?:\\s+(?:من\\s+)?سورة\\s+(.+))?' +
+      'ايه\\s+(.+?)(?:\\s+(?:من\\s+)?سوره\\s+(.+))?' +
     ')$'
   );
 
