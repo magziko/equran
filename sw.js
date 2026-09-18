@@ -1,6 +1,6 @@
 // اسم الكاش — غيّره (مثلاً v2, v3) في كل مرة تحدّث فيها محتوى الملف
 // حتى يتم تحميل النسخة الجديدة للمستخدمين بدل النسخة القديمة المخزنة
-const CACHE_NAME = 'quran-app-cache-v3';
+const CACHE_NAME = 'quran-app-cache-v4';
 
 // الملفات الأساسية للتطبيق (الصفحة نفسها تكفي لأنها تحتوي كل شيء)
 const APP_SHELL = [
@@ -13,14 +13,18 @@ const APP_SHELL = [
   './icon-512-maskable.png'
 ];
 
-// عند التثبيت: خزّن نسخة من التطبيق فوراً
+// عند التثبيت: خزّن كل ملف على حدة
+// (addAll كانت ذرية: فشل ملف واحد كان يمنع تخزين كل الملفات بصمت)
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(APP_SHELL).catch(() => {
-        // لو فشل تحميل أحد الملفات (مثلاً manifest غير موجود)، لا توقف التثبيت
-        return Promise.resolve();
-      });
+      return Promise.all(
+        APP_SHELL.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn('تعذر تخزين الملف في الكاش:', url, err);
+          })
+        )
+      );
     }).then(() => self.skipWaiting())
   );
 });
@@ -55,7 +59,15 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => cachedResponse); // لا يوجد إنترنت: اعتمد على الكاش
+        .catch(() => {
+          // لا يوجد إنترنت ولا نسخة مخزنة لهذا الطلب تحديداً:
+          // لو كان طلب فتح صفحة (تنقل)، ارجع الصفحة الرئيسية المخزنة بدل فشل كامل
+          if (cachedResponse) return cachedResponse;
+          if (req.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+          return new Response('', { status: 408, statusText: 'Offline' });
+        });
 
       // إن وجدنا نسخة في الكاش، أعطها فوراً (أسرع + يعمل أوفلاين)
       // وإلا انتظر الشبكة
