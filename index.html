@@ -2036,7 +2036,25 @@
       <button class="browse-tab" id="notes-tab-btn" onclick="switchFavoritesTab('notes')"><span data-i18n="my_notes">ملاحظاتي</span><span class="notes-tab-count" id="notes-tab-count"></span></button>
     </div>
 
+    <div class="notes-toolbar" id="favorites-toolbar">
+      <div class="notes-filters" id="favorites-filters">
+        <div class="notes-search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="fav-search-input" placeholder="ابحث في المفضلة..." autocomplete="off" oninput="onFavSearchInput(this.value)" data-i18n-placeholder="fav_search_placeholder">
+          <button type="button" class="notes-search-clear" id="fav-search-clear" onclick="clearFavSearch()" title="مسح البحث" aria-label="مسح البحث" data-i18n-title="notes_clear_search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <select id="fav-sort-select" class="font-select" onchange="onFavSortChange(this.value)">
+          <option value="mushaf" data-i18n="notes_sort_mushaf">حسب ترتيب المصحف</option>
+          <option value="newest" data-i18n="notes_sort_newest">الأحدث أولًا</option>
+          <option value="oldest" data-i18n="notes_sort_oldest">الأقدم أولًا</option>
+        </select>
+      </div>
+    </div>
+
     <div class="ayat-list" id="favorites-list"></div>
+    <div class="favorites-empty" id="favorites-no-results" style="display:none;" data-i18n="fav_no_results">لا توجد آيات مطابقة لبحثك.</div>
     <div class="favorites-empty" id="favorites-empty" style="display:none;" data-i18n="favorites_empty_msg">لم تُضِف أي آية إلى المفضلة بعد. اضغط على أيقونة العلامة بجانب أي آية لإضافتها هنا.</div>
 
     <div class="notes-toolbar" id="notes-toolbar">
@@ -2649,6 +2667,15 @@ function saveNotesMap(map){
   updateNotesCount();
 }
 
+// حالة البحث والترتيب في تبويب "المفضلة" (الترتيب محفوظ بين الجلسات)
+let favSearchQuery = '';
+let favSortMode = (function(){
+  try{
+    const v = localStorage.getItem('quran-fav-sort');
+    return (v === 'newest' || v === 'oldest') ? v : 'mushaf';
+  }catch(e){ return 'mushaf'; }
+})();
+
 // حالة البحث والترتيب في تبويب "ملاحظاتي" (الترتيب محفوظ بين الجلسات)
 let notesSearchQuery = '';
 let notesSortMode = (function(){
@@ -2894,6 +2921,8 @@ function switchFavoritesTab(mode){
     notesBtn.classList.add('active');
     favList.style.display = 'none';
     favEmpty.style.display = 'none';
+    document.getElementById('favorites-toolbar').style.display = 'none';
+    document.getElementById('favorites-no-results').style.display = 'none';
     notesList.style.display = '';
     document.getElementById('notes-toolbar').style.display = 'flex';
     document.getElementById('notes-sort-select').value = notesSortMode;
@@ -2906,6 +2935,8 @@ function switchFavoritesTab(mode){
     notesList.style.display = 'none';
     notesEmpty.style.display = 'none';
     favList.style.display = '';
+    document.getElementById('favorites-toolbar').style.display = 'flex';
+    document.getElementById('fav-sort-select').value = favSortMode;
     renderFavoritesView();
   }
 }
@@ -2937,12 +2968,12 @@ function noteMatchesQuery(n, words){
   return words.every(w => hay.includes(w));
 }
 
-function formatNoteDate(ts){
+function formatNoteDate(ts, labelKey){
   if(!ts) return '';
   try{
     const locale = document.documentElement.getAttribute('data-lang') === 'en' ? 'en-US' : 'ar-EG-u-nu-latn';
     const d = new Date(ts).toLocaleDateString(locale, { year:'numeric', month:'short', day:'numeric' });
-    return `${t('note_edited_label')}: ${d}`;
+    return `${t(labelKey || 'note_edited_label')}: ${d}`;
   }catch(e){ return ''; }
 }
 
@@ -4073,16 +4104,61 @@ function renderKhatmaView(){
   listEl.innerHTML = plans.map((plan, idx) => renderKhatmaPlanCard(plan, idx)).join('');
 }
 
+function onFavSearchInput(value){
+  favSearchQuery = value || '';
+  const clearBtn = document.getElementById('fav-search-clear');
+  if(clearBtn) clearBtn.classList.toggle('show', !!favSearchQuery);
+  renderFavoritesView();
+}
+
+function clearFavSearch(){
+  const input = document.getElementById('fav-search-input');
+  if(input){ input.value = ''; input.focus(); }
+  onFavSearchInput('');
+}
+
+function onFavSortChange(mode){
+  favSortMode = (mode === 'newest' || mode === 'oldest') ? mode : 'mushaf';
+  try{ localStorage.setItem('quran-fav-sort', favSortMode); }catch(e){}
+  renderFavoritesView();
+}
+
+// البحث في نص الآية واسم السورة (عربي/إنجليزي) ورقم الآية بصيغة 2:255، مع تجاهل التشكيل والفروق البسيطة في الهمزات
+function favMatchesQuery(b, words){
+  if(!words.length) return true;
+  const surah = QURAN.find(s => s.id === b.surahId);
+  const verse = surah && surah.verses.find(v => v.id === b.ayahId);
+  const hay = normalizeArabicSearch([verse ? verse.text : '', b.surahName, surah ? surah.transliteration : '', b.surahId + ':' + b.ayahId].join(' ')).toLowerCase();
+  return words.every(w => hay.includes(w));
+}
+
 function renderFavoritesView(){
-  const list = getBookmarks().slice().sort((a,b) => a.surahId - b.surahId || a.ayahId - b.ayahId);
+  const all = getBookmarks();
   const container = document.getElementById('favorites-list');
   const empty = document.getElementById('favorites-empty');
-  if(!list.length){
+  const noResults = document.getElementById('favorites-no-results');
+  const filters = document.getElementById('favorites-filters');
+  if(filters) filters.style.display = all.length ? '' : 'none';
+  if(!all.length){
     container.innerHTML = '';
+    if(noResults) noResults.style.display = 'none';
     empty.style.display = 'block';
     return;
   }
   empty.style.display = 'none';
+  const words = normalizeArabicSearch(favSearchQuery).toLowerCase().split(/\s+/).filter(Boolean);
+  const byMushaf = (a,b) => a.surahId - b.surahId || a.ayahId - b.ayahId;
+  const list = all.filter(b => favMatchesQuery(b, words)).sort((a,b) => {
+    if(favSortMode === 'newest') return ((b.ts || 0) - (a.ts || 0)) || byMushaf(a,b);
+    if(favSortMode === 'oldest') return ((a.ts || 0) - (b.ts || 0)) || byMushaf(a,b);
+    return byMushaf(a,b);
+  });
+  if(!list.length){
+    container.innerHTML = '';
+    if(noResults) noResults.style.display = 'block';
+    return;
+  }
+  if(noResults) noResults.style.display = 'none';
   container.innerHTML = list.map(b => {
     const surah = QURAN.find(s => s.id === b.surahId);
     const verse = surah && surah.verses.find(v => v.id === b.ayahId);
@@ -4090,6 +4166,7 @@ function renderFavoritesView(){
     return `
     <div class="ayah-card is-saved" id="fayah-${b.surahId}-${b.ayahId}" data-ayah="${b.ayahId}" data-surah="${b.surahId}" onclick="playAyahAudio(${b.surahId}, ${b.ayahId}, 'fayah-${b.surahId}-${b.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(verse.text)}</div>
+      ${b.ts ? `<div class="ayah-note-date">${formatNoteDate(b.ts, 'fav_saved_label')}</div>` : ''}
       <div class="ayah-meta">
         <div class="ayah-num-badge">
           <span class="ayah-num-badge__num">${b.ayahId}</span>
@@ -7064,6 +7141,9 @@ const I18N_STRINGS = {
     notes_sort_oldest: 'الأقدم أولًا',
     notes_no_results: 'لا توجد ملاحظات مطابقة لبحثك.',
     note_edited_label: 'آخر تعديل',
+    fav_search_placeholder: 'ابحث في المفضلة...',
+    fav_no_results: 'لا توجد آيات مطابقة لبحثك.',
+    fav_saved_label: 'أُضيفت في',
     data_backup_label: 'نسخ احتياطي للبيانات (المفضلة، الملاحظات، خطط الختم)',
     export_data: 'تصدير نسخة احتياطية (JSON)',
     import_data: 'استيراد نسخة احتياطية',
@@ -7321,6 +7401,9 @@ const I18N_STRINGS = {
     notes_sort_oldest: 'Oldest first',
     notes_no_results: 'No notes match your search.',
     note_edited_label: 'Last edited',
+    fav_search_placeholder: 'Search your favorites...',
+    fav_no_results: 'No ayahs match your search.',
+    fav_saved_label: 'Saved on',
     data_backup_label: 'Data backup (favorites, notes, khatma plans)',
     export_data: 'Export backup (JSON)',
     import_data: 'Import backup',
