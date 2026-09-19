@@ -572,6 +572,72 @@
     top:8px; left:6px; transform:none;
   }
   .note-modal-actions{ display:flex; gap:8px; margin-top:14px; }
+  /* زر إضافة ملاحظة جديدة من تبويب "ملاحظاتي" + منتقي السورة/الآية داخل نافذة الملاحظة */
+  .notes-toolbar{ display:none; margin-bottom:14px; gap:10px; flex-wrap:wrap; align-items:center; }
+  .notes-filters{ flex:1 1 320px; display:flex; gap:8px; align-items:center; min-width:0; }
+  .notes-search-box{ position:relative; flex:1 1 160px; min-width:0; }
+  .notes-search-box > svg{
+    position:absolute; top:50%; inset-inline-start:12px; transform:translateY(-50%);
+    width:16px; height:16px; color:var(--text-faint); pointer-events:none;
+  }
+  .notes-search-box input{
+    width:100%; height:40px; box-sizing:border-box; background:var(--surface);
+    border:1px solid var(--border); color:var(--text); font-family:inherit; font-size:14px;
+    padding-block:0; padding-inline-start:38px; padding-inline-end:36px;
+    border-radius:10px; outline:none; transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .notes-search-box input:focus{ border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
+  .notes-search-box input::placeholder{ color:var(--text-faint); }
+  .notes-search-clear{
+    position:absolute; top:50%; inset-inline-end:8px; transform:translateY(-50%);
+    width:22px; height:22px; border-radius:50%; border:none; background:var(--surface-2);
+    color:var(--text-muted); display:none; align-items:center; justify-content:center; padding:0;
+  }
+  .notes-search-clear.show{ display:flex; }
+  .notes-search-clear:hover{ color:var(--text); }
+  .notes-search-clear svg{ width:12px; height:12px; }
+  .notes-filters .font-select{ width:auto; flex:0 0 auto; height:40px; font-size:13px; border-radius:10px; }
+  .notes-tab-count{
+    display:inline-block; min-width:18px; height:18px; padding:0 6px; margin-inline-start:6px;
+    border-radius:9px; box-sizing:border-box; font-size:11px; font-weight:800; line-height:18px;
+    text-align:center; background:var(--accent-bg); color:var(--accent-soft);
+  }
+  .notes-tab-count:empty{ display:none; }
+  .browse-tab.active .notes-tab-count{ background:rgba(255,255,255,.25); color:#fff; }
+  .ayah-note-date{ font-size:11.5px; color:var(--text-faint); margin-top:5px; font-weight:600; }
+  @media (max-width:700px){
+    .notes-toolbar{ flex-direction:column; align-items:stretch; }
+    .notes-add-btn{ width:100%; }
+    .notes-filters{ flex:1 1 auto; }
+  }
+  .notes-add-btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:7px;
+    width:auto; min-width:0;
+  }
+  .notes-add-btn svg{ width:16px; height:16px; flex-shrink:0; }
+  .note-picker{ display:none; margin-bottom:12px; }
+  .note-picker.open{ display:block; }
+  .note-picker-row{ display:flex; gap:8px; align-items:flex-end; }
+  .note-picker-field{ display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .note-picker-field.surah{ flex:1 1 auto; }
+  .note-picker-field.ayah{ flex:0 0 96px; }
+  .note-picker-field label{ font-size:12px; font-weight:700; color:var(--text-muted); }
+  .note-picker-field select,
+  .note-picker-field input{
+    width:100%; height:38px; box-sizing:border-box; padding:0 10px;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
+    color:var(--text); font-family:inherit; font-size:14px; outline:none;
+  }
+  .note-picker-field select:focus,
+  .note-picker-field input:focus{ border-color:var(--accent); }
+  .note-picker-field select option{ background:var(--surface); color:var(--text); }
+  .note-picker-preview{
+    margin-top:10px; padding:8px 12px; background:var(--surface-2);
+    border:1px solid var(--border); border-radius:10px;
+    max-height:110px; overflow-y:auto; line-height:2;
+  }
+  .note-picker-hint{ margin-top:8px; font-size:12px; font-weight:600; color:var(--accent-soft); }
+  .note-picker-error{ margin-top:8px; font-size:12.5px; font-weight:700; color:#e05252; }
   .ayah-note-preview{
     font-size:12.5px; color:var(--text-muted); background:var(--surface-2);
     border-radius:10px; padding:8px 10px; margin-top:6px; white-space:pre-wrap; word-break:break-word;
@@ -1967,13 +2033,35 @@
 
     <div class="browse-tabs" id="favorites-notes-tabs" style="margin-bottom:14px;">
       <button class="browse-tab active" id="fav-tab-btn" onclick="switchFavoritesTab('favorites')" data-i18n="favorites">المفضلة</button>
-      <button class="browse-tab" id="notes-tab-btn" onclick="switchFavoritesTab('notes')" data-i18n="my_notes">ملاحظاتي</button>
+      <button class="browse-tab" id="notes-tab-btn" onclick="switchFavoritesTab('notes')"><span data-i18n="my_notes">ملاحظاتي</span><span class="notes-tab-count" id="notes-tab-count"></span></button>
     </div>
 
     <div class="ayat-list" id="favorites-list"></div>
     <div class="favorites-empty" id="favorites-empty" style="display:none;" data-i18n="favorites_empty_msg">لم تُضِف أي آية إلى المفضلة بعد. اضغط على أيقونة العلامة بجانب أي آية لإضافتها هنا.</div>
 
+    <div class="notes-toolbar" id="notes-toolbar">
+      <button type="button" class="go-btn notes-add-btn" id="notes-add-btn" onclick="openNewNoteModal()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span data-i18n="add_note">أضف ملاحظة</span>
+      </button>
+      <div class="notes-filters" id="notes-filters">
+        <div class="notes-search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="notes-search-input" placeholder="ابحث في ملاحظاتك..." autocomplete="off" oninput="onNotesSearchInput(this.value)" data-i18n-placeholder="notes_search_placeholder">
+          <button type="button" class="notes-search-clear" id="notes-search-clear" onclick="clearNotesSearch()" title="مسح البحث" aria-label="مسح البحث" data-i18n-title="notes_clear_search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <select id="notes-sort-select" class="font-select" onchange="onNotesSortChange(this.value)">
+          <option value="mushaf" data-i18n="notes_sort_mushaf">حسب ترتيب المصحف</option>
+          <option value="newest" data-i18n="notes_sort_newest">الأحدث أولًا</option>
+          <option value="oldest" data-i18n="notes_sort_oldest">الأقدم أولًا</option>
+        </select>
+      </div>
+    </div>
+
     <div class="ayat-list" id="notes-list" style="display:none;"></div>
+    <div class="favorites-empty" id="notes-no-results" style="display:none;" data-i18n="notes_no_results">لا توجد ملاحظات مطابقة لبحثك.</div>
     <div class="favorites-empty" id="notes-empty" style="display:none;" data-i18n="notes_empty_msg">لم تُضِف أي ملاحظة بعد. اضغط على أيقونة القلم بجانب أي آية لإضافة ملاحظتك.</div>
   </div>
 
@@ -2558,7 +2646,17 @@ function getNotesMap(){
 
 function saveNotesMap(map){
   try{ localStorage.setItem('quran-ayah-notes', JSON.stringify(map)); }catch(e){}
+  updateNotesCount();
 }
+
+// حالة البحث والترتيب في تبويب "ملاحظاتي" (الترتيب محفوظ بين الجلسات)
+let notesSearchQuery = '';
+let notesSortMode = (function(){
+  try{
+    const v = localStorage.getItem('quran-notes-sort');
+    return (v === 'newest' || v === 'oldest') ? v : 'mushaf';
+  }catch(e){ return 'mushaf'; }
+})();
 
 function noteKey(surahId, ayahId){ return surahId + ':' + ayahId; }
 
@@ -2577,9 +2675,10 @@ function getNotesList(){
 }
 
 function updateNotesCount(){
-  const badge = document.getElementById('notes-tab-btn');
+  const badge = document.getElementById('notes-tab-count');
   if(!badge) return;
-  // لا يوجد شارة عدّاد حاليًا على تبويب الملاحظات، فقط إعادة الرسم عند الحاجة
+  const count = getNotesList().length;
+  badge.textContent = count ? (count > 99 ? '99+' : String(count)) : '';
 }
 
 function setCardNoteState(surahId, ayahId, isOn){
@@ -2612,6 +2711,8 @@ let currentNoteContext = null;
 
 function openNoteModal(surahId, ayahId, surahName){
   currentNoteContext = { surahId, ayahId, surahName };
+  document.getElementById('note-picker').classList.remove('open');
+  showNoteModalError('');
   const existing = getNote(surahId, ayahId);
   document.getElementById('note-modal-title').textContent = `${t('note_word')} — ${surahName} ${ayahId}`;
   const ta = document.getElementById('note-modal-textarea');
@@ -2621,8 +2722,96 @@ function openNoteModal(surahId, ayahId, surahName){
   setTimeout(() => ta.focus(), 60);
 }
 
+function showNoteModalError(msg){
+  const el = document.getElementById('note-modal-error');
+  if(!el) return;
+  el.textContent = msg || '';
+  el.style.display = msg ? 'block' : 'none';
+}
+
+function getNoteSurahLabel(s){
+  return document.documentElement.getAttribute('data-lang') === 'en' ? s.transliteration : s.name;
+}
+
+/* فتح نافذة إضافة ملاحظة جديدة مباشرة من تبويب "ملاحظاتي" (اختيار السورة + رقم الآية) */
+function openNewNoteModal(){
+  currentNoteContext = { isNew: true };
+  const sel = document.getElementById('note-surah-select');
+  sel.innerHTML = QURAN.map(s => `<option value="${s.id}">${s.id}. ${getNoteSurahLabel(s)}</option>`).join('');
+  sel.value = '1';
+  const ayahInput = document.getElementById('note-ayah-input');
+  ayahInput.value = '';
+  document.getElementById('note-picker').classList.add('open');
+  document.getElementById('note-modal-title').textContent = t('add_note');
+  const ta = document.getElementById('note-modal-textarea');
+  ta.value = '';
+  document.getElementById('note-delete-btn').style.display = 'none';
+  showNoteModalError('');
+  onNotePickerSurahChange();
+  document.getElementById('note-overlay').classList.add('open');
+  setTimeout(() => ayahInput.focus(), 60);
+}
+
+function onNotePickerSurahChange(){
+  const surahId = parseInt(document.getElementById('note-surah-select').value, 10);
+  const surah = QURAN.find(s => s.id === surahId);
+  const ayahInput = document.getElementById('note-ayah-input');
+  if(surah){
+    ayahInput.max = surah.verses.length;
+    ayahInput.placeholder = '1–' + surah.verses.length;
+    const cur = parseInt(ayahInput.value, 10);
+    if(cur > surah.verses.length) ayahInput.value = '';
+  }
+  onNotePickerAyahChange();
+}
+
+// يعرض نص الآية المختارة للتأكد منها، وينبّه لو عليها ملاحظة سابقة (وقتها يتم تحميلها للتعديل)
+function onNotePickerAyahChange(){
+  if(!currentNoteContext || !currentNoteContext.isNew) return;
+  const surahId = parseInt(document.getElementById('note-surah-select').value, 10);
+  const ayahId = parseInt(document.getElementById('note-ayah-input').value, 10);
+  const surah = QURAN.find(s => s.id === surahId);
+  const verse = surah && ayahId ? surah.verses.find(v => v.id === ayahId) : null;
+  const preview = document.getElementById('note-picker-preview');
+  const hint = document.getElementById('note-picker-hint');
+  const ta = document.getElementById('note-modal-textarea');
+  showNoteModalError('');
+  if(!verse){
+    preview.style.display = 'none';
+    hint.style.display = 'none';
+    if(currentNoteContext.prefilled && ta.value === currentNoteContext.prefilled){
+      ta.value = '';
+      currentNoteContext.prefilled = null;
+    }
+    currentNoteContext.loadedKey = null;
+    return;
+  }
+  preview.textContent = verse.text;
+  preview.style.display = 'block';
+  const existing = getNote(surahId, ayahId);
+  const key = noteKey(surahId, ayahId);
+  // لو النص الموجود في الخانة هو نص محمَّل تلقائيًا من آية سابقة، نفرّغه قبل التبديل لآية أخرى
+  if(currentNoteContext.loadedKey !== key && currentNoteContext.prefilled && ta.value === currentNoteContext.prefilled){
+    ta.value = '';
+    currentNoteContext.prefilled = null;
+  }
+  if(existing && existing.text){
+    hint.textContent = t('note_existing_hint');
+    hint.style.display = 'block';
+    if(currentNoteContext.loadedKey !== key && !ta.value.trim()){
+      ta.value = existing.text;
+      currentNoteContext.prefilled = existing.text;
+    }
+  } else {
+    hint.style.display = 'none';
+  }
+  currentNoteContext.loadedKey = key;
+}
+
 function closeNoteModal(){
   stopVoiceSearch();
+  document.getElementById('note-picker').classList.remove('open');
+  showNoteModalError('');
   document.getElementById('note-overlay').classList.remove('open');
   currentNoteContext = null;
 }
@@ -2643,8 +2832,24 @@ function toggleNoteVoiceInput(btn){
 
 function saveNoteFromModal(){
   if(!currentNoteContext) return;
-  const { surahId, ayahId, surahName } = currentNoteContext;
+  let { surahId, ayahId, surahName } = currentNoteContext;
   const text = document.getElementById('note-modal-textarea').value.trim();
+  if(currentNoteContext.isNew){
+    surahId = parseInt(document.getElementById('note-surah-select').value, 10);
+    ayahId = parseInt(document.getElementById('note-ayah-input').value, 10);
+    const surah = QURAN.find(s => s.id === surahId);
+    if(!surah || !ayahId || !surah.verses.some(v => v.id === ayahId)){
+      showNoteModalError(tf('note_err_ayah', { max: surah ? surah.verses.length : '' }));
+      document.getElementById('note-ayah-input').focus();
+      return;
+    }
+    if(!text){
+      showNoteModalError(t('note_err_text'));
+      document.getElementById('note-modal-textarea').focus();
+      return;
+    }
+    surahName = surah.name;
+  }
   const map = getNotesMap();
   if(text){
     map[noteKey(surahId, ayahId)] = { surahId, ayahId, surahName, text, ts: Date.now() };
@@ -2677,6 +2882,7 @@ function removeNoteQuick(surahId, ayahId){
 }
 
 function switchFavoritesTab(mode){
+  updateNotesCount();
   const favBtn = document.getElementById('fav-tab-btn');
   const notesBtn = document.getElementById('notes-tab-btn');
   const favList = document.getElementById('favorites-list');
@@ -2689,8 +2895,12 @@ function switchFavoritesTab(mode){
     favList.style.display = 'none';
     favEmpty.style.display = 'none';
     notesList.style.display = '';
+    document.getElementById('notes-toolbar').style.display = 'flex';
+    document.getElementById('notes-sort-select').value = notesSortMode;
     renderNotesView();
   } else {
+    document.getElementById('notes-toolbar').style.display = 'none';
+    document.getElementById('notes-no-results').style.display = 'none';
     notesBtn.classList.remove('active');
     favBtn.classList.add('active');
     notesList.style.display = 'none';
@@ -2700,17 +2910,70 @@ function switchFavoritesTab(mode){
   }
 }
 
+function onNotesSearchInput(value){
+  notesSearchQuery = value || '';
+  const clearBtn = document.getElementById('notes-search-clear');
+  if(clearBtn) clearBtn.classList.toggle('show', !!notesSearchQuery);
+  renderNotesView();
+}
+
+function clearNotesSearch(){
+  const input = document.getElementById('notes-search-input');
+  if(input){ input.value = ''; input.focus(); }
+  onNotesSearchInput('');
+}
+
+function onNotesSortChange(mode){
+  notesSortMode = (mode === 'newest' || mode === 'oldest') ? mode : 'mushaf';
+  try{ localStorage.setItem('quran-notes-sort', notesSortMode); }catch(e){}
+  renderNotesView();
+}
+
+// البحث في نص الملاحظة واسم السورة (عربي/إنجليزي) ورقم الآية بصيغة 2:255، مع تجاهل التشكيل والفروق البسيطة في الهمزات
+function noteMatchesQuery(n, words){
+  if(!words.length) return true;
+  const surah = QURAN.find(s => s.id === n.surahId);
+  const hay = normalizeArabicSearch([n.text, n.surahName, surah ? surah.transliteration : '', n.surahId + ':' + n.ayahId].join(' ')).toLowerCase();
+  return words.every(w => hay.includes(w));
+}
+
+function formatNoteDate(ts){
+  if(!ts) return '';
+  try{
+    const locale = document.documentElement.getAttribute('data-lang') === 'en' ? 'en-US' : 'ar-EG-u-nu-latn';
+    const d = new Date(ts).toLocaleDateString(locale, { year:'numeric', month:'short', day:'numeric' });
+    return `${t('note_edited_label')}: ${d}`;
+  }catch(e){ return ''; }
+}
+
 function renderNotesView(){
-  const list = getNotesList().sort((a,b) => a.surahId - b.surahId || a.ayahId - b.ayahId);
+  const all = getNotesList();
   const container = document.getElementById('notes-list');
   const empty = document.getElementById('notes-empty');
+  const noResults = document.getElementById('notes-no-results');
+  const filters = document.getElementById('notes-filters');
   if(!container) return;
-  if(!list.length){
+  if(filters) filters.style.display = all.length ? '' : 'none';
+  if(!all.length){
     container.innerHTML = '';
+    if(noResults) noResults.style.display = 'none';
     if(empty) empty.style.display = 'block';
     return;
   }
   if(empty) empty.style.display = 'none';
+  const words = normalizeArabicSearch(notesSearchQuery).toLowerCase().split(/\s+/).filter(Boolean);
+  const byMushaf = (a,b) => a.surahId - b.surahId || a.ayahId - b.ayahId;
+  const list = all.filter(n => noteMatchesQuery(n, words)).sort((a,b) => {
+    if(notesSortMode === 'newest') return ((b.ts || 0) - (a.ts || 0)) || byMushaf(a,b);
+    if(notesSortMode === 'oldest') return ((a.ts || 0) - (b.ts || 0)) || byMushaf(a,b);
+    return byMushaf(a,b);
+  });
+  if(!list.length){
+    container.innerHTML = '';
+    if(noResults) noResults.style.display = 'block';
+    return;
+  }
+  if(noResults) noResults.style.display = 'none';
   container.innerHTML = list.map(n => {
     const surah = QURAN.find(s => s.id === n.surahId);
     const verse = surah && surah.verses.find(v => v.id === n.ayahId);
@@ -2719,6 +2982,7 @@ function renderNotesView(){
     <div class="ayah-card is-saved" id="nayah-${n.surahId}-${n.ayahId}" data-ayah="${n.ayahId}" data-surah="${n.surahId}" onclick="playAyahAudio(${n.surahId}, ${n.ayahId}, 'nayah-${n.surahId}-${n.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(verse.text)}</div>
       <div class="ayah-note-preview" onclick="event.stopPropagation(); openNoteModal(${n.surahId}, ${n.ayahId}, '${n.surahName}')">${escapeHtml(n.text)}</div>
+      ${n.ts ? `<div class="ayah-note-date">${formatNoteDate(n.ts)}</div>` : ''}
       <div class="ayah-meta">
         <div class="ayah-num-badge">
           <span class="ayah-num-badge__num">${n.ayahId}</span>
@@ -6780,7 +7044,7 @@ const I18N_STRINGS = {
     favorites_desc: 'الآيات التي حفظتها في مفضلتك، اضغط على "الذهاب" للانتقال إليها مباشرة.',
     favorites_empty_msg: 'لم تُضِف أي آية إلى المفضلة بعد. اضغط على أيقونة العلامة بجانب أي آية لإضافتها هنا.',
     my_notes: 'ملاحظاتي',
-    notes_empty_msg: 'لم تُضِف أي ملاحظة بعد. اضغط على أيقونة القلم بجانب أي آية لإضافة ملاحظتك.',
+    notes_empty_msg: 'لم تُضِف أي ملاحظة بعد. اضغط على زر «أضف ملاحظة» بالأعلى، أو على أيقونة القلم بجانب أي آية.',
     add_note: 'أضف ملاحظة',
     edit_note: 'تعديل الملاحظة',
     more_actions: 'خيارات إضافية',
@@ -6788,6 +7052,18 @@ const I18N_STRINGS = {
     save_note: 'حفظ الملاحظة',
     note_word: 'ملاحظة',
     note_placeholder: 'اكتب ملاحظتك هنا...',
+    note_pick_surah: 'السورة',
+    note_pick_ayah: 'رقم الآية',
+    note_err_ayah: 'أدخل رقم آية صحيحًا (من 1 إلى {max}).',
+    note_err_text: 'اكتب نص الملاحظة أولًا.',
+    note_existing_hint: 'لهذه الآية ملاحظة محفوظة بالفعل، وسيتم تعديلها عند الحفظ.',
+    notes_search_placeholder: 'ابحث في ملاحظاتك...',
+    notes_clear_search: 'مسح البحث',
+    notes_sort_mushaf: 'حسب ترتيب المصحف',
+    notes_sort_newest: 'الأحدث أولًا',
+    notes_sort_oldest: 'الأقدم أولًا',
+    notes_no_results: 'لا توجد ملاحظات مطابقة لبحثك.',
+    note_edited_label: 'آخر تعديل',
     data_backup_label: 'نسخ احتياطي للبيانات (المفضلة، الملاحظات، خطط الختم)',
     export_data: 'تصدير نسخة احتياطية (JSON)',
     import_data: 'استيراد نسخة احتياطية',
@@ -7025,7 +7301,7 @@ const I18N_STRINGS = {
     favorites_desc: 'Ayahs you saved to your favorites. Tap "Go" to jump straight to them.',
     favorites_empty_msg: 'You haven\'t added any ayah to favorites yet. Tap the bookmark icon next to any ayah to add it here.',
     my_notes: 'My Notes',
-    notes_empty_msg: 'You haven\'t added any notes yet. Tap the pencil icon next to any ayah to add your note.',
+    notes_empty_msg: 'You haven\'t added any notes yet. Tap the "Add note" button above, or the pencil icon next to any ayah.',
     add_note: 'Add note',
     edit_note: 'Edit note',
     more_actions: 'More actions',
@@ -7033,6 +7309,18 @@ const I18N_STRINGS = {
     save_note: 'Save note',
     note_word: 'Note',
     note_placeholder: 'Write your note here...',
+    note_pick_surah: 'Surah',
+    note_pick_ayah: 'Ayah number',
+    note_err_ayah: 'Enter a valid ayah number (1 to {max}).',
+    note_err_text: 'Write your note first.',
+    note_existing_hint: 'This ayah already has a note; saving will update it.',
+    notes_search_placeholder: 'Search your notes...',
+    notes_clear_search: 'Clear search',
+    notes_sort_mushaf: 'Mushaf order',
+    notes_sort_newest: 'Newest first',
+    notes_sort_oldest: 'Oldest first',
+    notes_no_results: 'No notes match your search.',
+    note_edited_label: 'Last edited',
     data_backup_label: 'Data backup (favorites, notes, khatma plans)',
     export_data: 'Export backup (JSON)',
     import_data: 'Import backup',
@@ -7230,7 +7518,11 @@ function refreshDynamicContent(){
   if(typeof isInlineTafsirEnabled === 'function' && isInlineTafsirEnabled() && typeof refreshVisibleInlineTafsir === 'function') refreshVisibleInlineTafsir();
   updateRepeatAvailability();
   const favView = document.getElementById('favorites-view');
-  if(favView && favView.style.display !== 'none' && typeof renderFavoritesView === 'function') renderFavoritesView();
+  if(favView && favView.style.display !== 'none'){
+    const notesTabBtn = document.getElementById('notes-tab-btn');
+    if(notesTabBtn && notesTabBtn.classList.contains('active') && typeof renderNotesView === 'function') renderNotesView();
+    else if(typeof renderFavoritesView === 'function') renderFavoritesView();
+  }
   const khatmaView = document.getElementById('khatma-view');
   if(khatmaView && khatmaView.style.display !== 'none' && typeof renderKhatmaView === 'function') renderKhatmaView();
 
@@ -7724,12 +8016,27 @@ if('serviceWorker' in navigator){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
+      <div class="note-picker" id="note-picker">
+        <div class="note-picker-row">
+          <div class="note-picker-field surah">
+            <label for="note-surah-select" data-i18n="note_pick_surah">السورة</label>
+            <select id="note-surah-select" onchange="onNotePickerSurahChange()"></select>
+          </div>
+          <div class="note-picker-field ayah">
+            <label for="note-ayah-input" data-i18n="note_pick_ayah">رقم الآية</label>
+            <input type="number" id="note-ayah-input" min="1" step="1" inputmode="numeric" oninput="onNotePickerAyahChange()">
+          </div>
+        </div>
+        <div class="note-picker-preview ayah-text" id="note-picker-preview" style="display:none; font-size:20px;"></div>
+        <div class="note-picker-hint" id="note-picker-hint" style="display:none;"></div>
+      </div>
       <div class="note-textarea-wrap">
         <textarea id="note-modal-textarea" placeholder="اكتب ملاحظتك هنا..." data-i18n-placeholder="note_placeholder"></textarea>
         <button type="button" class="ayah-search-mic note-mic-btn" id="note-mic-btn" onclick="toggleNoteVoiceInput(this)" title="إملاء صوتي" aria-label="إملاء صوتي" data-i18n-title="voice_note" data-i18n-aria-label="voice_note" style="display:none;">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
         </button>
       </div>
+      <div class="note-picker-error" id="note-modal-error" style="display:none;"></div>
       <div class="note-modal-actions">
         <button class="repeat-btn" onclick="saveNoteFromModal()">
           <span data-i18n="save_note">حفظ الملاحظة</span>
