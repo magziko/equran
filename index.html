@@ -512,6 +512,70 @@
   }
   .ayah-tafsir-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
   .ayah-tafsir-btn svg{ width:12px; height:12px; }
+  .ayah-note-btn{
+    display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px;
+    border-radius:50%; border:1px solid var(--border); background:var(--surface-2); color:var(--text-muted);
+    cursor:pointer; transition:all .15s ease; flex-shrink:0;
+  }
+  .ayah-note-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .ayah-note-btn svg{ width:12px; height:12px; }
+  .ayah-note-btn.has-note{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .ayah-more-wrap{ position:relative; display:inline-flex; }
+  .ayah-more-btn{
+    display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px;
+    border-radius:50%; border:1px solid var(--border); background:var(--surface-2); color:var(--text-muted);
+    cursor:pointer; transition:all .15s ease; flex-shrink:0; position:relative;
+  }
+  .ayah-more-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .ayah-more-btn svg{ width:14px; height:14px; }
+  .ayah-more-btn.has-note::after{
+    content:''; position:absolute; top:-1px; inset-inline-end:-1px; width:7px; height:7px;
+    border-radius:50%; background:var(--accent); border:1.5px solid var(--bg-elev);
+  }
+  .ayah-more-menu{
+    position:absolute; bottom:calc(100% + 6px); inset-inline-end:0; min-width:150px;
+    background:var(--bg-elev); border:1px solid var(--border); border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.28); z-index:60; display:none; overflow:hidden;
+  }
+  .ayah-more-menu.open{ display:block; }
+  .ayah-more-menu-item{
+    display:flex; align-items:center; gap:8px; width:100%; box-sizing:border-box;
+    background:none; border:none; color:var(--text); font-family:inherit; font-size:13px;
+    padding:10px 12px; cursor:pointer; text-align:start;
+  }
+  .ayah-more-menu-item:hover{ background:var(--surface-2); }
+  .ayah-more-menu-item svg{ width:14px; height:14px; flex-shrink:0; color:var(--text-muted); }
+  .ayah-more-menu-divider{ height:1px; background:var(--border); }
+  .note-overlay{
+    position:fixed; inset:0; z-index:1250; background:rgba(0,0,0,.55);
+    display:none; align-items:center; justify-content:center; padding:16px;
+  }
+  .note-overlay.open{ display:flex; }
+  .note-modal{
+    width:100%; max-width:480px; background:var(--bg-elev); border:1px solid var(--border);
+    border-radius:16px; padding:20px;
+  }
+  .note-modal-header{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    margin-bottom:12px; padding-bottom:12px; border-bottom:1px solid var(--border);
+  }
+  .note-modal-title{ font-size:15px; font-weight:700; color:var(--text); }
+  .note-textarea-wrap{ position:relative; }
+  .note-modal textarea{
+    width:100%; min-height:130px; box-sizing:border-box; resize:vertical;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:10px;
+    color:var(--text); font-family:inherit; font-size:14px; padding:10px 12px; outline:none;
+  }
+  .note-modal textarea:focus{ border-color:var(--accent); }
+  .note-textarea-wrap textarea{ padding-left:42px; }
+  .note-textarea-wrap .ayah-search-mic{
+    top:8px; left:6px; transform:none;
+  }
+  .note-modal-actions{ display:flex; gap:8px; margin-top:14px; }
+  .ayah-note-preview{
+    font-size:12.5px; color:var(--text-muted); background:var(--surface-2);
+    border-radius:10px; padding:8px 10px; margin-top:6px; white-space:pre-wrap; word-break:break-word;
+  }
   .tafsir-overlay{
     position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,.55);
     display:none; align-items:center; justify-content:center; padding:16px;
@@ -1083,6 +1147,27 @@
     background:var(--accent-bg); color:var(--accent-soft); border:1px solid var(--ring);
     display:flex; align-items:center; justify-content:center;
     font-family:'Cairo', sans-serif; font-weight:800; font-size:12px;
+  }
+  .ayah-num-badge{
+    position:relative; flex-shrink:0; min-width:26px; height:26px; border-radius:50%;
+    background:var(--accent-bg); color:var(--accent-soft); border:1px solid var(--ring);
+    display:flex; align-items:center; justify-content:center; overflow:hidden; cursor:pointer;
+  }
+  .ayah-num-badge__num{
+    font-family:'Cairo', sans-serif; font-weight:800; font-size:12px;
+    transition:opacity .12s ease;
+  }
+  .ayah-num-badge__play{
+    position:absolute; width:12px; height:12px; opacity:0; transition:opacity .12s ease;
+  }
+  .ayah-card:hover .ayah-num-badge__num{ opacity:0; }
+  .ayah-card:hover .ayah-num-badge__play{ opacity:1; }
+  .ayah-card.is-playing .ayah-num-badge{ background:var(--accent); color:#fff; }
+  .ayah-card.is-playing .ayah-num-badge__num{ opacity:0; }
+  .ayah-card.is-playing .ayah-num-badge__play{ opacity:1; }
+  @media (hover:none){
+    .ayah-num-badge__num{ opacity:1; }
+    .ayah-num-badge__play{ opacity:0; }
   }
 
   /* ---------- Display mode toggle ---------- */
@@ -1880,8 +1965,16 @@
     </div>
     <p class="surah-sub" data-i18n="favorites_desc">الآيات التي حفظتها في مفضلتك، اضغط على "الذهاب" للانتقال إليها مباشرة.</p>
 
+    <div class="browse-tabs" id="favorites-notes-tabs" style="margin-bottom:14px;">
+      <button class="browse-tab active" id="fav-tab-btn" onclick="switchFavoritesTab('favorites')" data-i18n="favorites">المفضلة</button>
+      <button class="browse-tab" id="notes-tab-btn" onclick="switchFavoritesTab('notes')" data-i18n="my_notes">ملاحظاتي</button>
+    </div>
+
     <div class="ayat-list" id="favorites-list"></div>
     <div class="favorites-empty" id="favorites-empty" style="display:none;" data-i18n="favorites_empty_msg">لم تُضِف أي آية إلى المفضلة بعد. اضغط على أيقونة العلامة بجانب أي آية لإضافتها هنا.</div>
+
+    <div class="ayat-list" id="notes-list" style="display:none;"></div>
+    <div class="favorites-empty" id="notes-empty" style="display:none;" data-i18n="notes_empty_msg">لم تُضِف أي ملاحظة بعد. اضغط على أيقونة القلم بجانب أي آية لإضافة ملاحظتك.</div>
   </div>
 
   <!-- ===================== KHATMA VIEW ===================== -->
@@ -2455,6 +2548,312 @@ function toggleBookmark(surahId, ayahId, surahName){
   if(document.getElementById('favorites-view').style.display !== 'none') renderFavoritesView();
 }
 
+/* ---------- ملاحظات المستخدم على الآيات (Notes) ---------- */
+function getNotesMap(){
+  try{
+    const raw = localStorage.getItem('quran-ayah-notes');
+    return raw ? JSON.parse(raw) : {};
+  }catch(e){ return {}; }
+}
+
+function saveNotesMap(map){
+  try{ localStorage.setItem('quran-ayah-notes', JSON.stringify(map)); }catch(e){}
+}
+
+function noteKey(surahId, ayahId){ return surahId + ':' + ayahId; }
+
+function getNote(surahId, ayahId){
+  return getNotesMap()[noteKey(surahId, ayahId)] || null;
+}
+
+function hasNote(surahId, ayahId){
+  const n = getNote(surahId, ayahId);
+  return !!(n && n.text && n.text.trim());
+}
+
+function getNotesList(){
+  const map = getNotesMap();
+  return Object.values(map).filter(n => n && n.text && n.text.trim());
+}
+
+function updateNotesCount(){
+  const badge = document.getElementById('notes-tab-btn');
+  if(!badge) return;
+  // لا يوجد شارة عدّاد حاليًا على تبويب الملاحظات، فقط إعادة الرسم عند الحاجة
+}
+
+function setCardNoteState(surahId, ayahId, isOn){
+  document.querySelectorAll(`.ayah-card[data-surah="${surahId}"][data-ayah="${ayahId}"]`).forEach(card => {
+    const noteBtn = card.querySelector('.ayah-note-btn');
+    if(noteBtn) noteBtn.classList.toggle('has-note', isOn);
+    const moreBtn = card.querySelector('.ayah-more-btn');
+    if(moreBtn) moreBtn.classList.toggle('has-note', isOn);
+    const moreLabel = card.querySelector('.ayah-more-menu-item:nth-child(3) span');
+    if(moreLabel) moreLabel.textContent = isOn ? t('edit_note') : t('add_note');
+  });
+}
+
+function closeAllAyahMoreMenus(){
+  document.querySelectorAll('.ayah-more-menu.open').forEach(m => m.classList.remove('open'));
+}
+
+function toggleAyahMoreMenu(btn){
+  const menu = btn.nextElementSibling;
+  const wasOpen = menu && menu.classList.contains('open');
+  closeAllAyahMoreMenus();
+  if(menu && !wasOpen) menu.classList.add('open');
+}
+
+document.addEventListener('click', function(e){
+  if(!e.target.closest('.ayah-more-wrap')) closeAllAyahMoreMenus();
+});
+
+let currentNoteContext = null;
+
+function openNoteModal(surahId, ayahId, surahName){
+  currentNoteContext = { surahId, ayahId, surahName };
+  const existing = getNote(surahId, ayahId);
+  document.getElementById('note-modal-title').textContent = `${t('note_word')} — ${surahName} ${ayahId}`;
+  const ta = document.getElementById('note-modal-textarea');
+  ta.value = existing ? existing.text : '';
+  document.getElementById('note-delete-btn').style.display = existing && existing.text ? '' : 'none';
+  document.getElementById('note-overlay').classList.add('open');
+  setTimeout(() => ta.focus(), 60);
+}
+
+function closeNoteModal(){
+  stopVoiceSearch();
+  document.getElementById('note-overlay').classList.remove('open');
+  currentNoteContext = null;
+}
+
+function toggleNoteVoiceInput(btn){
+  const ta = document.getElementById('note-modal-textarea');
+  if(!ta) return;
+  const baseText = ta.value;
+  const needsSpace = baseText && !/\s$/.test(baseText);
+  startVoiceSearch(btn, function(transcript, isFinal){
+    ta.value = baseText + (needsSpace ? ' ' : '') + transcript;
+    if(isFinal){
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = ta.value.length;
+    }
+  });
+}
+
+function saveNoteFromModal(){
+  if(!currentNoteContext) return;
+  const { surahId, ayahId, surahName } = currentNoteContext;
+  const text = document.getElementById('note-modal-textarea').value.trim();
+  const map = getNotesMap();
+  if(text){
+    map[noteKey(surahId, ayahId)] = { surahId, ayahId, surahName, text, ts: Date.now() };
+  } else {
+    delete map[noteKey(surahId, ayahId)];
+  }
+  saveNotesMap(map);
+  setCardNoteState(surahId, ayahId, !!text);
+  closeNoteModal();
+  if(document.getElementById('favorites-view').style.display !== 'none') renderNotesView();
+}
+
+function deleteNoteFromModal(){
+  if(!currentNoteContext) return;
+  const { surahId, ayahId } = currentNoteContext;
+  const map = getNotesMap();
+  delete map[noteKey(surahId, ayahId)];
+  saveNotesMap(map);
+  setCardNoteState(surahId, ayahId, false);
+  closeNoteModal();
+  if(document.getElementById('favorites-view').style.display !== 'none') renderNotesView();
+}
+
+function removeNoteQuick(surahId, ayahId){
+  const map = getNotesMap();
+  delete map[noteKey(surahId, ayahId)];
+  saveNotesMap(map);
+  setCardNoteState(surahId, ayahId, false);
+  renderNotesView();
+}
+
+function switchFavoritesTab(mode){
+  const favBtn = document.getElementById('fav-tab-btn');
+  const notesBtn = document.getElementById('notes-tab-btn');
+  const favList = document.getElementById('favorites-list');
+  const favEmpty = document.getElementById('favorites-empty');
+  const notesList = document.getElementById('notes-list');
+  const notesEmpty = document.getElementById('notes-empty');
+  if(mode === 'notes'){
+    favBtn.classList.remove('active');
+    notesBtn.classList.add('active');
+    favList.style.display = 'none';
+    favEmpty.style.display = 'none';
+    notesList.style.display = '';
+    renderNotesView();
+  } else {
+    notesBtn.classList.remove('active');
+    favBtn.classList.add('active');
+    notesList.style.display = 'none';
+    notesEmpty.style.display = 'none';
+    favList.style.display = '';
+    renderFavoritesView();
+  }
+}
+
+function renderNotesView(){
+  const list = getNotesList().sort((a,b) => a.surahId - b.surahId || a.ayahId - b.ayahId);
+  const container = document.getElementById('notes-list');
+  const empty = document.getElementById('notes-empty');
+  if(!container) return;
+  if(!list.length){
+    container.innerHTML = '';
+    if(empty) empty.style.display = 'block';
+    return;
+  }
+  if(empty) empty.style.display = 'none';
+  container.innerHTML = list.map(n => {
+    const surah = QURAN.find(s => s.id === n.surahId);
+    const verse = surah && surah.verses.find(v => v.id === n.ayahId);
+    if(!verse) return '';
+    return `
+    <div class="ayah-card is-saved" id="nayah-${n.surahId}-${n.ayahId}" data-ayah="${n.ayahId}" data-surah="${n.surahId}" onclick="playAyahAudio(${n.surahId}, ${n.ayahId}, 'nayah-${n.surahId}-${n.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
+      <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(verse.text)}</div>
+      <div class="ayah-note-preview" onclick="event.stopPropagation(); openNoteModal(${n.surahId}, ${n.ayahId}, '${n.surahName}')">${escapeHtml(n.text)}</div>
+      <div class="ayah-meta">
+        <div class="ayah-num-badge">
+          <span class="ayah-num-badge__num">${n.ayahId}</span>
+          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+        <div class="fav-ayah-meta-extra">${t('surah_word')} ${n.surahName} — ${t('ayah_word')} ${n.ayahId}</div>
+        <button class="ayah-note-btn has-note" onclick="event.stopPropagation(); openNoteModal(${n.surahId}, ${n.ayahId}, '${n.surahName}')" title="${t('edit_note')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+        </button>
+        <button class="fav-go-btn" onclick="event.stopPropagation(); openSurah(${n.surahId}, ${n.ayahId})" title="${t('go_to_ayah')}">
+          ${t('go')}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <button class="fav-remove-btn" onclick="event.stopPropagation(); removeNoteQuick(${n.surahId}, ${n.ayahId})" title="${t('delete_note')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escapeHtml(str){
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ---------- نسخ احتياطي: تصدير/استيراد المفضلة والملاحظات وخطط الختم ---------- */
+function showDataBackupStatus(msg, isError){
+  const el = document.getElementById('data-backup-status');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.color = isError ? '#e05252' : '';
+  el.style.display = 'block';
+  clearTimeout(showDataBackupStatus._t);
+  showDataBackupStatus._t = setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+
+function exportUserData(){
+  const payload = {
+    app: 'quran-app',
+    exportedAt: new Date().toISOString(),
+    version: 1,
+    favorites: getBookmarks(),
+    notes: getNotesMap(),
+    khatmaPlans: getKhatmaPlans()
+  };
+  try{
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const dateStr = new Date().toISOString().slice(0,10);
+    a.href = url;
+    a.download = `quran-app-backup-${dateStr}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showDataBackupStatus(t('export_success'), false);
+  }catch(e){
+    showDataBackupStatus(t('export_error'), true);
+  }
+}
+
+function importUserData(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(){
+    let data;
+    try{
+      data = JSON.parse(reader.result);
+    }catch(e){
+      showDataBackupStatus(t('import_error_invalid'), true);
+      return;
+    }
+    if(!data || typeof data !== 'object'){
+      showDataBackupStatus(t('import_error_invalid'), true);
+      return;
+    }
+
+    // دمج المفضلة (بدون تكرار نفس الآية)
+    if(Array.isArray(data.favorites)){
+      const current = getBookmarks();
+      const seen = new Set(current.map(b => b.surahId + ':' + b.ayahId));
+      data.favorites.forEach(b => {
+        if(b && typeof b.surahId === 'number' && typeof b.ayahId === 'number'){
+          const key = b.surahId + ':' + b.ayahId;
+          if(!seen.has(key)){
+            current.push({ surahId: b.surahId, ayahId: b.ayahId, surahName: b.surahName || '', ts: b.ts || Date.now() });
+            seen.add(key);
+          }
+        }
+      });
+      saveBookmarksList(current);
+    }
+
+    // دمج الملاحظات (النسخة المستوردة تكتب فوق نفس الآية إن وُجدت)
+    if(data.notes && typeof data.notes === 'object'){
+      const current = getNotesMap();
+      Object.keys(data.notes).forEach(key => {
+        const n = data.notes[key];
+        if(n && n.text && n.text.trim()){
+          current[key] = { surahId: n.surahId, ayahId: n.ayahId, surahName: n.surahName || '', text: n.text, ts: n.ts || Date.now() };
+        }
+      });
+      saveNotesMap(current);
+    }
+
+    // دمج خطط الختم (بحسب المعرف id، مع إعطاء معرف جديد عند التعارض)
+    if(Array.isArray(data.khatmaPlans)){
+      const current = getKhatmaPlans();
+      const existingIds = new Set(current.map(p => p.id));
+      data.khatmaPlans.forEach(p => {
+        if(p && typeof p === 'object'){
+          const plan = { ...p };
+          if(!plan.id || existingIds.has(plan.id)) plan.id = khatmaGenerateId();
+          existingIds.add(plan.id);
+          current.push(plan);
+        }
+      });
+      saveKhatmaPlans(current);
+    }
+
+    updateFavoritesCount();
+    if(document.getElementById('favorites-view').style.display !== 'none') switchFavoritesTab('favorites');
+    if(document.getElementById('khatma-view').style.display !== 'none') renderKhatmaView();
+    showDataBackupStatus(t('import_success'), false);
+    document.getElementById('data-import-input').value = '';
+  };
+  reader.onerror = function(){
+    showDataBackupStatus(t('import_error_invalid'), true);
+  };
+  reader.readAsText(file);
+}
+
 // ---------- تفسير الآية ومعاني الكلمات (أهل السنة والجماعة - مصدر مفتوح عبر tafsir_api) ----------
 const TAFSIR_SOURCES_LIST = [
   { slug: 'al-muyassar-fi-al-gharib',  name: 'معاني الكلمات (الغريب)', nameEn: 'Word Meanings (Al-Ghareeb)' },
@@ -2973,7 +3372,7 @@ function showFavorites(){
   document.getElementById('surah-side-nav').classList.add('side-nav-hidden');
   window.scrollTo(0,0);
   updateReadingProgress();
-  renderFavoritesView();
+  switchFavoritesTab('favorites');
 }
 
 /* ===================== خطة ختم القرآن (تدعم عدة ختمات في نفس الوقت) ===================== */
@@ -3428,11 +3827,11 @@ function renderFavoritesView(){
     <div class="ayah-card is-saved" id="fayah-${b.surahId}-${b.ayahId}" data-ayah="${b.ayahId}" data-surah="${b.surahId}" onclick="playAyahAudio(${b.surahId}, ${b.ayahId}, 'fayah-${b.surahId}-${b.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(verse.text)}</div>
       <div class="ayah-meta">
-        <div class="ayah-audio-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <div class="ayah-num-badge">
+          <span class="ayah-num-badge__num">${b.ayahId}</span>
+          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
         <div class="fav-ayah-meta-extra">${t('surah_word')} ${b.surahName} — ${t('ayah_word')} ${b.ayahId}</div>
-        <div class="ayah-num">${b.ayahId}</div>
         <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${b.surahId}, ${b.ayahId}, '${b.surahName}')" title="${t('show_tafsir')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
         </button>
@@ -5511,16 +5910,29 @@ function openSurah(id, scrollToAyah){
     <div class="ayah-card${fav ? ' is-saved' : ''}" id="ayah-${v.id}" data-ayah="${v.id}" data-surah="${id}" onclick="playAyahAudio(${id}, ${v.id}, 'ayah-${v.id}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
       <div class="ayah-meta">
-        <div class="ayah-audio-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <div class="ayah-num-badge">
+          <span class="ayah-num-badge__num">${v.id}</span>
+          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
-        <div class="ayah-num">${v.id}</div>
-        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${id}, ${v.id}, '${surah.name}')" title="${t('show_tafsir')}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        </button>
-        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${id}, ${v.id}, '${surah.name}')" title="${t('add_to_favorites')}">
+                <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${id}, ${v.id}, '${surah.name}')" title="${t('add_to_favorites')}">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
+        <div class="ayah-more-wrap">
+          <button type="button" class="ayah-more-btn${hasNote(id, v.id) ? ' has-note' : ''}" onclick="event.stopPropagation(); toggleAyahMoreMenu(this)" title="${t('more_actions')}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </button>
+          <div class="ayah-more-menu">
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); showTafsir(${id}, ${v.id}, '${surah.name}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span>${t('show_tafsir')}</span>
+            </button>
+            <div class="ayah-more-menu-divider"></div>
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); openNoteModal(${id}, ${v.id}, '${surah.name}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              <span>${hasNote(id, v.id) ? t('edit_note') : t('add_note')}</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div class="ayah-inline-tafsir" data-surah="${id}" data-ayah="${v.id}" onclick="event.stopPropagation()"></div>
     </div>
@@ -5645,16 +6057,29 @@ function openJuz(juzNum, scrollToSurahAyah){
     <div class="ayah-card${fav ? ' is-saved' : ''}" id="jayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'jayah-${v.surahId}-${v.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
       <div class="ayah-meta">
-        <div class="ayah-audio-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <div class="ayah-num-badge">
+          <span class="ayah-num-badge__num">${v.ayahId}</span>
+          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
-        <div class="ayah-num">${v.ayahId}</div>
-        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('show_tafsir')}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        </button>
-        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
+                <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
+        <div class="ayah-more-wrap">
+          <button type="button" class="ayah-more-btn${hasNote(v.surahId, v.ayahId) ? ' has-note' : ''}" onclick="event.stopPropagation(); toggleAyahMoreMenu(this)" title="${t('more_actions')}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </button>
+          <div class="ayah-more-menu">
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span>${t('show_tafsir')}</span>
+            </button>
+            <div class="ayah-more-menu-divider"></div>
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); openNoteModal(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              <span>${hasNote(v.surahId, v.ayahId) ? t('edit_note') : t('add_note')}</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div class="ayah-inline-tafsir" data-surah="${v.surahId}" data-ayah="${v.ayahId}" onclick="event.stopPropagation()"></div>
     </div>
@@ -5760,16 +6185,29 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
     <div class="ayah-card${fav ? ' is-saved' : ''}" id="hayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'hayah-${v.surahId}-${v.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
       <div class="ayah-meta">
-        <div class="ayah-audio-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <div class="ayah-num-badge">
+          <span class="ayah-num-badge__num">${v.ayahId}</span>
+          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
-        <div class="ayah-num">${v.ayahId}</div>
-        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('show_tafsir')}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        </button>
-        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
+                <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
+        <div class="ayah-more-wrap">
+          <button type="button" class="ayah-more-btn${hasNote(v.surahId, v.ayahId) ? ' has-note' : ''}" onclick="event.stopPropagation(); toggleAyahMoreMenu(this)" title="${t('more_actions')}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </button>
+          <div class="ayah-more-menu">
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span>${t('show_tafsir')}</span>
+            </button>
+            <div class="ayah-more-menu-divider"></div>
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); openNoteModal(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              <span>${hasNote(v.surahId, v.ayahId) ? t('edit_note') : t('add_note')}</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div class="ayah-inline-tafsir" data-surah="${v.surahId}" data-ayah="${v.ayahId}" onclick="event.stopPropagation()"></div>
     </div>
@@ -5867,16 +6305,29 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
     <div class="ayah-card${fav ? ' is-saved' : ''}" id="rayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'rayah-${v.surahId}-${v.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
       <div class="ayah-meta">
-        <div class="ayah-audio-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <div class="ayah-num-badge">
+          <span class="ayah-num-badge__num">${v.ayahId}</span>
+          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
-        <div class="ayah-num">${v.ayahId}</div>
-        <button class="ayah-tafsir-btn" onclick="event.stopPropagation(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('show_tafsir')}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-        </button>
-        <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
+                <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
+        <div class="ayah-more-wrap">
+          <button type="button" class="ayah-more-btn${hasNote(v.surahId, v.ayahId) ? ' has-note' : ''}" onclick="event.stopPropagation(); toggleAyahMoreMenu(this)" title="${t('more_actions')}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </button>
+          <div class="ayah-more-menu">
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span>${t('show_tafsir')}</span>
+            </button>
+            <div class="ayah-more-menu-divider"></div>
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); openNoteModal(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              <span>${hasNote(v.surahId, v.ayahId) ? t('edit_note') : t('add_note')}</span>
+            </button>
+          </div>
+        </div>
       </div>
       <div class="ayah-inline-tafsir" data-surah="${v.surahId}" data-ayah="${v.ayahId}" onclick="event.stopPropagation()"></div>
     </div>
@@ -6238,6 +6689,7 @@ const I18N_STRINGS = {
     search_surah: 'ابحث عن سورة...',
     search_ayah: 'ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)',
     voice_search: 'بحث صوتي',
+    voice_note: 'إملاء صوتي',
     voice_did_you_mean: 'لم أتعرّف على اسم السورة بدقة، هل تقصد:',
     voice_no_match: 'تعذّر التعرف على اسم السورة، حاول نطقه بوضوح أكثر.',
     go: 'اذهب',
@@ -6327,6 +6779,22 @@ const I18N_STRINGS = {
     stop_listen: 'إيقاف الاستماع',
     favorites_desc: 'الآيات التي حفظتها في مفضلتك، اضغط على "الذهاب" للانتقال إليها مباشرة.',
     favorites_empty_msg: 'لم تُضِف أي آية إلى المفضلة بعد. اضغط على أيقونة العلامة بجانب أي آية لإضافتها هنا.',
+    my_notes: 'ملاحظاتي',
+    notes_empty_msg: 'لم تُضِف أي ملاحظة بعد. اضغط على أيقونة القلم بجانب أي آية لإضافة ملاحظتك.',
+    add_note: 'أضف ملاحظة',
+    edit_note: 'تعديل الملاحظة',
+    more_actions: 'خيارات إضافية',
+    delete_note: 'حذف',
+    save_note: 'حفظ الملاحظة',
+    note_word: 'ملاحظة',
+    note_placeholder: 'اكتب ملاحظتك هنا...',
+    data_backup_label: 'نسخ احتياطي للبيانات (المفضلة، الملاحظات، خطط الختم)',
+    export_data: 'تصدير نسخة احتياطية (JSON)',
+    import_data: 'استيراد نسخة احتياطية',
+    export_success: 'تم تنزيل النسخة الاحتياطية بنجاح.',
+    export_error: 'تعذّر إنشاء النسخة الاحتياطية.',
+    import_success: 'تم استيراد البيانات ودمجها بنجاح.',
+    import_error_invalid: 'الملف غير صالح أو تالف. تأكد أنه نسخة احتياطية بصيغة JSON من هذا التطبيق.',
     next_juz: 'الجزء التالي',
     prev_juz: 'الجزء السابق',
     next_hizb: 'الحزب التالي',
@@ -6466,6 +6934,7 @@ const I18N_STRINGS = {
     search_surah: 'Search for a surah...',
     search_ayah: 'Search ayah text... (type a word or part of an ayah)',
     voice_search: 'Voice search',
+    voice_note: 'Voice dictation',
     voice_did_you_mean: "Couldn't recognize the surah name exactly, did you mean:",
     voice_no_match: "Couldn't recognize the surah name, please try saying it more clearly.",
     go: 'Go',
@@ -6555,6 +7024,22 @@ const I18N_STRINGS = {
     stop_listen: 'Stop listening',
     favorites_desc: 'Ayahs you saved to your favorites. Tap "Go" to jump straight to them.',
     favorites_empty_msg: 'You haven\'t added any ayah to favorites yet. Tap the bookmark icon next to any ayah to add it here.',
+    my_notes: 'My Notes',
+    notes_empty_msg: 'You haven\'t added any notes yet. Tap the pencil icon next to any ayah to add your note.',
+    add_note: 'Add note',
+    edit_note: 'Edit note',
+    more_actions: 'More actions',
+    delete_note: 'Delete',
+    save_note: 'Save note',
+    note_word: 'Note',
+    note_placeholder: 'Write your note here...',
+    data_backup_label: 'Data backup (favorites, notes, khatma plans)',
+    export_data: 'Export backup (JSON)',
+    import_data: 'Import backup',
+    export_success: 'Backup downloaded successfully.',
+    export_error: 'Could not create the backup.',
+    import_success: 'Data imported and merged successfully.',
+    import_error_invalid: 'The file is invalid or corrupted. Make sure it\'s a JSON backup from this app.',
     next_juz: 'Next Juz',
     prev_juz: 'Previous Juz',
     next_hizb: 'Next Hizb',
@@ -7212,6 +7697,46 @@ if('serviceWorker' in navigator){
             <span class="repeat-status" id="repeat-status"></span>
           </div>
         </div>
+        <div class="control-group" id="data-backup-group">
+          <span class="label" data-i18n="data_backup_label">نسخ احتياطي للبيانات (المفضلة، الملاحظات، خطط الختم)</span>
+          <div class="repeat-actions">
+            <button class="repeat-btn" onclick="exportUserData()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span data-i18n="export_data">تصدير نسخة احتياطية (JSON)</span>
+            </button>
+            <button class="repeat-btn" onclick="document.getElementById('data-import-input').click()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span data-i18n="import_data">استيراد نسخة احتياطية</span>
+            </button>
+            <input type="file" id="data-import-input" accept="application/json" style="display:none;" onchange="importUserData(this.files[0])">
+          </div>
+          <div class="settings-modal-note" id="data-backup-status" style="display:none;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="note-overlay" id="note-overlay" onclick="if(event.target===this) closeNoteModal()">
+    <div class="note-modal">
+      <div class="note-modal-header">
+        <div class="note-modal-title" id="note-modal-title"></div>
+        <button class="tafsir-modal-close" onclick="closeNoteModal()" title="إغلاق" data-i18n-title="close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="note-textarea-wrap">
+        <textarea id="note-modal-textarea" placeholder="اكتب ملاحظتك هنا..." data-i18n-placeholder="note_placeholder"></textarea>
+        <button type="button" class="ayah-search-mic note-mic-btn" id="note-mic-btn" onclick="toggleNoteVoiceInput(this)" title="إملاء صوتي" aria-label="إملاء صوتي" data-i18n-title="voice_note" data-i18n-aria-label="voice_note" style="display:none;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        </button>
+      </div>
+      <div class="note-modal-actions">
+        <button class="repeat-btn" onclick="saveNoteFromModal()">
+          <span data-i18n="save_note">حفظ الملاحظة</span>
+        </button>
+        <button class="repeat-btn stop-btn" id="note-delete-btn" onclick="deleteNoteFromModal()" style="display:none;">
+          <span data-i18n="delete_note">حذف</span>
+        </button>
       </div>
     </div>
   </div>
