@@ -2843,18 +2843,43 @@ function closeNoteModal(){
   currentNoteContext = null;
 }
 
+// الإملاء الصوتي للملاحظة: الميكروفون يفضل شغال لحد ما تضغط عليه تاني (أو تقفل النافذة/تحفظ)
 function toggleNoteVoiceInput(btn){
   const ta = document.getElementById('note-modal-textarea');
   if(!ta) return;
-  const baseText = ta.value;
-  const needsSpace = baseText && !/\s$/.test(baseText);
-  startVoiceSearch(btn, function(transcript, isFinal){
-    ta.value = baseText + (needsSpace ? ' ' : '') + transcript;
+  let baseText = '';    // النص الموجود في الخانة قبل الكلام الجديد
+  let skip = 0;         // عدد النتائج اللي اتحسبت قبل آخر تعديل يدوي
+  let seenCount = 0;    // عدد النتائج اللي وصلت في آخر تحديث
+  let lastValue = '';   // آخر قيمة كتبناها إحنا في الخانة (لاكتشاف الكتابة اليدوية)
+  const rebase = function(){
+    baseText = ta.value;
+    skip = 0;
+    seenCount = 0;
+    lastValue = ta.value;
+  };
+  rebase();
+  startVoiceSearch(btn, function(transcript, isFinal, results){
+    // لو المستخدم كتب أو عدّل بإيده أثناء الإملاء، نحتفظ بتعديله ونكمل الكلام بعده
+    if(ta.value !== lastValue){
+      baseText = ta.value;
+      skip = seenCount;
+    }
+    let text = '';
+    const count = results ? results.length : 0;
+    for(let i = skip; i < count; i++){
+      const piece = results[i][0].transcript;
+      text += (text && !/\s$/.test(text) && !/^\s/.test(piece) ? ' ' : '') + piece;
+    }
+    const needsSpace = baseText && !/\s$/.test(baseText) && text && !/^\s/.test(text);
+    ta.value = baseText + (needsSpace ? ' ' : '') + text;
+    lastValue = ta.value;
+    seenCount = count;
+    ta.scrollTop = ta.scrollHeight;
     if(isFinal){
       ta.focus();
       ta.selectionStart = ta.selectionEnd = ta.value.length;
     }
-  });
+  }, { continuous: true, onRestart: rebase });
 }
 
 function saveNoteFromModal(){
@@ -5776,6 +5801,8 @@ function onAyahSearchKeydown(e){
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 let activeVoiceRecognition = null;
 let activeVoiceBtn = null;
+let activeVoiceSession = null;
+const IS_ANDROID_BROWSER = /Android/i.test(navigator.userAgent || '');
 
 function initVoiceSearchButtons(){
   if(!SpeechRecognitionCtor) return; // المتصفح لا يدعم التعرف على الصوت، فتفضل الأزرار مخفية
@@ -5783,14 +5810,19 @@ function initVoiceSearchButtons(){
 }
 
 function stopVoiceSearch(){
+  if(activeVoiceSession) activeVoiceSession.stopped = true;
   if(activeVoiceRecognition){
     try{ activeVoiceRecognition.stop(); }catch(e){}
   }
 }
 
-// onTranscript(text, isFinal) بتتنفذ مع كل نتيجة (نهائية أو جزئية) أثناء الكلام
-function startVoiceSearch(btn, onTranscript){
+// onTranscript(text, isFinal, results) بتتنفذ مع كل نتيجة (نهائية أو جزئية) أثناء الكلام
+// opts.continuous: يفضل الميكروفون شغال لحد ما المستخدم يقفله بنفسه (بنعيد تشغيل التعرف تلقائيًا
+//                  كل ما المتصفح يقفله بسبب صمت أو مدة قصوى)
+// opts.onRestart : بتتنفذ قبل كل إعادة تشغيل تلقائية، عشان المستدعي يثبّت النص المكتوب لحد الآن
+function startVoiceSearch(btn, onTranscript, opts){
   if(!SpeechRecognitionCtor) return;
+  opts = opts || {};
 
   // لو في تسجيل شغال بالفعل على نفس الزر نوقفه (toggle)
   if(activeVoiceRecognition && activeVoiceBtn === btn){
@@ -5801,42 +5833,79 @@ function startVoiceSearch(btn, onTranscript){
   // لو في تسجيل شغال على زر تاني، نوقفه الأول
   stopVoiceSearch();
 
-  const recognition = new SpeechRecognitionCtor();
-  activeVoiceRecognition = recognition;
+  // كل ضغطة تشغيل ليها "جلسة" مستقلة، عشان إيقاف جلسة قديمة ما يتحسبش إيقاف للجديدة
+  const session = { stopped: false };
+  activeVoiceSession = session;
   activeVoiceBtn = btn;
-
-  recognition.lang = (document.documentElement.getAttribute('data-lang') === 'en') ? 'en-US' : 'ar-SA';
-  recognition.interimResults = true;
-  recognition.maxAlternatives = 1;
-
   btn.classList.add('listening');
+  let quickEnds = 0;
 
-  recognition.onresult = function(event){
-    let transcript = '';
-    for(let i = 0; i < event.results.length; i++){
-      transcript += event.results[i][0].transcript;
-    }
-    const isFinal = event.results.length > 0 && event.results[event.results.length - 1].isFinal;
-    onTranscript(transcript, isFinal);
-  };
-
-  recognition.onerror = function(){
+  const finish = function(){
     btn.classList.remove('listening');
-  };
-
-  recognition.onend = function(){
-    btn.classList.remove('listening');
-    if(activeVoiceBtn === btn){
+    if(activeVoiceSession === session){
       activeVoiceRecognition = null;
       activeVoiceBtn = null;
+      activeVoiceSession = null;
     }
   };
 
-  try{
-    recognition.start();
-  }catch(e){
-    btn.classList.remove('listening');
-  }
+  const begin = function(){
+    const recognition = new SpeechRecognitionCtor();
+    activeVoiceRecognition = recognition;
+    recognition.lang = (document.documentElement.getAttribute('data-lang') === 'en') ? 'en-US' : 'ar-SA';
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    // continuous=true على كروم أندرويد بيكرر النص، فهناك بنعتمد على إعادة التشغيل التلقائي بدل الوضع المتواصل
+    recognition.continuous = !!opts.continuous && !IS_ANDROID_BROWSER;
+    const startedAt = Date.now();
+    let fatal = false;
+
+    recognition.onresult = function(event){
+      quickEnds = 0;
+      let transcript = '';
+      for(let i = 0; i < event.results.length; i++){
+        transcript += event.results[i][0].transcript;
+      }
+      const isFinal = event.results.length > 0 && event.results[event.results.length - 1].isFinal;
+      onTranscript(transcript, isFinal, event.results);
+    };
+
+    recognition.onerror = function(e){
+      const code = e && e.error;
+      if(code === 'not-allowed' || code === 'service-not-allowed' || code === 'audio-capture' || code === 'language-not-supported') fatal = true;
+      // في الوضع المتواصل أخطاء مثل no-speech عادية ومش سبب للإيقاف
+      if(!opts.continuous || fatal) btn.classList.remove('listening');
+    };
+
+    recognition.onend = function(){
+      // جلسة قديمة انتهت بعد ما المستخدم بدّل لزر تاني: ننضّف زرها بس
+      if(activeVoiceSession !== session){
+        btn.classList.remove('listening');
+        return;
+      }
+      if(opts.continuous && !session.stopped && !fatal){
+        // لو التعرف بيقفل فورًا مرة ورا مرة (مشكلة في الميكروفون أو الشبكة) نتوقف بدل الدوران للأبد
+        quickEnds = (Date.now() - startedAt < 1000) ? quickEnds + 1 : 0;
+        if(quickEnds < 4){
+          setTimeout(function(){
+            if(session.stopped){ finish(); return; }
+            if(opts.onRestart) opts.onRestart();
+            begin();
+          }, 150);
+          return;
+        }
+      }
+      finish();
+    };
+
+    try{
+      recognition.start();
+    }catch(e){
+      finish();
+    }
+  };
+
+  begin();
 }
 
 // ===== أوامر التنقل الصوتية: "تشغيل سورة كذا" / "فتح سورة كذا" / "افتح آية كذا" / "تشغيل آية كذا" =====
