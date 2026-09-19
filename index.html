@@ -553,7 +553,9 @@
   .note-overlay.open{ display:flex; }
   .note-modal{
     width:100%; max-width:480px; background:var(--bg-elev); border:1px solid var(--border);
-    border-radius:16px; padding:20px;
+    border-radius:16px; padding:20px; box-sizing:border-box;
+    /* على الشاشات القصيرة (موبايل بالعرض أو الكيبورد مفتوح) النافذة تتمرّر بدل ما تتقص من فوق/تحت */
+    max-height:100%; overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch;
   }
   .note-modal-header{
     display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -638,6 +640,21 @@
   }
   .note-picker-hint{ margin-top:8px; font-size:12px; font-weight:600; color:var(--accent-soft); }
   .note-picker-error{ margin-top:8px; font-size:12.5px; font-weight:700; color:#e05252; }
+  /* موبايل: خطوط 16px في خانات الإدخال عشان iOS Safari ما يعملش تكبير تلقائي عند الضغط عليها */
+  @media (pointer:coarse){
+    .note-modal textarea,
+    .note-picker-field select,
+    .note-picker-field input,
+    .notes-search-box input,
+    .notes-filters .font-select{ font-size:16px; }
+    .notes-search-clear{ width:30px; height:30px; inset-inline-end:5px; }
+    .notes-search-clear svg{ width:14px; height:14px; }
+  }
+  @media (max-width:480px){
+    .notes-filters{ flex-wrap:wrap; }
+    .notes-search-box{ flex:1 1 100%; }
+    .notes-filters .font-select{ flex:1 1 100%; }
+  }
   .ayah-note-preview{
     font-size:12.5px; color:var(--text-muted); background:var(--surface-2);
     border-radius:10px; padding:8px 10px; margin-top:6px; white-space:pre-wrap; word-break:break-word;
@@ -2746,7 +2763,32 @@ function openNoteModal(surahId, ayahId, surahName){
   ta.value = existing ? existing.text : '';
   document.getElementById('note-delete-btn').style.display = existing && existing.text ? '' : 'none';
   document.getElementById('note-overlay').classList.add('open');
+  syncNoteOverlayToViewport();
   setTimeout(() => ta.focus(), 60);
+}
+
+// لما كيبورد الموبايل يفتح، نخلي النافذة تتمركز جوه المنطقة المرئية بس (visualViewport) بدل ما تختفي ورا الكيبورد
+function syncNoteOverlayToViewport(){
+  const ov = document.getElementById('note-overlay');
+  const vv = window.visualViewport;
+  if(!ov || !vv || !ov.classList.contains('open')) return;
+  if(vv.scale > 1.01){ resetNoteOverlayViewport(); return; } // المستخدم عامل zoom بإيده
+  ov.style.top = vv.offsetTop + 'px';
+  ov.style.bottom = 'auto';
+  ov.style.height = vv.height + 'px';
+}
+
+function resetNoteOverlayViewport(){
+  const ov = document.getElementById('note-overlay');
+  if(!ov) return;
+  ov.style.top = '';
+  ov.style.bottom = '';
+  ov.style.height = '';
+}
+
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize', syncNoteOverlayToViewport);
+  window.visualViewport.addEventListener('scroll', syncNoteOverlayToViewport);
 }
 
 function showNoteModalError(msg){
@@ -2776,7 +2818,16 @@ function openNewNoteModal(){
   showNoteModalError('');
   onNotePickerSurahChange();
   document.getElementById('note-overlay').classList.add('open');
+  syncNoteOverlayToViewport();
   setTimeout(() => ayahInput.focus(), 60);
+}
+
+// يقرأ رقم الآية مع تحويل الأرقام العربية (٢٥٥) للإنجليزية، لأن كيبورد الموبايل العربي بيكتب أرقام هندية
+function readNoteAyahInput(){
+  const el = document.getElementById('note-ayah-input');
+  const clean = normalizeVoiceDigits(el.value).replace(/\D/g, '');
+  if(clean !== el.value) el.value = clean;
+  return clean ? parseInt(clean, 10) : NaN;
 }
 
 function onNotePickerSurahChange(){
@@ -2784,9 +2835,8 @@ function onNotePickerSurahChange(){
   const surah = QURAN.find(s => s.id === surahId);
   const ayahInput = document.getElementById('note-ayah-input');
   if(surah){
-    ayahInput.max = surah.verses.length;
     ayahInput.placeholder = '1–' + surah.verses.length;
-    const cur = parseInt(ayahInput.value, 10);
+    const cur = readNoteAyahInput();
     if(cur > surah.verses.length) ayahInput.value = '';
   }
   onNotePickerAyahChange();
@@ -2796,7 +2846,7 @@ function onNotePickerSurahChange(){
 function onNotePickerAyahChange(){
   if(!currentNoteContext || !currentNoteContext.isNew) return;
   const surahId = parseInt(document.getElementById('note-surah-select').value, 10);
-  const ayahId = parseInt(document.getElementById('note-ayah-input').value, 10);
+  const ayahId = readNoteAyahInput();
   const surah = QURAN.find(s => s.id === surahId);
   const verse = surah && ayahId ? surah.verses.find(v => v.id === ayahId) : null;
   const preview = document.getElementById('note-picker-preview');
@@ -2840,6 +2890,7 @@ function closeNoteModal(){
   document.getElementById('note-picker').classList.remove('open');
   showNoteModalError('');
   document.getElementById('note-overlay').classList.remove('open');
+  resetNoteOverlayViewport();
   currentNoteContext = null;
 }
 
@@ -2888,7 +2939,7 @@ function saveNoteFromModal(){
   const text = document.getElementById('note-modal-textarea').value.trim();
   if(currentNoteContext.isNew){
     surahId = parseInt(document.getElementById('note-surah-select').value, 10);
-    ayahId = parseInt(document.getElementById('note-ayah-input').value, 10);
+    ayahId = readNoteAyahInput();
     const surah = QURAN.find(s => s.id === surahId);
     if(!surah || !ayahId || !surah.verses.some(v => v.id === ayahId)){
       showNoteModalError(tf('note_err_ayah', { max: surah ? surah.verses.length : '' }));
@@ -2989,7 +3040,7 @@ function onNotesSortChange(mode){
 function noteMatchesQuery(n, words){
   if(!words.length) return true;
   const surah = QURAN.find(s => s.id === n.surahId);
-  const hay = normalizeArabicSearch([n.text, n.surahName, surah ? surah.transliteration : '', n.surahId + ':' + n.ayahId].join(' ')).toLowerCase();
+  const hay = normalizeVoiceDigits(normalizeArabicSearch([n.text, n.surahName, surah ? surah.transliteration : '', n.surahId + ':' + n.ayahId].join(' '))).toLowerCase();
   return words.every(w => hay.includes(w));
 }
 
@@ -3017,7 +3068,7 @@ function renderNotesView(){
     return;
   }
   if(empty) empty.style.display = 'none';
-  const words = normalizeArabicSearch(notesSearchQuery).toLowerCase().split(/\s+/).filter(Boolean);
+  const words = normalizeArabicSearch(normalizeVoiceDigits(notesSearchQuery)).toLowerCase().split(/\s+/).filter(Boolean);
   const byMushaf = (a,b) => a.surahId - b.surahId || a.ayahId - b.ayahId;
   const list = all.filter(n => noteMatchesQuery(n, words)).sort((a,b) => {
     if(notesSortMode === 'newest') return ((b.ts || 0) - (a.ts || 0)) || byMushaf(a,b);
@@ -4153,7 +4204,7 @@ function favMatchesQuery(b, words){
   if(!words.length) return true;
   const surah = QURAN.find(s => s.id === b.surahId);
   const verse = surah && surah.verses.find(v => v.id === b.ayahId);
-  const hay = normalizeArabicSearch([verse ? verse.text : '', b.surahName, surah ? surah.transliteration : '', b.surahId + ':' + b.ayahId].join(' ')).toLowerCase();
+  const hay = normalizeVoiceDigits(normalizeArabicSearch([verse ? verse.text : '', b.surahName, surah ? surah.transliteration : '', b.surahId + ':' + b.ayahId].join(' '))).toLowerCase();
   return words.every(w => hay.includes(w));
 }
 
@@ -4171,7 +4222,7 @@ function renderFavoritesView(){
     return;
   }
   empty.style.display = 'none';
-  const words = normalizeArabicSearch(favSearchQuery).toLowerCase().split(/\s+/).filter(Boolean);
+  const words = normalizeArabicSearch(normalizeVoiceDigits(favSearchQuery)).toLowerCase().split(/\s+/).filter(Boolean);
   const byMushaf = (a,b) => a.surahId - b.surahId || a.ayahId - b.ayahId;
   const list = all.filter(b => favMatchesQuery(b, words)).sort((a,b) => {
     if(favSortMode === 'newest') return ((b.ts || 0) - (a.ts || 0)) || byMushaf(a,b);
@@ -8176,7 +8227,7 @@ if('serviceWorker' in navigator){
           </div>
           <div class="note-picker-field ayah">
             <label for="note-ayah-input" data-i18n="note_pick_ayah">رقم الآية</label>
-            <input type="number" id="note-ayah-input" min="1" step="1" inputmode="numeric" oninput="onNotePickerAyahChange()">
+            <input type="text" id="note-ayah-input" inputmode="numeric" pattern="[0-9]*" maxlength="3" autocomplete="off" oninput="onNotePickerAyahChange()">
           </div>
         </div>
         <div class="note-picker-preview ayah-text" id="note-picker-preview" style="display:none; font-size:20px;"></div>
