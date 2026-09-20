@@ -2764,7 +2764,9 @@ function openNoteModal(surahId, ayahId, surahName){
   document.getElementById('note-delete-btn').style.display = existing && existing.text ? '' : 'none';
   document.getElementById('note-overlay').classList.add('open');
   syncNoteOverlayToViewport();
-  setTimeout(() => ta.focus(), 60);
+  // لو المايك اشتغل تلقائي ما نفتحش الكيبورد فوق الشاشة
+  const autoMic = maybeAutoStartNoteDictation();
+  if(!autoMic) setTimeout(() => ta.focus(), 60);
 }
 
 // لما كيبورد الموبايل يفتح، نخلي النافذة تتمركز جوه المنطقة المرئية بس (visualViewport) بدل ما تختفي ورا الكيبورد
@@ -2819,6 +2821,7 @@ function openNewNoteModal(){
   onNotePickerSurahChange();
   document.getElementById('note-overlay').classList.add('open');
   syncNoteOverlayToViewport();
+  maybeAutoStartNoteDictation();
   setTimeout(() => ayahInput.focus(), 60);
 }
 
@@ -2887,6 +2890,7 @@ function onNotePickerAyahChange(){
 
 function closeNoteModal(){
   stopVoiceSearch();
+  setNoteMicHint(false);
   document.getElementById('note-picker').classList.remove('open');
   showNoteModalError('');
   document.getElementById('note-overlay').classList.remove('open');
@@ -2895,7 +2899,46 @@ function closeNoteModal(){
 }
 
 // الإملاء الصوتي للملاحظة: الميكروفون يفضل شغال لحد ما تضغط عليه تاني (أو تقفل النافذة/تحفظ)
+// التشغيل التلقائي: أول ما تضغط على المايك يتحفظ اختيارك، وبعدها المايك بيشتغل لوحده كل ما تفتح نافذة الملاحظة.
+// لو ضغطت عليه وهو شغال بيقف ويتعطل التشغيل التلقائي لحد ما تضغط عليه تاني.
+const NOTE_MIC_AUTO_KEY = 'quran-note-mic-auto';
+
+function isNoteMicAuto(){
+  try{ return localStorage.getItem(NOTE_MIC_AUTO_KEY) === '1'; }catch(e){ return false; }
+}
+
+function setNoteMicAuto(on){
+  try{ localStorage.setItem(NOTE_MIC_AUTO_KEY, on ? '1' : '0'); }catch(e){}
+}
+
+function setNoteMicHint(show){
+  const el = document.getElementById('note-mic-hint');
+  if(el) el.style.display = show ? 'block' : 'none';
+}
+
+// ضغطة المستخدم على زر المايك: تشغيل (وتفعيل التشغيل التلقائي) أو إيقاف (وتعطيله)
 function toggleNoteVoiceInput(btn){
+  if(btn.classList.contains('listening')){
+    stopVoiceSearch();
+    setNoteMicAuto(false);
+    setNoteMicHint(false);
+    return;
+  }
+  setNoteMicAuto(true);
+  startNoteDictation(btn);
+}
+
+// بتتنفذ وقت فتح نافذة الملاحظة: لو المستخدم مفعّل التشغيل التلقائي، المايك يبدأ لوحده. بترجّع true لو بدأ
+function maybeAutoStartNoteDictation(){
+  if(!SpeechRecognitionCtor || !isNoteMicAuto()) return false;
+  const btn = document.getElementById('note-mic-btn');
+  if(!btn || btn.style.display === 'none') return false;
+  if(activeVoiceBtn !== btn) startNoteDictation(btn);
+  setNoteMicHint(true);
+  return true;
+}
+
+function startNoteDictation(btn){
   const ta = document.getElementById('note-modal-textarea');
   if(!ta) return;
   let baseText = '';    // النص الموجود في الخانة قبل الكلام الجديد
@@ -2926,11 +2969,17 @@ function toggleNoteVoiceInput(btn){
     lastValue = ta.value;
     seenCount = count;
     ta.scrollTop = ta.scrollHeight;
-    if(isFinal){
+    // على الموبايل ما نسحبش التركيز للخانة عشان الكيبورد ما يطلعش كل ما تخلص جملة
+    if(isFinal && (document.activeElement === ta || !window.matchMedia('(pointer:coarse)').matches)){
       ta.focus();
       ta.selectionStart = ta.selectionEnd = ta.value.length;
     }
-  }, { continuous: true, onRestart: rebase });
+  }, {
+    continuous: true,
+    onRestart: rebase,
+    // لو المتصفح رفض إذن الميكروفون: نعطّل التشغيل التلقائي عشان ما يحاولش في كل مرة
+    onFatalError: function(){ setNoteMicAuto(false); setNoteMicHint(false); }
+  });
 }
 
 function saveNoteFromModal(){
@@ -5926,6 +5975,7 @@ function startVoiceSearch(btn, onTranscript, opts){
       if(code === 'not-allowed' || code === 'service-not-allowed' || code === 'audio-capture' || code === 'language-not-supported') fatal = true;
       // في الوضع المتواصل أخطاء مثل no-speech عادية ومش سبب للإيقاف
       if(!opts.continuous || fatal) btn.classList.remove('listening');
+      if(fatal && opts.onFatalError) opts.onFatalError(code);
     };
 
     recognition.onend = function(){
@@ -7264,6 +7314,7 @@ const I18N_STRINGS = {
     fav_search_placeholder: 'ابحث في المفضلة...',
     fav_no_results: 'لا توجد آيات مطابقة لبحثك.',
     fav_saved_label: 'أُضيفت في',
+    note_mic_auto_hint: 'الميكروفون شغّال تلقائيًا — اضغط عليه لإيقافه وتعطيل التشغيل التلقائي.',
     data_backup_label: 'نسخ احتياطي للبيانات (المفضلة، الملاحظات، خطط الختم)',
     export_data: 'تصدير نسخة احتياطية (JSON)',
     import_data: 'استيراد نسخة احتياطية',
@@ -7524,6 +7575,7 @@ const I18N_STRINGS = {
     fav_search_placeholder: 'Search your favorites...',
     fav_no_results: 'No ayahs match your search.',
     fav_saved_label: 'Saved on',
+    note_mic_auto_hint: 'Mic starts automatically — tap it to stop and turn off auto-start.',
     data_backup_label: 'Data backup (favorites, notes, khatma plans)',
     export_data: 'Export backup (JSON)',
     import_data: 'Import backup',
@@ -8239,6 +8291,7 @@ if('serviceWorker' in navigator){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
         </button>
       </div>
+      <div class="note-picker-hint" id="note-mic-hint" style="display:none;" data-i18n="note_mic_auto_hint">الميكروفون شغّال تلقائيًا — اضغط عليه لإيقافه وتعطيل التشغيل التلقائي.</div>
       <div class="note-picker-error" id="note-modal-error" style="display:none;"></div>
       <div class="note-modal-actions">
         <button class="repeat-btn" onclick="saveNoteFromModal()">
