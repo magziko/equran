@@ -7994,6 +7994,28 @@ function attachDisplayModeShortcuts(){
       return;
     }
 
+    // اختصار فتح/إغلاق الإعدادات (يعمل في أي مكان بالتطبيق، حتى داخل السورة/الجزء/الحزب)
+    if(e.code === 'Comma' || e.key === ',' || e.key === '،'){
+      e.preventDefault();
+      const settingsOverlay = document.getElementById('settings-overlay');
+      if(settingsOverlay && settingsOverlay.classList.contains('open')){
+        closeSettingsModal();
+      } else {
+        openSettingsModal();
+      }
+      return;
+    }
+
+    // زر Esc يقفل مودال الإعدادات لو مفتوح
+    if(e.key === 'Escape' || e.key === 'Esc'){
+      const settingsOverlay = document.getElementById('settings-overlay');
+      if(settingsOverlay && settingsOverlay.classList.contains('open')){
+        e.preventDefault();
+        closeSettingsModal();
+        return;
+      }
+    }
+
     if(e.key === 'u' || e.key === 'U' || e.key === 'ع'){
       e.preventDefault();
       applyLanguage('ar');
