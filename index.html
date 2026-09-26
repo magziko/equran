@@ -813,6 +813,15 @@
     font-size:12px; color:var(--text-muted); background:var(--surface);
     border:1px dashed var(--border); border-radius:10px; padding:9px 11px; margin-bottom:14px; line-height:1.8;
   }
+  .shortcuts-table{ width:100%; border-collapse:collapse; font-size:13px; }
+  .shortcuts-table td{ padding:9px 6px; border-bottom:1px solid var(--border); color:var(--text); vertical-align:middle; }
+  .shortcuts-table tr:last-child td{ border-bottom:none; }
+  .shortcuts-table td:first-child{ white-space:nowrap; width:1%; }
+  .shortcuts-table kbd{
+    display:inline-block; min-width:22px; text-align:center; font-family:inherit; font-size:12px;
+    background:var(--surface); border:1px solid var(--border); border-bottom-width:2px;
+    border-radius:6px; padding:3px 7px; color:var(--text); margin:1px;
+  }
 
   /* ---------- Favorites button + view ---------- */
   .favorites-toggle{
@@ -3655,6 +3664,44 @@ function closeTafsirModal(){
 }
 
 /* ===================== نافذة الإعدادات المشتركة (تفتح من الفهرس أو من داخل السورة بدون التأثير على موضع القراءة) ===================== */
+function getFocusableElements(container){
+  if(!container) return [];
+  return Array.from(container.querySelectorAll(
+    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  )).filter(el => el.offsetParent !== null);
+}
+
+// يحبس التنقل بالـ Tab داخل أي مودال مفتوح من اللي في القائمة (عشان الفوكس ميهربش برا وهو مفتوح)
+function attachModalFocusTrap(){
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'Tab') return;
+    const modalIds = ['settings-overlay', 'shortcuts-overlay'];
+    const openOverlayId = modalIds.find(id => {
+      const el = document.getElementById(id);
+      return el && el.classList.contains('open');
+    });
+    if(!openOverlayId) return;
+    const overlay = document.getElementById(openOverlayId);
+    const modal = overlay.querySelector('.settings-modal');
+    if(!modal) return;
+    const focusables = getFocusableElements(modal);
+    if(focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if(e.shiftKey){
+      if(document.activeElement === first || !modal.contains(document.activeElement)){
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if(document.activeElement === last || !modal.contains(document.activeElement)){
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  });
+}
+
 function openSettingsModal(){
   const hasActiveReading = currentMode === 'surah' && !!currentSurahId && currentVerseList.length > 0;
   const repeatGroup = document.getElementById('repeat-group');
@@ -3662,10 +3709,28 @@ function openSettingsModal(){
   if(repeatGroup) repeatGroup.style.display = hasActiveReading ? '' : 'none';
   if(note) note.style.display = hasActiveReading ? 'none' : 'block';
   document.getElementById('settings-overlay').classList.add('open');
+  requestAnimationFrame(() => {
+    const modal = document.querySelector('#settings-overlay .settings-modal');
+    const first = getFocusableElements(modal)[0];
+    if(first) first.focus();
+  });
 }
 
 function closeSettingsModal(){
   document.getElementById('settings-overlay').classList.remove('open');
+}
+
+function openShortcutsModal(){
+  document.getElementById('shortcuts-overlay').classList.add('open');
+  requestAnimationFrame(() => {
+    const modal = document.querySelector('#shortcuts-overlay .settings-modal');
+    const first = getFocusableElements(modal)[0];
+    if(first) first.focus();
+  });
+}
+
+function closeShortcutsModal(){
+  document.getElementById('shortcuts-overlay').classList.remove('open');
 }
 
 /* ===================== إظهار التفسير/الترجمة المختار أسفل كل آية (اختياري من الإعدادات) ===================== */
@@ -7322,6 +7387,24 @@ const I18N_STRINGS = {
     export_error: 'تعذّر إنشاء النسخة الاحتياطية.',
     import_success: 'تم استيراد البيانات ودمجها بنجاح.',
     import_error_invalid: 'الملف غير صالح أو تالف. تأكد أنه نسخة احتياطية بصيغة JSON من هذا التطبيق.',
+    shortcuts_label: 'اختصارات لوحة المفاتيح',
+    shortcuts_button: 'عرض كل الاختصارات',
+    shortcuts_title: 'اختصارات لوحة المفاتيح',
+    shortcut_settings: 'فتح/إغلاق الإعدادات',
+    shortcut_escape: 'إغلاق أي نافذة مفتوحة (الإعدادات، الاختصارات، التفسير)',
+    shortcut_search: 'التركيز على مربع البحث في نص الآيات',
+    shortcut_resume: 'الانتقال لآخر نقطة قراءة محفوظة',
+    shortcut_lang_ar: 'التبديل للغة العربية',
+    shortcut_lang_en: 'التبديل للغة الإنجليزية',
+    shortcut_font_up: 'تكبير خط النص (داخل السورة)',
+    shortcut_font_down: 'تصغير خط النص (داخل السورة)',
+    shortcut_theme: 'تبديل الوضع الداكن/الفاتح (داخل السورة)',
+    shortcut_tafsir: 'إظهار/إخفاء التفسير المضمّن (داخل السورة)',
+    shortcut_play_pause: 'تشغيل/إيقاف تلاوة الآية (داخل السورة)',
+    shortcut_bookmark: 'إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)',
+    shortcut_cards_mode: 'وضع العرض: آيات منفصلة (بطاقات)',
+    shortcut_continuous_mode: 'وضع العرض: آيات متتالية (كالمصحف)',
+    shortcut_prev_next_surah: 'السورة السابقة / التالية (داخل السورة)',
     next_juz: 'الجزء التالي',
     prev_juz: 'الجزء السابق',
     next_hizb: 'الحزب التالي',
@@ -7583,6 +7666,24 @@ const I18N_STRINGS = {
     export_error: 'Could not create the backup.',
     import_success: 'Data imported and merged successfully.',
     import_error_invalid: 'The file is invalid or corrupted. Make sure it\'s a JSON backup from this app.',
+    shortcuts_label: 'Keyboard shortcuts',
+    shortcuts_button: 'View all shortcuts',
+    shortcuts_title: 'Keyboard shortcuts',
+    shortcut_settings: 'Open/close settings',
+    shortcut_escape: 'Close any open dialog (settings, shortcuts, tafsir)',
+    shortcut_search: 'Focus the ayah text search box',
+    shortcut_resume: 'Jump to your last saved reading position',
+    shortcut_lang_ar: 'Switch to Arabic',
+    shortcut_lang_en: 'Switch to English',
+    shortcut_font_up: 'Increase text size (while reading)',
+    shortcut_font_down: 'Decrease text size (while reading)',
+    shortcut_theme: 'Toggle dark/light mode (while reading)',
+    shortcut_tafsir: 'Show/hide inline tafsir (while reading)',
+    shortcut_play_pause: 'Play/pause ayah recitation (while reading)',
+    shortcut_bookmark: 'Add/remove bookmark for current ayah (while reading)',
+    shortcut_cards_mode: 'Display mode: separate ayah cards',
+    shortcut_continuous_mode: 'Display mode: continuous (mushaf-style)',
+    shortcut_prev_next_surah: 'Previous / next surah (while reading)',
     next_juz: 'Next Juz',
     prev_juz: 'Previous Juz',
     next_hizb: 'Next Hizb',
@@ -8006,14 +8107,39 @@ function attachDisplayModeShortcuts(){
       return;
     }
 
-    // زر Esc يقفل مودال الإعدادات لو مفتوح
+    // زر Esc يقفل مودال الإعدادات أو مودال الاختصارات لو مفتوحين
     if(e.key === 'Escape' || e.key === 'Esc'){
+      const shortcutsOverlay = document.getElementById('shortcuts-overlay');
+      if(shortcutsOverlay && shortcutsOverlay.classList.contains('open')){
+        e.preventDefault();
+        closeShortcutsModal();
+        return;
+      }
       const settingsOverlay = document.getElementById('settings-overlay');
       if(settingsOverlay && settingsOverlay.classList.contains('open')){
         e.preventDefault();
         closeSettingsModal();
         return;
       }
+    }
+
+    // اختصار "/" للتركيز على مربع البحث في نص الآيات (من الصفحة الرئيسية أو داخل السورة)
+    if(e.key === '/'){
+      e.preventDefault();
+      const readViewVisible = document.getElementById('read-view').style.display !== 'none';
+      const input = document.getElementById(readViewVisible ? 'ayah-search-input-read' : 'ayah-search-input');
+      if(input) input.focus();
+      return;
+    }
+
+    // اختصار "r" للانتقال السريع لآخر نقطة قراءة محفوظة
+    if(e.key === 'r' || e.key === 'R'){
+      const saved = getSavedPosition();
+      if(saved){
+        e.preventDefault();
+        openSurah(saved.surahId, saved.ayahId);
+      }
+      return;
     }
 
     if(e.key === 'u' || e.key === 'U' || e.key === 'ع'){
@@ -8039,6 +8165,12 @@ function attachDisplayModeShortcuts(){
     } else if(e.key === 'd' || e.key === 'D'){
       e.preventDefault();
       toggleTheme();
+      return;
+    } else if(e.key === 't' || e.key === 'T'){
+      e.preventDefault();
+      if(typeof isInlineTafsirEnabled === 'function' && typeof toggleInlineTafsir === 'function' && displayMode !== 'continuous'){
+        toggleInlineTafsir(!isInlineTafsirEnabled());
+      }
       return;
     } else if(e.key === ' ' || e.code === 'Space'){
       if(document.activeElement && document.activeElement.tagName === 'BUTTON') return;
@@ -8095,6 +8227,7 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   attachSwipeNavigation();
   attachDisplayModeShortcuts();
+  attachModalFocusTrap();
   updateAutoScrollSpeedLabel();
 });
 
@@ -8281,6 +8414,47 @@ if('serviceWorker' in navigator){
           </div>
           <div class="settings-modal-note" id="data-backup-status" style="display:none;"></div>
         </div>
+        <div class="control-group" id="shortcuts-group">
+          <span class="label" data-i18n="shortcuts_label">اختصارات لوحة المفاتيح</span>
+          <div class="repeat-actions">
+            <button class="repeat-btn" onclick="openShortcutsModal()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M6 16h12"/></svg>
+              <span data-i18n="shortcuts_button">عرض كل الاختصارات</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-overlay" id="shortcuts-overlay" onclick="if(event.target===this) closeShortcutsModal()">
+    <div class="settings-modal">
+      <div class="settings-modal-header">
+        <span class="settings-modal-title" data-i18n="shortcuts_title">اختصارات لوحة المفاتيح</span>
+        <button class="settings-modal-close" onclick="closeShortcutsModal()" title="إغلاق" data-i18n-title="close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="controls-body">
+        <table class="shortcuts-table">
+          <tbody>
+            <tr><td><kbd>,</kbd></td><td data-i18n="shortcut_settings">فتح/إغلاق الإعدادات</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td data-i18n="shortcut_escape">إغلاق أي نافذة مفتوحة (الإعدادات، الاختصارات، التفسير)</td></tr>
+            <tr><td><kbd>/</kbd></td><td data-i18n="shortcut_search">التركيز على مربع البحث في نص الآيات</td></tr>
+            <tr><td><kbd>R</kbd></td><td data-i18n="shortcut_resume">الانتقال لآخر نقطة قراءة محفوظة</td></tr>
+            <tr><td><kbd>U</kbd> / <kbd>ع</kbd></td><td data-i18n="shortcut_lang_ar">التبديل للغة العربية</td></tr>
+            <tr><td><kbd>E</kbd> / <kbd>ث</kbd></td><td data-i18n="shortcut_lang_en">التبديل للغة الإنجليزية</td></tr>
+            <tr><td><kbd>+</kbd></td><td data-i18n="shortcut_font_up">تكبير خط النص (داخل السورة)</td></tr>
+            <tr><td><kbd>-</kbd></td><td data-i18n="shortcut_font_down">تصغير خط النص (داخل السورة)</td></tr>
+            <tr><td><kbd>D</kbd></td><td data-i18n="shortcut_theme">تبديل الوضع الداكن/الفاتح (داخل السورة)</td></tr>
+            <tr><td><kbd>T</kbd></td><td data-i18n="shortcut_tafsir">إظهار/إخفاء التفسير المضمّن (داخل السورة)</td></tr>
+            <tr><td><kbd>Space</kbd></td><td data-i18n="shortcut_play_pause">تشغيل/إيقاف تلاوة الآية (داخل السورة)</td></tr>
+            <tr><td><kbd>B</kbd></td><td data-i18n="shortcut_bookmark">إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)</td></tr>
+            <tr><td><kbd>S</kbd></td><td data-i18n="shortcut_cards_mode">وضع العرض: آيات منفصلة (بطاقات)</td></tr>
+            <tr><td><kbd>C</kbd></td><td data-i18n="shortcut_continuous_mode">وضع العرض: آيات متتالية (كالمصحف)</td></tr>
+            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td data-i18n="shortcut_prev_next_surah">السورة السابقة / التالية (داخل السورة)</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
