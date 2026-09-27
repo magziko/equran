@@ -130,6 +130,18 @@
     --bg-glow-2: rgba(91,103,240,.05);
   }
 
+  /* وضع أسود حقيقي (AMOLED): يفعّل بس فوق الوضع الداكن، لتوفير البطارية على شاشات AMOLED */
+  html[data-theme="dark"][data-oled="on"]{
+    --bg: #000000;
+    --bg-elev: #000000;
+    --surface: #0a0a0a;
+    --surface-2: #131313;
+    --border: #1e1e1e;
+    --shadow: 0 8px 24px rgba(0,0,0,.6);
+    --bg-glow-1: rgba(108,123,250,.07);
+    --bg-glow-2: rgba(108,123,250,.04);
+  }
+
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
   body{
@@ -960,6 +972,12 @@
   }
   .khatma-reset-btn:hover{ border-color:#e05656; color:#e05656; }
   .khatma-status{ font-size:13.5px; color:var(--accent-soft); font-weight:700; margin-top:10px; min-height:18px; }
+  .khatma-reminder-row{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:14px 16px; margin-bottom:16px;
+  }
+  .khatma-reminder-note{ font-size:12px; color:var(--text-muted); line-height:1.7; margin-top:8px; }
+  .khatma-reminder-status{ font-size:12.5px; color:#e05656; font-weight:700; margin-top:8px; min-height:0; }
   .khatma-log-row .go-btn.secondary{
     background:var(--surface-2); color:var(--text); border:1px solid var(--border);
   }
@@ -1597,6 +1615,28 @@
   .mushaf-page-loading, .mushaf-page-error{
     text-align:center; padding:60px 20px; color:var(--text-muted); font-size:14.5px;
   }
+
+  /* ---------- Skeleton loading (بدائل نبضية أثناء تحميل التفسير/الترجمة/صفحات المصحف) ---------- */
+  @keyframes skeleton-shimmer{
+    0%{ background-position:-200px 0; }
+    100%{ background-position:calc(200px + 100%) 0; }
+  }
+  .skeleton-lines{ display:flex; flex-direction:column; gap:11px; padding:2px 0; }
+  .skeleton-lines.centered{ align-items:center; }
+  .skeleton-line{
+    height:13px; border-radius:6px; width:100%;
+    background:linear-gradient(90deg, var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%);
+    background-size:400px 100%;
+    animation:skeleton-shimmer 1.4s ease-in-out infinite;
+  }
+  .skeleton-line.w-95{ width:95%; } .skeleton-line.w-90{ width:90%; }
+  .skeleton-line.w-85{ width:85%; } .skeleton-line.w-70{ width:70%; }
+  .skeleton-line.w-60{ width:60%; } .skeleton-line.w-40{ width:40%; }
+  .skeleton-line.tall{ height:17px; }
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden;
+    clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
   .mushaf-page-error button{
     display:block; margin:14px auto 0; background:var(--accent); color:#fff; border:none;
     font-weight:700; font-size:13.5px; padding:10px 18px; border-radius:9px; cursor:pointer;
@@ -2141,6 +2181,16 @@
     </div>
     <p class="surah-sub" data-i18n="khatma_desc">حدد خطة قراءة بعدد أيام أو مقدار يومي ثابت، وتابع تقدمك يوميًا حتى تختم القرآن الكريم.</p>
 
+    <div class="khatma-reminder-row">
+      <label class="test-mode-toggle-row">
+        <input type="checkbox" id="khatma-reminder-toggle" onchange="toggleKhatmaReminder(this.checked)">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span data-i18n="khatma_reminder_label">تذكير بالورد اليومي عند فتح التطبيق</span>
+      </label>
+      <div class="khatma-reminder-note" data-i18n="khatma_reminder_note">التذكير يظهر فقط وأنت فاتح التطبيق (مش إشعار خلفية مجدول)، ولازم توافق على إذن الإشعارات من المتصفح.</div>
+      <div class="khatma-reminder-status" id="khatma-reminder-status"></div>
+    </div>
+
     <!-- Setup card (shown when no plans exist yet, or when adding a new khatma) -->
     <div class="khatma-setup-card" id="khatma-setup">
       <div class="khatma-type-toggle">
@@ -2512,6 +2562,8 @@ async function init(){
   document.getElementById('playback-speed-select').value = playbackSpeed;
   const wbwToggle = document.getElementById('wbw-highlight-toggle');
   if(wbwToggle) wbwToggle.checked = isWbwHighlightEnabled();
+  const oledToggle = document.getElementById('oled-mode-toggle');
+  if(oledToggle) oledToggle.checked = getOledEnabled();
   updateRepeatAvailability();
   document.getElementById('test-mode-toggle').checked = testModeActive;
   document.documentElement.setAttribute('data-test-mode', testModeActive ? 'on' : 'off');
@@ -3190,6 +3242,21 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
+// يبني سطور Skeleton نبضية بعروض متفاوتة (تحاكي شكل فقرة نص) بدل شاشة تحميل فاضية
+// label: نص للقارئ الصوتي بس (aria) عشان الـ skeleton نفسه بصري فقط
+function skeletonLinesHtml(count, opts){
+  opts = opts || {};
+  const widths = ['w-95', 'w-90', 'w-85', 'w-95', 'w-70', 'w-90', 'w-60', 'w-40'];
+  const tallClass = opts.tall ? ' tall' : '';
+  let html = opts.label ? `<span class="sr-only">${escapeHtml(opts.label)}</span>` : '';
+  html += `<div class="skeleton-lines${opts.centered ? ' centered' : ''}" aria-hidden="true">`;
+  for(let i = 0; i < count; i++){
+    html += `<div class="skeleton-line ${widths[i % widths.length]}${tallClass}"></div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
 /* ---------- كارت الآية الموحّد (يُستخدم في السورة/الجزء/الحزب/الربع) ----------
    idPrefix: بادئة معرّف العنصر (ayah / jayah / hayah / rayah)
    تلاتة خصائص للوصولية: tabindex ليتقدر يوصله بالـ Tab، role=button لقارئ الشاشة،
@@ -3223,12 +3290,147 @@ function renderReadingAyahCard(idPrefix, surahId, ayahId, surahName, text){
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
               <span>${hasNote(surahId, ayahId) ? t('edit_note') : t('add_note')}</span>
             </button>
+            <div class="ayah-more-menu-divider"></div>
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); shareAyahAsImage(${surahId}, ${ayahId}, '${surahName}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              <span>${t('share_as_image')}</span>
+            </button>
           </div>
         </div>
       </div>
       <div class="ayah-inline-tafsir" data-surah="${surahId}" data-ayah="${ayahId}" onclick="event.stopPropagation()"></div>
     </div>
   `;
+}
+
+/* ---------- مشاركة آية كصورة (Canvas → مشاركة عبر Web Share API أو تنزيل PNG) ---------- */
+function wrapCanvasText(ctx, text, maxWidth){
+  const words = text.split(' ');
+  const lines = [];
+  let current = '';
+  words.forEach(word => {
+    const test = current ? current + ' ' + word : word;
+    if(ctx.measureText(test).width > maxWidth && current){
+      lines.push(current);
+      current = word;
+    } else {
+      current = test;
+    }
+  });
+  if(current) lines.push(current);
+  return lines;
+}
+
+function getQuranFontFamilyForCanvas(){
+  if(fontFamily === 'madinah') return 'UthmanicHafs Madinah';
+  if(fontFamily === 'uthman-naskh') return 'KFGQPC Uthman Taha Naskh';
+  return 'Amiri Quran';
+}
+
+async function shareAyahAsImage(surahId, ayahId, surahName){
+  const surah = QURAN.find(s => s.id === surahId);
+  const verse = surah && surah.verses.find(v => v.id === ayahId);
+  if(!surah || !verse) return;
+  const text = verse.text;
+  const quranFontName = getQuranFontFamilyForCanvas();
+
+  try{
+    await Promise.all([
+      document.fonts.load(`64px "${quranFontName}"`),
+      document.fonts.load(`400 30px "Cairo"`),
+      document.fonts.load(`600 30px "Cairo"`)
+    ]);
+    await document.fonts.ready;
+  }catch(e){}
+
+  const W = 1080, H = 1080;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  // خلفية متدرجة ثابتة (بغض النظر عن ثيم التطبيق) عشان الصورة تبقى واضحة لأي حد يستقبلها
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, '#0f2d29');
+  grad.addColorStop(1, '#173e37');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // إطار زخرفي بسيط
+  ctx.strokeStyle = 'rgba(212,175,90,0.55)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(48, 48, W - 96, H - 96);
+  ctx.strokeStyle = 'rgba(212,175,90,0.25)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(60, 60, W - 120, H - 120);
+
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+
+  // نص الآية، مع تصغير الخط تلقائيًا لو طويل عشان يتظبط في المساحة المتاحة
+  const maxTextWidth = W - 200;
+  let fontSize = 58;
+  let lines = [];
+  do{
+    ctx.font = `${fontSize}px "${quranFontName}"`;
+    lines = wrapCanvasText(ctx, text, maxTextWidth);
+    fontSize -= 2;
+  } while(lines.length * (fontSize + 24) > 560 && fontSize > 26);
+  fontSize += 2;
+  ctx.font = `${fontSize}px "${quranFontName}"`;
+  lines = wrapCanvasText(ctx, text, maxTextWidth);
+
+  ctx.fillStyle = '#f3e9d2';
+  const lineHeight = fontSize + 24;
+  const totalTextHeight = lines.length * lineHeight;
+  let y = H / 2 - totalTextHeight / 2 + lineHeight / 2 - 30;
+  lines.forEach(line => {
+    ctx.fillText(line, W / 2, y);
+    y += lineHeight;
+  });
+
+  // فاصل زخرفي صغير
+  const sepY = y + 18;
+  ctx.strokeStyle = 'rgba(212,175,90,0.6)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(W / 2 - 70, sepY);
+  ctx.lineTo(W / 2 + 70, sepY);
+  ctx.stroke();
+
+  // اسم السورة ورقم الآية
+  ctx.font = `600 30px "Cairo"`;
+  ctx.fillStyle = '#d4af5a';
+  ctx.fillText(`${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}`, W / 2, sepY + 52);
+
+  // بصمة التطبيق أسفل الصورة
+  ctx.font = `400 20px "Cairo"`;
+  ctx.fillStyle = 'rgba(243,233,210,0.55)';
+  ctx.fillText((document.title.split('|')[0] || 'القرآن الكريم').trim(), W / 2, H - 90);
+
+  canvas.toBlob(async (blob) => {
+    if(!blob) return;
+    const fileName = `ayah-${surahId}-${ayahId}.png`;
+    let file = null;
+    try{ file = new File([blob], fileName, { type: 'image/png' }); }catch(e){}
+    if(file && navigator.canShare && navigator.canShare({ files: [file] })){
+      try{
+        await navigator.share({ files: [file], title: `${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}` });
+        return;
+      }catch(e){
+        if(e && e.name === 'AbortError') return; // المستخدم ألغى المشاركة بنفسه
+      }
+    }
+    // خيار احتياطي لو المتصفح ميدعمش مشاركة الملفات: تنزيل الصورة مباشرة
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }, 'image/png');
 }
 
 /* ---------- نسخ احتياطي: تصدير/استيراد المفضلة والملاحظات وخطط الختم ---------- */
@@ -3677,7 +3879,7 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
     block.innerHTML = `${heading}<div class="tafsir-modal-body" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
   }
   function renderLoading(){
-    block.innerHTML = `${heading}<div class="tafsir-modal-loading">${sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir')}</div>`;
+    block.innerHTML = `${heading}<div class="tafsir-modal-loading">${skeletonLinesHtml(6, { tall:true, label: sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir') })}</div>`;
   }
   function renderError(){
     if(!stillValid()) return;
@@ -3881,7 +4083,7 @@ function loadInlineTafsirSourceBlock(slug, surahId, ayahId, block, containerEl, 
   const stored = getStoredTafsir(slug, surahId, ayahId);
   if(stored){ tafsirCache[key] = stored; render(stored); return; }
 
-  block.innerHTML = `${labelHtml}<div class="inline-tafsir-loading">${sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir')}</div>`;
+  block.innerHTML = `${labelHtml}<div class="inline-tafsir-loading">${skeletonLinesHtml(3, { label: sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir') })}</div>`;
   const sources = sourceInfo.type === 'translation'
     ? [
         `https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${slug}/${surahId}/${ayahId}.json`,
@@ -3948,6 +4150,94 @@ function showKhatma(){
   window.scrollTo(0,0);
   updateReadingProgress();
   renderKhatmaView();
+  const reminderToggle = document.getElementById('khatma-reminder-toggle');
+  if(reminderToggle) reminderToggle.checked = getKhatmaReminderEnabled();
+}
+
+/* ---------- تذكير يومي بالورد (يعمل عبر واجهة الإشعارات، ويشتغل فقط وقت فتح التطبيق) ---------- */
+function getKhatmaReminderEnabled(){
+  try{ return localStorage.getItem('quran-khatma-reminder') === '1'; }catch(e){ return false; }
+}
+function setKhatmaReminderEnabled(enabled){
+  try{ localStorage.setItem('quran-khatma-reminder', enabled ? '1' : '0'); }catch(e){}
+}
+function getKhatmaLastReminderDate(){
+  try{ return localStorage.getItem('quran-khatma-reminder-last') || ''; }catch(e){ return ''; }
+}
+function setKhatmaLastReminderDate(dateStr){
+  try{ localStorage.setItem('quran-khatma-reminder-last', dateStr); }catch(e){}
+}
+
+function toggleKhatmaReminder(checked){
+  const statusEl = document.getElementById('khatma-reminder-status');
+  if(statusEl) statusEl.textContent = '';
+  if(!checked){
+    setKhatmaReminderEnabled(false);
+    return;
+  }
+  if(!('Notification' in window)){
+    if(statusEl) statusEl.textContent = t('khatma_reminder_unsupported');
+    const toggle = document.getElementById('khatma-reminder-toggle');
+    if(toggle) toggle.checked = false;
+    return;
+  }
+  Notification.requestPermission().then(permission => {
+    if(permission === 'granted'){
+      setKhatmaReminderEnabled(true);
+      checkAndSendKhatmaReminder(true);
+    } else {
+      setKhatmaReminderEnabled(false);
+      const toggle = document.getElementById('khatma-reminder-toggle');
+      if(toggle) toggle.checked = false;
+      if(statusEl) statusEl.textContent = t('khatma_reminder_denied');
+    }
+  });
+}
+
+// يفحص كل خطط الختم النشطة، ولو فيه ورد لسه ما اتقراش النهاردة يبعت إشعار واحد بس في اليوم
+function checkAndSendKhatmaReminder(force){
+  if(!getKhatmaReminderEnabled()) return;
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  const today = khatmaTodayStr();
+  if(!force && getKhatmaLastReminderDate() === today) return;
+  const plans = getKhatmaPlans();
+  if(!plans.length) return;
+  let totalRemaining = 0;
+  let unitLabel = '';
+  plans.forEach(plan => {
+    const total = KHATMA_UNIT_TOTALS[plan.unit];
+    if(plan.completed >= total) return; // ختمة خلصت بالفعل
+    const effectiveTarget = khatmaEffectiveDailyTarget(plan);
+    const loggedToday = (plan.log && plan.log[today]) || 0;
+    const remainingToday = Math.max(0, Math.round((effectiveTarget - loggedToday) * 10) / 10);
+    if(remainingToday > 0){
+      totalRemaining += remainingToday;
+      unitLabel = khatmaUnitLabel(plan.unit);
+    }
+  });
+  if(totalRemaining <= 0) return;
+  const title = t('khatma_reminder_notification_title');
+  const body = tf('khatma_reminder_notification_body', { amount: Math.round(totalRemaining * 10) / 10, unit: unitLabel });
+  const sendNotification = () => {
+    if(navigator.serviceWorker && navigator.serviceWorker.ready){
+      navigator.serviceWorker.ready.then(reg => {
+        if(reg && reg.showNotification) reg.showNotification(title, { body, icon: 'icon-192.png', tag: 'khatma-reminder' });
+        else new Notification(title, { body });
+      }).catch(() => { try{ new Notification(title, { body }); }catch(e){} });
+    } else {
+      try{ new Notification(title, { body }); }catch(e){}
+    }
+  };
+  sendNotification();
+  setKhatmaLastReminderDate(today);
+}
+
+function attachKhatmaReminderChecks(){
+  checkAndSendKhatmaReminder(false);
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'visible') checkAndSendKhatmaReminder(false);
+  });
+  setInterval(() => checkAndSendKhatmaReminder(false), 30 * 60 * 1000);
 }
 
 function khatmaGenerateId(){
@@ -6997,7 +7287,7 @@ async function openMushafPage(pageNum){
 
   const list = document.getElementById('ayat-list');
   list.classList.remove('continuous-mode');
-  list.innerHTML = `<div class="mushaf-page-loading">${t('page_loading')}</div>`;
+  list.innerHTML = `<div class="mushaf-page-loading">${skeletonLinesHtml(13, { centered:true, tall:true, label: t('page_loading') })}</div>`;
 
   setSavedMushafPage(pageNum);
 
@@ -7201,6 +7491,22 @@ function toggleTheme(){
   applyTheme(current === 'light' ? 'dark' : 'light');
 }
 
+/* ---------- وضع أسود حقيقي (AMOLED) — يعمل فوق الوضع الداكن فقط ---------- */
+function getOledEnabled(){
+  try{ return localStorage.getItem('quran-oled') === '1'; }catch(e){ return false; }
+}
+function applyOledMode(enabled){
+  document.documentElement.setAttribute('data-oled', enabled ? 'on' : 'off');
+  try{ localStorage.setItem('quran-oled', enabled ? '1' : '0'); }catch(e){}
+}
+function toggleOledMode(checked){
+  applyOledMode(checked);
+}
+
+(function initOledMode(){
+  applyOledMode(getOledEnabled());
+})();
+
 (function initTheme(){
   let saved = null;
   try{ saved = localStorage.getItem('quran-theme'); }catch(e){}
@@ -7306,6 +7612,7 @@ const I18N_STRINGS = {
     speed_1_75: '1.75×',
     speed_2: '2×',
     wbw_highlight_label: 'تظليل الكلمة أثناء التلاوة (تقديري)',
+    oled_mode_label: 'وضع أسود حقيقي (AMOLED) للوضع الداكن — لتوفير البطارية',
     repeat_section_label: 'تكرار الآيات للحفظ',
     repeat_from: 'من آية',
     repeat_to: 'إلى آية',
@@ -7322,6 +7629,7 @@ const I18N_STRINGS = {
     my_notes: 'ملاحظاتي',
     notes_empty_msg: 'لم تُضِف أي ملاحظة بعد. اضغط على زر «أضف ملاحظة» بالأعلى، أو على أيقونة القلم بجانب أي آية.',
     add_note: 'أضف ملاحظة',
+    share_as_image: 'مشاركة الآية كصورة',
     edit_note: 'تعديل الملاحظة',
     more_actions: 'خيارات إضافية',
     delete_note: 'حذف',
@@ -7471,6 +7779,12 @@ const I18N_STRINGS = {
     khatma_log_custom_btn: 'سجل مقدارًا آخر',
     khatma_reset_btn: 'حذف الختمة',
     khatma_reset_confirm: 'هل أنت متأكد من حذف هذه الختمة؟ سيتم حذف تقدمها نهائيًا.',
+    khatma_reminder_label: 'تذكير بالورد اليومي عند فتح التطبيق',
+    khatma_reminder_note: 'التذكير يظهر فقط وأنت فاتح التطبيق (مش إشعار خلفية مجدول)، ولازم توافق على إذن الإشعارات من المتصفح.',
+    khatma_reminder_denied: 'تم رفض إذن الإشعارات من المتصفح. فعّله من إعدادات المتصفح لو حبيت تجرب تاني.',
+    khatma_reminder_unsupported: 'متصفحك لا يدعم الإشعارات.',
+    khatma_reminder_notification_title: 'وردك اليومي في انتظارك 🌙',
+    khatma_reminder_notification_body: 'باقي عليك {amount} {unit} في ختمتك النهاردة.',
     khatma_logged_msg: 'تم تسجيل قراءتك، بارك الله فيك 🌙',
     khatma_completed_msg: 'الحمد لله، لقد ختمت القرآن الكريم! تم بدء ختمة جديدة تلقائيًا 🎉',
     khatma_add_new_btn: 'إضافة ختمة جديدة',
@@ -7587,6 +7901,7 @@ const I18N_STRINGS = {
     speed_1_75: '1.75×',
     speed_2: '2×',
     wbw_highlight_label: 'Highlight the word being recited (estimated)',
+    oled_mode_label: 'True black (AMOLED) for dark mode — saves battery',
     repeat_section_label: 'Verse repetition for memorization',
     repeat_from: 'From ayah',
     repeat_to: 'To ayah',
@@ -7603,6 +7918,7 @@ const I18N_STRINGS = {
     my_notes: 'My Notes',
     notes_empty_msg: 'You haven\'t added any notes yet. Tap the "Add note" button above, or the pencil icon next to any ayah.',
     add_note: 'Add note',
+    share_as_image: 'Share ayah as image',
     edit_note: 'Edit note',
     more_actions: 'More actions',
     delete_note: 'Delete',
@@ -7752,6 +8068,12 @@ const I18N_STRINGS = {
     khatma_log_custom_btn: 'Log a custom amount',
     khatma_reset_btn: 'Delete khatma',
     khatma_reset_confirm: 'Are you sure you want to delete this khatma? Its progress will be permanently deleted.',
+    khatma_reminder_label: 'Remind me of today\'s reading when I open the app',
+    khatma_reminder_note: 'The reminder only appears while the app is open (not a scheduled background notification), and requires notification permission from your browser.',
+    khatma_reminder_denied: 'Notification permission was denied by your browser. Enable it in your browser settings if you want to try again.',
+    khatma_reminder_unsupported: 'Your browser does not support notifications.',
+    khatma_reminder_notification_title: 'Your daily reading awaits 🌙',
+    khatma_reminder_notification_body: 'You still have {amount} {unit} left in today\'s khatma.',
     khatma_logged_msg: 'Your reading has been logged, may Allah bless you 🌙',
     khatma_completed_msg: "Alhamdulillah, you've finished the whole Quran! A new khatma has started automatically 🎉",
     khatma_add_new_btn: 'Add new khatma',
@@ -8198,6 +8520,7 @@ window.addEventListener('DOMContentLoaded', () => {
   attachModalFocusTrap();
   attachOnlineStatusTracking();
   attachReadingPositionAutosave();
+  attachKhatmaReminderChecks();
   updateAutoScrollSpeedLabel();
 });
 
@@ -8304,6 +8627,13 @@ if('serviceWorker' in navigator){
             <option value="1.75" data-i18n="speed_1_75">1.75×</option>
             <option value="2" data-i18n="speed_2">2×</option>
           </select>
+        </div>
+        <div class="control-group">
+          <label class="test-mode-toggle-row">
+            <input type="checkbox" id="oled-mode-toggle" onchange="toggleOledMode(this.checked)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <span data-i18n="oled_mode_label">وضع أسود حقيقي (AMOLED) للوضع الداكن — لتوفير البطارية</span>
+          </label>
         </div>
         <div class="control-group">
           <label class="test-mode-toggle-row">
