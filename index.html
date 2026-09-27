@@ -837,12 +837,21 @@
   .offline-banner{
     position:fixed; top:0; left:0; right:0; z-index:9999;
     display:none; align-items:center; justify-content:center; gap:8px;
-    background:#7a2e2e; color:#fff; font-size:12.5px; text-align:center;
-    padding:8px 14px; padding-top:calc(8px + env(safe-area-inset-top, 0px));
-    line-height:1.6;
+    background:var(--surface); color:var(--text); font-size:12.5px; text-align:center;
+    border-bottom:1px solid var(--border); box-shadow:0 2px 10px rgba(0,0,0,.12);
+    padding:8px 40px; padding-top:calc(8px + env(safe-area-inset-top, 0px));
+    line-height:1.6; opacity:0; transform:translateY(-6px);
+    transition:opacity .25s ease, transform .25s ease;
   }
-  .offline-banner.show{ display:flex; }
-  .offline-banner svg{ flex-shrink:0; }
+  .offline-banner.show{ display:flex; opacity:1; transform:translateY(0); }
+  .offline-banner svg{ flex-shrink:0; color:var(--accent-soft); }
+  .offline-banner-close{
+    position:absolute; inset-inline-end:10px; top:50%; transform:translateY(-50%);
+    display:flex; align-items:center; justify-content:center;
+    width:24px; height:24px; border-radius:50%; border:none; cursor:pointer;
+    background:transparent; color:var(--text-muted);
+  }
+  .offline-banner-close:hover{ background:var(--accent-bg); color:var(--accent-soft); }
 
   /* ---------- Favorites button + view ---------- */
   .favorites-toggle{
@@ -1871,6 +1880,9 @@
 <div class="offline-banner" id="offline-banner" role="status" aria-live="polite">
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
   <span id="offline-banner-text" data-i18n="offline_banner_text">لا يوجد اتصال بالإنترنت — بعض الميزات (التفسير، الترجمة، تحميل الصفحات) لن تعمل حاليًا.</span>
+  <button type="button" class="offline-banner-close" onclick="hideOfflineToast()" title="إغلاق" aria-label="إغلاق" data-i18n-title="close" data-i18n-aria-label="close">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+  </button>
 </div>
 
 <div class="fullscreen-progress" id="reading-progress">
@@ -2304,6 +2316,22 @@ let ayahOfDayBrowsing = false;
 let pendingAyahOfDayNav = false;
 let currentAyahOfDay = null;
 let ayahOfDayFlatIndex = null;
+
+/* ---------- Position-save lock أثناء القفز لآية هدف ----------
+   لما نفتح سورة بهدف قفز لآية معيّنة (أكمل من هنا/اقرأ من هنا/رابط مباشر)،
+   السكرول بيتحرك تدريجيًا (سكرول سلس + انتظار تحميل الخط)، وفي الأثناء ممكن
+   يحصل حدث scroll أو visibilitychange أو pagehide والصفحة لسه في موضعها
+   المبدئي (أعلى الصفحة) فيحفظ موضع خاطئ (الآية الأولى) فوق الموضع الصحيح.
+   نقفل الحفظ التلقائي طول فترة القفز ونحفظ الهدف الصحيح فورًا وبشكل مباشر. */
+let navPositionLocked = false;
+let navPositionLockTimer = null;
+function lockAndSaveTargetPosition(surahId, ayahId, surahName, unlockDelay){
+  if(ayahOfDayBrowsing) return;
+  if(navPositionLockTimer){ clearTimeout(navPositionLockTimer); navPositionLockTimer = null; }
+  navPositionLocked = true;
+  setSavedPosition(surahId, ayahId, surahName);
+  navPositionLockTimer = setTimeout(() => { navPositionLocked = false; }, unlockDelay || 900);
+}
 
 /* ---------- Mushaf page browsing (Madinah-style pages) ---------- */
 const MUSHAF_PAGE_COUNT = 604;
@@ -3883,8 +3911,10 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
   }
   function renderError(){
     if(!stillValid()) return;
-    const msg = navigator.onLine ? t('tafsir_load_error') : t('tafsir_load_error_offline');
+    const isOffline = !navigator.onLine;
+    const msg = isOffline ? t('tafsir_load_error_offline') : t('tafsir_load_error');
     block.innerHTML = `${heading}<div class="tafsir-modal-error">${msg}</div>`;
+    if(isOffline) showOfflineToast();
   }
 
   if(tafsirCache[key]){ renderBody(tafsirCache[key]); return; }
@@ -3923,17 +3953,26 @@ function closeTafsirModal(){
 }
 
 /* ===================== نافذة الإعدادات المشتركة (تفتح من الفهرس أو من داخل السورة بدون التأثير على موضع القراءة) ===================== */
-// ---------- تتبّع حالة الاتصال بالإنترنت ----------
-function updateOfflineBanner(){
+// ---------- تنبيه عدم الاتصال بالإنترنت ----------
+// يظهر فقط عند محاولة استخدام ميزة تحتاج اتصال (تفسير/ترجمة) والجهاز غير متصل،
+// وليس كشريط دائم طول فترة انقطاع الإنترنت. يختفي تلقائيًا بعد ثوانٍ ويمكن إغلاقه يدويًا.
+let offlineToastTimer = null;
+function showOfflineToast(){
   const banner = document.getElementById('offline-banner');
   if(!banner) return;
-  banner.classList.toggle('show', !navigator.onLine);
+  banner.classList.add('show');
+  if(offlineToastTimer) clearTimeout(offlineToastTimer);
+  offlineToastTimer = setTimeout(hideOfflineToast, 5000);
 }
-
+function hideOfflineToast(){
+  const banner = document.getElementById('offline-banner');
+  if(!banner) return;
+  banner.classList.remove('show');
+  if(offlineToastTimer){ clearTimeout(offlineToastTimer); offlineToastTimer = null; }
+}
 function attachOnlineStatusTracking(){
-  updateOfflineBanner();
-  window.addEventListener('online', updateOfflineBanner);
-  window.addEventListener('offline', updateOfflineBanner);
+  // لما الاتصال يرجع أثناء ظهور التنبيه، نخفيه فورًا بدل ما ينتظر المؤقّت
+  window.addEventListener('online', hideOfflineToast);
 }
 
 function getFocusableElements(container){
@@ -4075,8 +4114,10 @@ function loadInlineTafsirSourceBlock(slug, surahId, ayahId, block, containerEl, 
   }
   function renderError(){
     if(!stillValid()) return;
-    const msg = navigator.onLine ? t('tafsir_load_error') : t('tafsir_load_error_offline');
+    const isOffline = !navigator.onLine;
+    const msg = isOffline ? t('tafsir_load_error_offline') : t('tafsir_load_error');
     block.innerHTML = `${labelHtml}<div class="inline-tafsir-error">${msg}</div>`;
+    if(isOffline) showOfflineToast();
   }
 
   if(tafsirCache[key]){ render(tafsirCache[key]); return; }
@@ -5058,7 +5099,7 @@ function getAyahCardId(surahId, ayahId){
   if(currentMode === 'juz') return `jayah-${surahId}-${ayahId}`;
   if(currentMode === 'hizb') return `hayah-${surahId}-${ayahId}`;
   if(currentMode === 'rub') return `rayah-${surahId}-${ayahId}`;
-  return `ayah-${ayahId}`;
+  return `ayah-${surahId}-${ayahId}`;
 }
 
 // يحدّث حقول "من آية / إلى آية" لتغطي كل الآيات المعروضة حاليًا (أيًا كان وضع التصفح)
@@ -5839,6 +5880,7 @@ window.addEventListener('resize', scheduleScrollPositionBadgeUpdate);
 // يحسب أقرب آية للجزء المرئي من الشاشة ويحفظها كموضع القراءة الحالي فورًا (بدون تأخير)
 function saveCurrentReadingPositionNow(){
   if(ayahOfDayBrowsing) return; // جلسة تصفح من "آية اليوم": لا نحدّث موضع القراءة المحفوظ
+  if(navPositionLocked) return; // في منتصف قفز مقصود لآية هدف: لا نكتب فوق الموضع الصحيح بموضع مؤقت خاطئ
   if(document.getElementById('read-view').style.display === 'none') return;
   if(currentMode === 'surah' && !currentSurahId) return;
   if(currentMode === 'juz' && !currentJuzId) return;
@@ -6319,7 +6361,7 @@ function jumpToAyah(surahId, ayahId){
   document.querySelectorAll('.ayah-search-box input').forEach(i => { i.value = ''; });
   openSurah(surahId, ayahId);
   setTimeout(() => {
-    const el = document.getElementById('ayah-' + ayahId);
+    const el = document.getElementById('ayah-' + surahId + '-' + ayahId);
     if(el){
       el.classList.add('flash-highlight');
       setTimeout(() => el.classList.remove('flash-highlight'), 1500);
@@ -6891,6 +6933,14 @@ function openSurah(id, scrollToAyah){
 
   const target = scrollToAyah || (saved && saved.surahId === id ? saved.ayahId : null);
   if(target){
+    // نحفظ الهدف الصحيح فورًا ونقفل أي حفظ تلقائي مؤقتًا، عشان لو حصل حدث
+    // (تبديل تطبيق، إغلاق التبويب، سكرول أولي) في نفس لحظة القفز، ما يتكتبش
+    // فوق الموضع الصحيح موضعٌ خاطئ (زي الآية الأولى) قبل ما السكرول يستقر
+    lockAndSaveTargetPosition(id, target, surah.name);
+  } else if(navPositionLockTimer){
+    clearTimeout(navPositionLockTimer); navPositionLockTimer = null; navPositionLocked = false;
+  }
+  if(target){
     // نوقف تحميل التفسير المضمّن التلقائي مؤقتًا (لو مفعّل من الإعدادات) لحد
     // ما نوصل لمكان الآية الهدف بالظبط، لأن تحميله بيغيّر ارتفاع البطاقات
     // ويزحلق موضع السكرول لو حصل أثناء ما إحنا لسه بنتنقل للآية
@@ -6900,7 +6950,7 @@ function openSurah(id, scrollToAyah){
       inlineTafsirObserver = null;
     }
 
-    const targetElId = 'ayah-' + target;
+    const targetElId = 'ayah-' + id + '-' + target;
     const scrollToTargetAyah = () => {
       const el = document.getElementById(targetElId);
       if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
@@ -7009,6 +7059,8 @@ function openJuz(juzNum, scrollToSurahAyah){
   setJuzSideNavActive(juzNum);
 
   if(scrollToSurahAyah){
+    const jSurah = QURAN.find(s => s.id === scrollToSurahAyah.surahId);
+    if(jSurah) lockAndSaveTargetPosition(scrollToSurahAyah.surahId, scrollToSurahAyah.ayahId, jSurah.name);
     setTimeout(() => {
       const el = document.getElementById('jayah-' + scrollToSurahAyah.surahId + '-' + scrollToSurahAyah.ayahId);
       if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
@@ -7104,6 +7156,8 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
   location.hash = `hizb-${hizbNum}`;
 
   if(scrollToSurahAyah){
+    const hSurah = QURAN.find(s => s.id === scrollToSurahAyah.surahId);
+    if(hSurah) lockAndSaveTargetPosition(scrollToSurahAyah.surahId, scrollToSurahAyah.ayahId, hSurah.name);
     setTimeout(() => {
       const el = document.getElementById('hayah-' + scrollToSurahAyah.surahId + '-' + scrollToSurahAyah.ayahId);
       if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
@@ -7210,6 +7264,8 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
   location.hash = `rub-${hizbNum}-${quarter}`;
 
   if(scrollToSurahAyah){
+    const rSurah = QURAN.find(s => s.id === scrollToSurahAyah.surahId);
+    if(rSurah) lockAndSaveTargetPosition(scrollToSurahAyah.surahId, scrollToSurahAyah.ayahId, rSurah.name);
     setTimeout(() => {
       const el = document.getElementById('rayah-' + scrollToSurahAyah.surahId + '-' + scrollToSurahAyah.ayahId);
       if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
