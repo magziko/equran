@@ -822,6 +822,15 @@
     background:var(--surface); border:1px solid var(--border); border-bottom-width:2px;
     border-radius:6px; padding:3px 7px; color:var(--text); margin:1px;
   }
+  .offline-banner{
+    position:fixed; top:0; left:0; right:0; z-index:9999;
+    display:none; align-items:center; justify-content:center; gap:8px;
+    background:#7a2e2e; color:#fff; font-size:12.5px; text-align:center;
+    padding:8px 14px; padding-top:calc(8px + env(safe-area-inset-top, 0px));
+    line-height:1.6;
+  }
+  .offline-banner.show{ display:flex; }
+  .offline-banner svg{ flex-shrink:0; }
 
   /* ---------- Favorites button + view ---------- */
   .favorites-toggle{
@@ -1817,6 +1826,11 @@
 </style>
 </head>
 <body>
+
+<div class="offline-banner" id="offline-banner" role="status" aria-live="polite">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
+  <span id="offline-banner-text" data-i18n="offline_banner_text">لا يوجد اتصال بالإنترنت — بعض الميزات (التفسير، الترجمة، تحميل الصفحات) لن تعمل حاليًا.</span>
+</div>
 
 <div class="fullscreen-progress" id="reading-progress">
   <div class="fullscreen-progress__bar" id="reading-progress-bar" style="width: 0%"></div>
@@ -3625,7 +3639,8 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
   }
   function renderError(){
     if(!stillValid()) return;
-    block.innerHTML = `${heading}<div class="tafsir-modal-error">${t('tafsir_load_error')}</div>`;
+    const msg = navigator.onLine ? t('tafsir_load_error') : t('tafsir_load_error_offline');
+    block.innerHTML = `${heading}<div class="tafsir-modal-error">${msg}</div>`;
   }
 
   if(tafsirCache[key]){ renderBody(tafsirCache[key]); return; }
@@ -3664,6 +3679,19 @@ function closeTafsirModal(){
 }
 
 /* ===================== نافذة الإعدادات المشتركة (تفتح من الفهرس أو من داخل السورة بدون التأثير على موضع القراءة) ===================== */
+// ---------- تتبّع حالة الاتصال بالإنترنت ----------
+function updateOfflineBanner(){
+  const banner = document.getElementById('offline-banner');
+  if(!banner) return;
+  banner.classList.toggle('show', !navigator.onLine);
+}
+
+function attachOnlineStatusTracking(){
+  updateOfflineBanner();
+  window.addEventListener('online', updateOfflineBanner);
+  window.addEventListener('offline', updateOfflineBanner);
+}
+
 function getFocusableElements(container){
   if(!container) return [];
   return Array.from(container.querySelectorAll(
@@ -3803,7 +3831,8 @@ function loadInlineTafsirSourceBlock(slug, surahId, ayahId, block, containerEl, 
   }
   function renderError(){
     if(!stillValid()) return;
-    block.innerHTML = `${labelHtml}<div class="inline-tafsir-error">${t('tafsir_load_error')}</div>`;
+    const msg = navigator.onLine ? t('tafsir_load_error') : t('tafsir_load_error_offline');
+    block.innerHTML = `${labelHtml}<div class="inline-tafsir-error">${msg}</div>`;
   }
 
   if(tafsirCache[key]){ render(tafsirCache[key]); return; }
@@ -7422,6 +7451,8 @@ const I18N_STRINGS = {
     loading_translation: 'جارٍ تحميل الترجمة...',
     loading_tafsir: 'جارٍ تحميل التفسير...',
     tafsir_load_error: 'تعذّر تحميل التفسير حاليًا. يرجى المحاولة لاحقًا.',
+    tafsir_load_error_offline: 'تعذّر تحميل التفسير لأنك غير متصل بالإنترنت حاليًا.',
+    offline_banner_text: 'لا يوجد اتصال بالإنترنت — بعض الميزات (التفسير، الترجمة، تحميل الصفحات) لن تعمل حاليًا.',
     close: 'إغلاق',
     prev_ayah: 'الآية السابقة',
     next_ayah: 'الآية التالية',
@@ -7701,6 +7732,8 @@ const I18N_STRINGS = {
     loading_translation: 'Loading translation...',
     loading_tafsir: 'Loading tafsir...',
     tafsir_load_error: 'Could not load the tafsir right now. Please try again later.',
+    tafsir_load_error_offline: 'Could not load the tafsir because you are currently offline.',
+    offline_banner_text: 'No internet connection — some features (tafsir, translation, page loading) won\'t work right now.',
     close: 'Close',
     prev_ayah: 'Previous Ayah',
     next_ayah: 'Next Ayah',
@@ -8228,6 +8261,7 @@ window.addEventListener('DOMContentLoaded', () => {
   attachSwipeNavigation();
   attachDisplayModeShortcuts();
   attachModalFocusTrap();
+  attachOnlineStatusTracking();
   updateAutoScrollSpeedLabel();
 });
 
