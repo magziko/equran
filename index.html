@@ -1193,6 +1193,7 @@
     transition:border-color .15s ease, background .15s ease;
   }
   .ayah-card:hover{ border-color:var(--accent); background:var(--surface-2); cursor:pointer; }
+  .ayah-card:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   .ayah-card.is-playing{ border-color:var(--accent); background:var(--accent-bg); }
   .ayah-card.is-playing .ayah-text{ color:var(--accent-soft); }
   .ayah-audio-icon{
@@ -3158,7 +3159,7 @@ function renderNotesView(){
     const verse = surah && surah.verses.find(v => v.id === n.ayahId);
     if(!verse) return '';
     return `
-    <div class="ayah-card is-saved" id="nayah-${n.surahId}-${n.ayahId}" data-ayah="${n.ayahId}" data-surah="${n.surahId}" onclick="playAyahAudio(${n.surahId}, ${n.ayahId}, 'nayah-${n.surahId}-${n.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
+    <div class="ayah-card is-saved" id="nayah-${n.surahId}-${n.ayahId}" data-ayah="${n.ayahId}" data-surah="${n.surahId}" tabindex="0" role="button" aria-label="${escapeHtml(t('ayah_word') + ' ' + n.ayahId + ' — ' + t('tap_to_listen') + ' ' + getReciterName())}" onclick="playAyahAudio(${n.surahId}, ${n.ayahId}, 'nayah-${n.surahId}-${n.ayahId}')" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault(); this.click();}" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(verse.text)}</div>
       <div class="ayah-note-preview" onclick="event.stopPropagation(); openNoteModal(${n.surahId}, ${n.ayahId}, '${n.surahName}')">${escapeHtml(n.text)}</div>
       ${n.ts ? `<div class="ayah-note-date">${formatNoteDate(n.ts)}</div>` : ''}
@@ -3187,6 +3188,47 @@ function escapeHtml(str){
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
+}
+
+/* ---------- كارت الآية الموحّد (يُستخدم في السورة/الجزء/الحزب/الربع) ----------
+   idPrefix: بادئة معرّف العنصر (ayah / jayah / hayah / rayah)
+   تلاتة خصائص للوصولية: tabindex ليتقدر يوصله بالـ Tab، role=button لقارئ الشاشة،
+   ومعالج keydown يشغّل نفس فعل الضغط عند Enter/Space (بس لو الحدث جاي من الكارت نفسه مش من زرار جواه) */
+function renderReadingAyahCard(idPrefix, surahId, ayahId, surahName, text){
+  const fav = isBookmarked(surahId, ayahId);
+  const cardId = `${idPrefix}-${surahId}-${ayahId}`;
+  const ariaLabel = `${t('ayah_word')} ${ayahId} — ${t('tap_to_listen')} ${getReciterName()}`;
+  return `
+    <div class="ayah-card${fav ? ' is-saved' : ''}" id="${cardId}" data-ayah="${ayahId}" data-surah="${surahId}" tabindex="0" role="button" aria-label="${escapeHtml(ariaLabel)}" onclick="playAyahAudio(${surahId}, ${ayahId}, '${cardId}')" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault(); this.click();}" title="${t('tap_to_listen')} ${getReciterName()}">
+      <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(text)}</div>
+      <div class="ayah-meta">
+        <div class="ayah-num-badge">
+          <span class="ayah-num-badge__num">${ayahId}</span>
+          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        </div>
+                <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${surahId}, ${ayahId}, '${surahName}')" title="${t('add_to_favorites')}" aria-label="${t('add_to_favorites')}">
+          <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        </button>
+        <div class="ayah-more-wrap">
+          <button type="button" class="ayah-more-btn${hasNote(surahId, ayahId) ? ' has-note' : ''}" onclick="event.stopPropagation(); toggleAyahMoreMenu(this)" title="${t('more_actions')}" aria-label="${t('more_actions')}">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </button>
+          <div class="ayah-more-menu">
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); showTafsir(${surahId}, ${ayahId}, '${surahName}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+              <span>${t('show_tafsir')}</span>
+            </button>
+            <div class="ayah-more-menu-divider"></div>
+            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); openNoteModal(${surahId}, ${ayahId}, '${surahName}')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+              <span>${hasNote(surahId, ayahId) ? t('edit_note') : t('add_note')}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="ayah-inline-tafsir" data-surah="${surahId}" data-ayah="${ayahId}" onclick="event.stopPropagation()"></div>
+    </div>
+  `;
 }
 
 /* ---------- نسخ احتياطي: تصدير/استيراد المفضلة والملاحظات وخطط الختم ---------- */
@@ -4383,7 +4425,7 @@ function renderFavoritesView(){
     const verse = surah && surah.verses.find(v => v.id === b.ayahId);
     if(!verse) return '';
     return `
-    <div class="ayah-card is-saved" id="fayah-${b.surahId}-${b.ayahId}" data-ayah="${b.ayahId}" data-surah="${b.surahId}" onclick="playAyahAudio(${b.surahId}, ${b.ayahId}, 'fayah-${b.surahId}-${b.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
+    <div class="ayah-card is-saved" id="fayah-${b.surahId}-${b.ayahId}" data-ayah="${b.ayahId}" data-surah="${b.surahId}" tabindex="0" role="button" aria-label="${escapeHtml(t('ayah_word') + ' ' + b.ayahId + ' — ' + t('tap_to_listen') + ' ' + getReciterName())}" onclick="playAyahAudio(${b.surahId}, ${b.ayahId}, 'fayah-${b.surahId}-${b.ayahId}')" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault(); this.click();}" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(verse.text)}</div>
       ${b.ts ? `<div class="ayah-note-date">${formatNoteDate(b.ts, 'fav_saved_label')}</div>` : ''}
       <div class="ayah-meta">
@@ -5504,32 +5546,46 @@ window.addEventListener('resize', updateReadingProgress);
 window.addEventListener('scroll', scheduleScrollPositionBadgeUpdate, { passive:true });
 window.addEventListener('resize', scheduleScrollPositionBadgeUpdate);
 
+// يحسب أقرب آية للجزء المرئي من الشاشة ويحفظها كموضع القراءة الحالي فورًا (بدون تأخير)
+function saveCurrentReadingPositionNow(){
+  if(ayahOfDayBrowsing) return; // جلسة تصفح من "آية اليوم": لا نحدّث موضع القراءة المحفوظ
+  if(document.getElementById('read-view').style.display === 'none') return;
+  if(currentMode === 'surah' && !currentSurahId) return;
+  if(currentMode === 'juz' && !currentJuzId) return;
+  if(currentMode === 'hizb' && !currentHizbId) return;
+  const cards = document.querySelectorAll('#ayat-list .ayah-card');
+  let closest = null, closestDist = Infinity;
+  cards.forEach(card => {
+    const rect = card.getBoundingClientRect();
+    const dist = Math.abs(rect.top - 140);
+    if(dist < closestDist){ closestDist = dist; closest = card; }
+  });
+  if(closest){
+    const surahId = parseInt(closest.dataset.surah);
+    const ayahId = parseInt(closest.dataset.ayah);
+    const surah = QURAN.find(s => s.id === surahId);
+    if(surah) setSavedPosition(surahId, ayahId, surah.name);
+  }
+}
+
 function handleReadScroll(){
   if(scrollSaveTimer) clearTimeout(scrollSaveTimer);
-  scrollSaveTimer = setTimeout(() => {
-    if(ayahOfDayBrowsing) return; // جلسة تصفح من "آية اليوم": لا نحدّث موضع القراءة المحفوظ
-    if(currentMode === 'surah' && !currentSurahId) return;
-    if(currentMode === 'juz' && !currentJuzId) return;
-    if(currentMode === 'hizb' && !currentHizbId) return;
-    const cards = document.querySelectorAll('#ayat-list .ayah-card');
-    let closest = null, closestDist = Infinity;
-    cards.forEach(card => {
-      const rect = card.getBoundingClientRect();
-      const dist = Math.abs(rect.top - 140);
-      if(dist < closestDist){ closestDist = dist; closest = card; }
-    });
-    if(closest){
-      const surahId = parseInt(closest.dataset.surah);
-      const ayahId = parseInt(closest.dataset.ayah);
-      const surah = QURAN.find(s => s.id === surahId);
-      if(surah) setSavedPosition(surahId, ayahId, surah.name);
-    }
-  }, 400);
+  scrollSaveTimer = setTimeout(saveCurrentReadingPositionNow, 400);
 }
 
 window.addEventListener('scroll', () => {
   if(document.getElementById('read-view').style.display !== 'none') handleReadScroll();
 }, { passive:true });
+
+// شبكة أمان: حفظ دوري لموضع القراءة كل 20 ثانية (يغطي القراءة بدون تمرير، أو الاستماع الصوتي بدون سكرول واضح)
+// + حفظ فوري لما التبويب يختفي أو الصفحة توشك تتقفل، عشان مانضيعش آخر لحظة قراءة قبل الخروج
+function attachReadingPositionAutosave(){
+  setInterval(saveCurrentReadingPositionNow, 20000);
+  document.addEventListener('visibilitychange', () => {
+    if(document.visibilityState === 'hidden') saveCurrentReadingPositionNow();
+  });
+  window.addEventListener('pagehide', saveCurrentReadingPositionNow);
+}
 
 function typeLabel(surahType){
   return surahType === 'meccan' ? t('meccan_surah') : t('medinan_surah');
@@ -6509,40 +6565,7 @@ function openSurah(id, scrollToAyah){
   switchSideNavMode('surah');
   setSurahSideNavActive(id);
   const saved = getSavedPosition();
-  list.innerHTML = surah.verses.map(v => {
-    const fav = isBookmarked(id, v.id);
-    return `
-    <div class="ayah-card${fav ? ' is-saved' : ''}" id="ayah-${v.id}" data-ayah="${v.id}" data-surah="${id}" onclick="playAyahAudio(${id}, ${v.id}, 'ayah-${v.id}')" title="${t('tap_to_listen')} ${getReciterName()}">
-      <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
-      <div class="ayah-meta">
-        <div class="ayah-num-badge">
-          <span class="ayah-num-badge__num">${v.id}</span>
-          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        </div>
-                <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${id}, ${v.id}, '${surah.name}')" title="${t('add_to_favorites')}">
-          <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-        </button>
-        <div class="ayah-more-wrap">
-          <button type="button" class="ayah-more-btn${hasNote(id, v.id) ? ' has-note' : ''}" onclick="event.stopPropagation(); toggleAyahMoreMenu(this)" title="${t('more_actions')}">
-            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-          </button>
-          <div class="ayah-more-menu">
-            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); showTafsir(${id}, ${v.id}, '${surah.name}')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-              <span>${t('show_tafsir')}</span>
-            </button>
-            <div class="ayah-more-menu-divider"></div>
-            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); openNoteModal(${id}, ${v.id}, '${surah.name}')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-              <span>${hasNote(id, v.id) ? t('edit_note') : t('add_note')}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="ayah-inline-tafsir" data-surah="${id}" data-ayah="${v.id}" onclick="event.stopPropagation()"></div>
-    </div>
-  `;
-  }).join('');
+  list.innerHTML = surah.verses.map(v => renderReadingAyahCard('ayah', id, v.id, surah.name, v.text)).join('');
   applyDisplayMode();
   injectPageBreaksIfNeeded(id);
 
@@ -6612,6 +6635,8 @@ function openSurah(id, scrollToAyah){
     // مفيش آية هدف نتنقل لها: التفسير المضمّن يشتغل عادي من غير تأجيل
     setupInlineTafsirObserver();
   }
+  // حفظ فوري لموضع القراءة بعد استقرار السكرول (يغطي حالة فتح السورة والخروج بسرعة بدون تمرير يدوي)
+  setTimeout(saveCurrentReadingPositionNow, 1500);
 }
 
 function openJuz(juzNum, scrollToSurahAyah){
@@ -6657,38 +6682,7 @@ function openJuz(juzNum, scrollToSurahAyah){
       const showBasmala = v.surahId !== 9 && v.surahId !== 1;
       divider = `<div class="juz-surah-divider" data-surah-name="${v.surahName}">${t('surah_word')} ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
     }
-    const fav = isBookmarked(v.surahId, v.ayahId);
-    return `${divider}
-    <div class="ayah-card${fav ? ' is-saved' : ''}" id="jayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'jayah-${v.surahId}-${v.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
-      <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
-      <div class="ayah-meta">
-        <div class="ayah-num-badge">
-          <span class="ayah-num-badge__num">${v.ayahId}</span>
-          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        </div>
-                <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
-          <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-        </button>
-        <div class="ayah-more-wrap">
-          <button type="button" class="ayah-more-btn${hasNote(v.surahId, v.ayahId) ? ' has-note' : ''}" onclick="event.stopPropagation(); toggleAyahMoreMenu(this)" title="${t('more_actions')}">
-            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-          </button>
-          <div class="ayah-more-menu">
-            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-              <span>${t('show_tafsir')}</span>
-            </button>
-            <div class="ayah-more-menu-divider"></div>
-            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); openNoteModal(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-              <span>${hasNote(v.surahId, v.ayahId) ? t('edit_note') : t('add_note')}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="ayah-inline-tafsir" data-surah="${v.surahId}" data-ayah="${v.ayahId}" onclick="event.stopPropagation()"></div>
-    </div>
-  `;
+    return `${divider}${renderReadingAyahCard('jayah', v.surahId, v.ayahId, v.surahName, v.text)}`;
   }).join('');
   applyDisplayMode();
   currentVerseList = verses.map(v => ({ surahId: v.surahId, ayahId: v.ayahId }));
@@ -6730,6 +6724,7 @@ function openJuz(juzNum, scrollToSurahAyah){
       if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
     }, 60);
   }
+  setTimeout(saveCurrentReadingPositionNow, 1500);
 }
 
 function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
@@ -6785,38 +6780,7 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
     }
     const rub = rubStarts.find(r => r.quarter > 1 && r.surah === v.surahId && r.ayah === v.ayahId);
     const rubMarker = rub ? `<div class="rub-hizb-marker" id="rub-${hizbNum}-${rub.quarter}"><span>${getRubLabel(rub.quarter)} (${hizbNum})</span></div>` : '';
-    const fav = isBookmarked(v.surahId, v.ayahId);
-    return `${divider}${rubMarker}
-    <div class="ayah-card${fav ? ' is-saved' : ''}" id="hayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'hayah-${v.surahId}-${v.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
-      <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
-      <div class="ayah-meta">
-        <div class="ayah-num-badge">
-          <span class="ayah-num-badge__num">${v.ayahId}</span>
-          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        </div>
-                <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
-          <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-        </button>
-        <div class="ayah-more-wrap">
-          <button type="button" class="ayah-more-btn${hasNote(v.surahId, v.ayahId) ? ' has-note' : ''}" onclick="event.stopPropagation(); toggleAyahMoreMenu(this)" title="${t('more_actions')}">
-            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-          </button>
-          <div class="ayah-more-menu">
-            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-              <span>${t('show_tafsir')}</span>
-            </button>
-            <div class="ayah-more-menu-divider"></div>
-            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); openNoteModal(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-              <span>${hasNote(v.surahId, v.ayahId) ? t('edit_note') : t('add_note')}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="ayah-inline-tafsir" data-surah="${v.surahId}" data-ayah="${v.ayahId}" onclick="event.stopPropagation()"></div>
-    </div>
-  `;
+    return `${divider}${rubMarker}${renderReadingAyahCard('hayah', v.surahId, v.ayahId, v.surahName, v.text)}`;
   }).join('');
   applyDisplayMode();
   currentVerseList = verses.map(v => ({ surahId: v.surahId, ayahId: v.ayahId }));
@@ -6855,6 +6819,7 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
       if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
     }, 60);
   }
+  setTimeout(saveCurrentReadingPositionNow, 1500);
 }
 
 function openRub(hizbNum, quarter, scrollToSurahAyah){
@@ -6905,38 +6870,7 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
       const showBasmala = v.surahId !== 9 && v.surahId !== 1;
       divider = `<div class="juz-surah-divider" data-surah-name="${v.surahName}">${t('surah_word')} ${v.surahName}</div>${showBasmala ? '<div class="basmala">بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ</div>' : ''}`;
     }
-    const fav = isBookmarked(v.surahId, v.ayahId);
-    return `${divider}
-    <div class="ayah-card${fav ? ' is-saved' : ''}" id="rayah-${v.surahId}-${v.ayahId}" data-ayah="${v.ayahId}" data-surah="${v.surahId}" onclick="playAyahAudio(${v.surahId}, ${v.ayahId}, 'rayah-${v.surahId}-${v.ayahId}')" title="${t('tap_to_listen')} ${getReciterName()}">
-      <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(v.text)}</div>
-      <div class="ayah-meta">
-        <div class="ayah-num-badge">
-          <span class="ayah-num-badge__num">${v.ayahId}</span>
-          <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        </div>
-                <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${v.surahId}, ${v.ayahId}, '${v.surahName}')" title="${t('add_to_favorites')}">
-          <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
-        </button>
-        <div class="ayah-more-wrap">
-          <button type="button" class="ayah-more-btn${hasNote(v.surahId, v.ayahId) ? ' has-note' : ''}" onclick="event.stopPropagation(); toggleAyahMoreMenu(this)" title="${t('more_actions')}">
-            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
-          </button>
-          <div class="ayah-more-menu">
-            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); showTafsir(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-              <span>${t('show_tafsir')}</span>
-            </button>
-            <div class="ayah-more-menu-divider"></div>
-            <button type="button" class="ayah-more-menu-item" onclick="event.stopPropagation(); closeAllAyahMoreMenus(); openNoteModal(${v.surahId}, ${v.ayahId}, '${v.surahName}')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
-              <span>${hasNote(v.surahId, v.ayahId) ? t('edit_note') : t('add_note')}</span>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="ayah-inline-tafsir" data-surah="${v.surahId}" data-ayah="${v.ayahId}" onclick="event.stopPropagation()"></div>
-    </div>
-  `;
+    return `${divider}${renderReadingAyahCard('rayah', v.surahId, v.ayahId, v.surahName, v.text)}`;
   }).join('');
   applyDisplayMode();
   currentVerseList = verses.map(v => ({ surahId: v.surahId, ayahId: v.ayahId }));
@@ -6991,6 +6925,7 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
       if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
     }, 60);
   }
+  setTimeout(saveCurrentReadingPositionNow, 1500);
 }
 
 /* ---------- Mushaf page mode: fetch, render, navigate ---------- */
@@ -8262,6 +8197,7 @@ window.addEventListener('DOMContentLoaded', () => {
   attachDisplayModeShortcuts();
   attachModalFocusTrap();
   attachOnlineStatusTracking();
+  attachReadingPositionAutosave();
   updateAutoScrollSpeedLabel();
 });
 
