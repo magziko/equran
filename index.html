@@ -3355,23 +3355,230 @@ function getQuranFontFamilyForCanvas(){
   return 'Amiri Quran';
 }
 
+/* ---------- تضمين التفسير/الترجمة المختار داخل صورة الآية ---------- */
+function isShareImageTafsirEnabled(){
+  try{ return localStorage.getItem('shareImageIncludeTafsir') !== '0'; } catch(e){ return true; }
+}
+function toggleShareImageTafsir(enabled){
+  try{ localStorage.setItem('shareImageIncludeTafsir', enabled ? '1' : '0'); } catch(e){ /* تجاهل أخطاء التخزين */ }
+}
+
+// يحوّل نص التفسير (ممكن يحتوي وسوم HTML) لنص عادي بدون تنفيذ أي شيء منه (DOMParser لا يحمّل صور ولا ينفذ سكربتات)
+function tafsirHtmlToPlainText(raw){
+  if(!raw) return '';
+  let html = String(raw).replace(/<\s*br\s*\/?>/gi, ' ').replace(/<\/(p|div|li|h[1-6])>/gi, ' ');
+  let txt = html;
+  try{
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    txt = doc.body ? doc.body.textContent : html;
+  }catch(e){ txt = html.replace(/<[^>]*>/g, ' '); }
+  return (txt || '').replace(/\s+/g, ' ').trim();
+}
+
+// يجيب نص التفسير/الترجمة لمصدر معيّن (من الكاش أو التخزين أو الشبكة) بدون ما يلمس واجهة المودال
+function fetchTafsirTextForShare(slug, surahId, ayahId){
+  const key = getTafsirCacheKey(slug, surahId, ayahId);
+  if(tafsirCache[key]) return Promise.resolve(tafsirCache[key]);
+  const stored = getStoredTafsir(slug, surahId, ayahId);
+  if(stored){ tafsirCache[key] = stored; return Promise.resolve(stored); }
+  const info = getSourceInfo(slug);
+  const urls = info.type === 'translation'
+    ? [
+        `https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${slug}/${surahId}/${ayahId}.json`,
+        `https://raw.githubusercontent.com/fawazahmed0/quran-api/1/editions/${slug}/${surahId}/${ayahId}.json`
+      ]
+    : [
+        `https://cdn.jsdelivr.net/gh/spa5k/tafsir_api@main/tafsir/${slug}/${surahId}/${ayahId}.json`,
+        `https://raw.githubusercontent.com/spa5k/tafsir_api/main/tafsir/${slug}/${surahId}/${ayahId}.json`
+      ];
+  const tryFetch = (i) => {
+    if(i >= urls.length) return Promise.resolve(null);
+    return fetch(urls[i])
+      .then(res => { if(!res.ok) throw new Error('share tafsir fetch failed'); return res.json(); })
+      .then(data => {
+        const text = (data && data.text) ? data.text : null;
+        if(!text) throw new Error('no tafsir text');
+        tafsirCache[key] = text;
+        setStoredTafsir(slug, surahId, ayahId, text);
+        return text;
+      })
+      .catch(() => tryFetch(i + 1));
+  };
+  return tryFetch(0);
+}
+
+function shareWithTimeout(promise, ms){
+  return Promise.race([promise, new Promise(resolve => setTimeout(() => resolve(null), ms))]);
+}
+
+// رسالة صغيرة "جارٍ تجهيز الصورة…" تظهر فقط لو التحميل أخذ وقت
+let shareImageToastEl = null;
+function showShareImageToast(){
+  if(shareImageToastEl) return;
+  const el = document.createElement('div');
+  el.setAttribute('role', 'status');
+  el.textContent = t('share_image_preparing');
+  el.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99999;background:rgba(20,20,20,.92);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;box-shadow:0 4px 18px rgba(0,0,0,.35);pointer-events:none;';
+  document.body.appendChild(el);
+  shareImageToastEl = el;
+}
+function hideShareImageToast(){
+  if(shareImageToastEl){ shareImageToastEl.remove(); shareImageToastEl = null; }
+}
+
+// اكتشاف اتجاه/نوع الكتابة عشان نختار الخط والاتجاه وطريقة التقطيع الصح لكل لغة
+function isMostlyRtlText(text){
+  const letters = text.match(/\p{L}/gu) || [];
+  if(!letters.length) return false;
+  const rtl = (text.match(/[\u0590-\u08FF\u0780-\u07BF\uFB1D-\uFDFF\uFE70-\uFEFF]/g) || []).length;
+  return rtl / letters.length > 0.5;
+}
+const SHARE_NOSPACE_SCRIPT_RE = /[\u3040-\u30FF\u3400-\u9FFF\u0E00-\u0E7F\u0E80-\u0EFF\u1000-\u109F\u1780-\u17FF]/;
+
+// تقطيع النص لأسطر: بالكلمات للغات العادية، وبمقاطع الكلمات (أو الحروف) للصينية/اليابانية/التايلاندية... إلخ
+function wrapCanvasTextSmart(ctx, text, maxWidth){
+  if(!SHARE_NOSPACE_SCRIPT_RE.test(text)) return wrapCanvasText(ctx, text, maxWidth);
+  let units;
+  try{
+    units = (typeof Intl !== 'undefined' && Intl.Segmenter)
+      ? Array.from(new Intl.Segmenter(undefined, { granularity: 'word' }).segment(text)).map(s => s.segment)
+      : Array.from(text);
+  }catch(e){ units = Array.from(text); }
+  const lines = [];
+  let current = '';
+  units.forEach(u => {
+    const test = current + u;
+    if(ctx.measureText(test).width > maxWidth && current){
+      lines.push(current.trim());
+      current = u.trim() ? u : '';
+    } else {
+      current = test;
+    }
+  });
+  if(current.trim()) lines.push(current.trim());
+  return lines;
+}
+
+// لو النص أطول من عدد الأسطر المسموح: نقطعه ونحط "…" في آخر سطر
+function truncateLinesWithEllipsis(ctx, lines, maxLines, maxWidth){
+  if(lines.length <= maxLines) return lines;
+  const out = lines.slice(0, maxLines);
+  let last = out[maxLines - 1].replace(/[\s،,.;:؛]+$/, '');
+  while(last && ctx.measureText(last + ' …').width > maxWidth){
+    const idx = last.lastIndexOf(' ');
+    last = idx > 0 ? last.slice(0, idx) : last.slice(0, -1);
+  }
+  out[maxLines - 1] = last + ' …';
+  return out;
+}
+
 async function shareAyahAsImage(surahId, ayahId, surahName){
   const surah = QURAN.find(s => s.id === surahId);
   const verse = surah && surah.verses.find(v => v.id === ayahId);
   if(!surah || !verse) return;
   const text = verse.text;
   const quranFontName = getQuranFontFamilyForCanvas();
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+
+  // نجيب التفسير/الترجمة المختار (لو الخيار مفعّل) بالتوازي، وأي مصدر يفشل نتجاهله بهدوء
+  const slugs = isShareImageTafsirEnabled() ? getSelectedTafsirSlugs() : [];
+  let extras = [];
+  if(slugs.length){
+    const toastTimer = setTimeout(showShareImageToast, 450);
+    try{
+      const results = await Promise.all(slugs.map(slug =>
+        shareWithTimeout(fetchTafsirTextForShare(slug, surahId, ayahId), 10000)
+          .then(raw => {
+            const info = getSourceInfo(slug);
+            return { label: isEn ? (info.nameEn || info.name) : info.name, text: tafsirHtmlToPlainText(raw) };
+          })
+          .catch(() => null)
+      ));
+      extras = results.filter(r => r && r.text);
+    } finally {
+      clearTimeout(toastTimer);
+      hideShareImageToast();
+    }
+  }
 
   try{
     await Promise.all([
       document.fonts.load(`64px "${quranFontName}"`),
+      document.fonts.load(`32px "Amiri Quran"`),
       document.fonts.load(`400 30px "Cairo"`),
       document.fonts.load(`600 30px "Cairo"`)
     ]);
     await document.fonts.ready;
   }catch(e){}
 
-  const W = 1080, H = 1080;
+  const W = 1080;
+  const MIN_H = 1080, MAX_H = 2560;
+  const maxTextWidth = W - 200;
+  const scratch = document.createElement('canvas').getContext('2d');
+  scratch.direction = 'rtl';
+
+  // ---- قياس نص الآية، مع تصغير الخط تلقائيًا لو طويل عشان يتظبط في المساحة المتاحة ----
+  const ayahMaxBlockH = extras.length ? 500 : 560;
+  let fontSize = 58;
+  let lines = [];
+  do{
+    scratch.font = `${fontSize}px "${quranFontName}"`;
+    lines = wrapCanvasText(scratch, text, maxTextWidth);
+    fontSize -= 2;
+  } while(lines.length * (fontSize + 24) > ayahMaxBlockH && fontSize > 26);
+  fontSize += 2;
+  scratch.font = `${fontSize}px "${quranFontName}"`;
+  lines = wrapCanvasText(scratch, text, maxTextWidth);
+  const lineHeight = fontSize + 24;
+  const totalTextHeight = lines.length * lineHeight;
+
+  // ---- تخطيط بلوكات التفسير/الترجمة (لو فيه) ----
+  const bodyFontFor = (rtl) => rtl
+    ? { font: `32px "Amiri Quran", "Cairo", serif`, lh: 60 }
+    : { font: `400 28px "Cairo", "Segoe UI", system-ui, sans-serif`, lh: 46 };
+  const BLOCK_GAP = 34;          // مسافة قبل كل بلوك (فيها الفاصل الصغير)
+  const HEADING_H = 58;          // ارتفاع سطر اسم المصدر
+  const BLOCK_PAD_BOTTOM = 14;
+  const BOTTOM_RESERVE = 150;    // مساحة بصمة التطبيق أسفل الصورة
+  const topY = 150;              // بداية نص الآية لما يكون فيه تفسير (بدل التوسيط الرأسي)
+  const labelGapTop = 18, labelOffset = 52;
+  // y بعد آخر سطر من الآية = topY + الأسطر + نص سطر؛ وبعدها الفاصل واسم السورة ثم بداية أول مصدر
+  const extrasStartY = topY + totalTextHeight + lineHeight / 2 + labelGapTop + labelOffset + 48;
+
+  const blocks = extras.map(ex => {
+    const rtl = isMostlyRtlText(ex.text);
+    const f = bodyFontFor(rtl);
+    scratch.font = f.font;
+    scratch.direction = rtl ? 'rtl' : 'ltr';
+    const natural = wrapCanvasTextSmart(scratch, ex.text, maxTextWidth);
+    const headRtl = isMostlyRtlText(ex.label);
+    return { label: ex.label, headRtl, rtl, font: f.font, lh: f.lh, natural, lines: natural };
+  });
+
+  function blocksHeight(list, cap){
+    return list.reduce((sum, b) => sum + BLOCK_GAP + HEADING_H + Math.min(b.natural.length, cap) * b.lh + BLOCK_PAD_BOTTOM, 0);
+  }
+  let used = blocks.slice();
+  let cap = 14;
+  const available = MAX_H - extrasStartY - BOTTOM_RESERVE;
+  // نقلل الحد الأقصى للأسطر لكل مصدر لحد ما الصورة كلها تدخل في الارتفاع المسموح، وبعدها نقلل عدد المصادر لو لسه مش داخلة
+  while(used.length){
+    while(cap > 3 && blocksHeight(used, cap) > available) cap--;
+    if(blocksHeight(used, cap) <= available) break;
+    used.pop();
+  }
+  used.forEach(b => {
+    scratch.font = b.font;
+    scratch.direction = b.rtl ? 'rtl' : 'ltr';
+    b.lines = truncateLinesWithEllipsis(scratch, b.natural, cap, maxTextWidth);
+  });
+
+  let H = MIN_H;
+  if(used.length){
+    const real = used.reduce((sum, b) => sum + BLOCK_GAP + HEADING_H + b.lines.length * b.lh + BLOCK_PAD_BOTTOM, 0);
+    H = Math.min(MAX_H, Math.max(MIN_H, Math.ceil(extrasStartY + real + BOTTOM_RESERVE)));
+  }
+
   const canvas = document.createElement('canvas');
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
@@ -3395,30 +3602,19 @@ async function shareAyahAsImage(surahId, ayahId, surahName){
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
 
-  // نص الآية، مع تصغير الخط تلقائيًا لو طويل عشان يتظبط في المساحة المتاحة
-  const maxTextWidth = W - 200;
-  let fontSize = 58;
-  let lines = [];
-  do{
-    ctx.font = `${fontSize}px "${quranFontName}"`;
-    lines = wrapCanvasText(ctx, text, maxTextWidth);
-    fontSize -= 2;
-  } while(lines.length * (fontSize + 24) > 560 && fontSize > 26);
-  fontSize += 2;
+  // نص الآية
   ctx.font = `${fontSize}px "${quranFontName}"`;
-  lines = wrapCanvasText(ctx, text, maxTextWidth);
-
   ctx.fillStyle = '#f3e9d2';
-  const lineHeight = fontSize + 24;
-  const totalTextHeight = lines.length * lineHeight;
-  let y = H / 2 - totalTextHeight / 2 + lineHeight / 2 - 30;
+  let y = used.length
+    ? topY + lineHeight / 2
+    : H / 2 - totalTextHeight / 2 + lineHeight / 2 - 30;
   lines.forEach(line => {
     ctx.fillText(line, W / 2, y);
     y += lineHeight;
   });
 
   // فاصل زخرفي صغير
-  const sepY = y + 18;
+  const sepY = y + labelGapTop;
   ctx.strokeStyle = 'rgba(212,175,90,0.6)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
@@ -3429,7 +3625,40 @@ async function shareAyahAsImage(surahId, ayahId, surahName){
   // اسم السورة ورقم الآية
   ctx.font = `600 30px "Cairo"`;
   ctx.fillStyle = '#d4af5a';
-  ctx.fillText(`${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}`, W / 2, sepY + 52);
+  ctx.fillText(`${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}`, W / 2, sepY + labelOffset);
+
+  // بلوكات التفسير/الترجمة
+  if(used.length){
+    let cy = sepY + labelOffset + 48;
+    used.forEach(b => {
+      // فاصل صغير قبل كل مصدر
+      ctx.strokeStyle = 'rgba(212,175,90,0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(W / 2 - 40, cy + BLOCK_GAP / 2);
+      ctx.lineTo(W / 2 + 40, cy + BLOCK_GAP / 2);
+      ctx.stroke();
+      cy += BLOCK_GAP;
+
+      // اسم المصدر
+      ctx.direction = b.headRtl ? 'rtl' : 'ltr';
+      ctx.font = `600 26px "Cairo", "Segoe UI", system-ui, sans-serif`;
+      ctx.fillStyle = '#d4af5a';
+      ctx.fillText(b.label, W / 2, cy + HEADING_H / 2);
+      cy += HEADING_H;
+
+      // نص المصدر
+      ctx.direction = b.rtl ? 'rtl' : 'ltr';
+      ctx.font = b.font;
+      ctx.fillStyle = 'rgba(243,233,210,0.92)';
+      b.lines.forEach(line => {
+        ctx.fillText(line, W / 2, cy + b.lh / 2);
+        cy += b.lh;
+      });
+      cy += BLOCK_PAD_BOTTOM;
+    });
+    ctx.direction = 'rtl';
+  }
 
   // بصمة التطبيق أسفل الصورة
   ctx.font = `400 20px "Cairo"`;
@@ -4060,6 +4289,8 @@ function applyInlineTafsirState(){
   const isContinuous = displayMode === 'continuous';
   const enabled = isInlineTafsirEnabled();
   if(toggle){ toggle.checked = enabled; toggle.disabled = isContinuous; }
+  const shareImgToggle = document.getElementById('share-image-tafsir-toggle');
+  if(shareImgToggle) shareImgToggle.checked = isShareImageTafsirEnabled();
   renderTafsirMultiselectPanels();
   const settingsWrap = document.getElementById('tafsir-multiselect-wrap-settings');
   if(settingsWrap) settingsWrap.classList.toggle('disabled', isContinuous);
@@ -7757,6 +7988,8 @@ const I18N_STRINGS = {
     next_ayah: 'الآية التالية',
     show_tafsir: 'عرض التفسير',
     inline_tafsir_label: 'إظهار التفسير/الترجمة المختار أسفل كل آية (وضع الآيات المنفصلة فقط)',
+    share_image_tafsir_label: 'تضمين التفسير/الترجمة المختار في صورة الآية عند المشاركة',
+    share_image_preparing: 'جارٍ تجهيز الصورة…',
     tafsir_source_label: 'مصدر التفسير/الترجمة',
     tafsir_collapse_all: 'اطوِ الكل',
     tafsir_expand_all: 'افتح الكل',
@@ -8046,6 +8279,8 @@ const I18N_STRINGS = {
     next_ayah: 'Next Ayah',
     show_tafsir: 'Translation of Meanings & Tafsir',
     inline_tafsir_label: 'Show the selected tafsir/translation under each ayah (separate-ayahs mode only)',
+    share_image_tafsir_label: 'Include the selected tafsir/translation in the shared ayah image',
+    share_image_preparing: 'Preparing image…',
     tafsir_source_label: 'Tafsir/Translation source',
     tafsir_collapse_all: 'Collapse all',
     tafsir_expand_all: 'Expand all',
@@ -8713,6 +8948,13 @@ if('serviceWorker' in navigator){
               <div class="tafsir-multiselect-panel" id="tafsir-multiselect-panel-settings"></div>
             </div>
           </div>
+        </div>
+        <div class="control-group">
+          <label class="test-mode-toggle-row">
+            <input type="checkbox" id="share-image-tafsir-toggle" onchange="toggleShareImageTafsir(this.checked)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            <span data-i18n="share_image_tafsir_label">تضمين التفسير/الترجمة المختار في صورة الآية عند المشاركة</span>
+          </label>
         </div>
         <div class="control-group repeat-group" id="repeat-group">
           <span class="label" data-i18n="repeat_section_label">تكرار الآيات للحفظ</span>
