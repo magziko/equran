@@ -1211,6 +1211,52 @@
     }
     #tafsir-modal-body .tafsir-source-block + .tafsir-source-block{ margin-top:0; padding-top:0; border-top:none; }
   }
+  /* عنوان المصدر يثبت أعلى النافذة أثناء قراءة التفسير الطويل */
+  .tafsir-source-block .tafsir-source-heading{
+    position:sticky; top:0; z-index:2; background:var(--bg-elev);
+    padding:9px 0 8px; margin-bottom:4px; border-bottom:1px solid var(--border);
+  }
+  .tafsir-source-block.collapsed .tafsir-source-heading{ border-bottom-color:transparent; }
+  .tafsir-source-heading > span:first-child{ flex:1 1 auto; min-width:0; }
+  .tafsir-heading-actions{ display:inline-flex; gap:4px; margin-inline-start:auto; }
+  .tafsir-act-btn{
+    width:28px; height:28px; border-radius:8px; border:1px solid var(--border); background:transparent;
+    color:var(--text-muted); display:inline-flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+  }
+  .tafsir-act-btn svg{ width:14px; height:14px; }
+  .tafsir-act-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .tafsir-act-btn.done{ color:#3fb27f; border-color:#3fb27f; }
+  .tafsir-search-bar{
+    position:sticky; top:0; z-index:3; display:flex; align-items:center; gap:6px;
+    background:var(--bg-elev); padding:8px 0; margin-bottom:4px; border-bottom:1px solid var(--border);
+  }
+  .tafsir-search-bar input{
+    flex:1 1 auto; min-width:0; height:34px; padding:0 12px; border-radius:9px;
+    border:1px solid var(--border); background:var(--surface); color:var(--text);
+    font-family:inherit; font-size:14px; outline:none;
+  }
+  .tafsir-search-bar input:focus{ border-color:var(--accent); }
+  .tafsir-search-count{ font-size:12px; color:var(--text-muted); white-space:nowrap; min-width:42px; text-align:center; }
+  .tafsir-search-bar .tafsir-act-btn{ width:32px; height:32px; flex-shrink:0; }
+  .tafsir-source-block .tafsir-source-heading{ top:var(--tafsir-search-h, 0px); }
+  mark.tafsir-hit{ background:rgba(255,200,60,.38); color:inherit; border-radius:3px; padding:0 1px; }
+  mark.tafsir-hit.current{ background:rgba(255,150,0,.8); color:#000; box-shadow:0 0 0 2px rgba(255,150,0,.45); }
+  #tafsir-search-toggle.active{ border-color:var(--accent); color:var(--accent-soft); }
+  /* مؤشر تركيز واضح لمستخدمي الكيبورد */
+  .tafsir-modal :focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:6px; }
+  .tafsir-modal:focus{ outline:none; }
+  .tafsir-source-heading:focus-visible, .inline-tafsir-label:focus-visible{ outline-offset:-2px; }
+  /* عرض سطر مريح للعين على الشاشات الكبيرة جدًا (مع بقاء الأعمدة المتعددة كما هي) */
+  @media (min-width:1100px){
+    #tafsir-modal-body .tafsir-modal-body{ max-width:72ch; margin-inline:auto; }
+  }
+  .tafsir-font-ctrl{ display:flex; gap:4px; flex-shrink:0; }
+  .tafsir-font-ctrl button{
+    width:30px; height:30px; border-radius:9px; border:1px solid var(--border);
+    background:transparent; color:var(--text-muted); font-family:'Amiri Quran', serif; font-weight:700;
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+  }
+  .tafsir-font-ctrl button:hover{ border-color:var(--accent); color:var(--accent-soft); }
   .tafsir-modal-nav{ padding-bottom:4px; }
   .tafsir-nav-btn{ min-width:0; }
   @media (max-width:600px){
@@ -1219,6 +1265,7 @@
     .tafsir-modal-nav{ bottom:-14px; padding-bottom:calc(4px + env(safe-area-inset-bottom, 0px)); }
     .tafsir-modal-header{ flex-wrap:wrap; }
     .tafsir-modal-header > div:first-child{ flex:1 1 100%; order:1; }
+    .tafsir-modal-header .tafsir-font-ctrl{ order:2; }
     .tafsir-modal-header .tafsir-collapse-all-btn-modal{ order:2; margin-inline-end:auto; }
     .tafsir-modal-header .tafsir-modal-close{ order:3; }
     .tafsir-nav-btn{ font-size:12.5px; padding:9px 8px; }
@@ -4056,11 +4103,20 @@ function toggleTafsirMultiselectPanel(ctx){
     renderTafsirMultiselectPanels();
     panel.classList.add('open');
   }
+  syncTafsirMultiselectAria();
+}
+function syncTafsirMultiselectAria(){
+  ['modal', 'settings'].forEach(ctx => {
+    const btn = document.getElementById(`tafsir-multiselect-btn-${ctx}`);
+    const panel = document.getElementById(`tafsir-multiselect-panel-${ctx}`);
+    if(btn && panel) btn.setAttribute('aria-expanded', panel.classList.contains('open') ? 'true' : 'false');
+  });
 }
 
 document.addEventListener('click', function(e){
   if(!e.target.closest('.tafsir-multiselect-wrap')){
     document.querySelectorAll('.tafsir-multiselect-panel.open').forEach(p => p.classList.remove('open'));
+    syncTafsirMultiselectAria();
   }
 });
 
@@ -4075,9 +4131,28 @@ function syncTafsirSelectionChange(){
   refreshVisibleInlineTafsir();
 }
 
+let tafsirFontDeltaCache = null;
+function getTafsirFontDelta(){
+  if(tafsirFontDeltaCache !== null) return tafsirFontDeltaCache;
+  let v = 0;
+  try{ v = parseInt(localStorage.getItem('tafsirFontDelta') || '0', 10) || 0; } catch(e){}
+  tafsirFontDeltaCache = Math.min(12, Math.max(-4, v));
+  return tafsirFontDeltaCache;
+}
 function getTafsirFontSize(){
-  // نص التفسير يتبع حجم خط الآيات بنسبة تناسبية (65-70%) بدل نفس الحجم بالظبط
-  return Math.min(26, Math.max(15, Math.round(fontSize * 0.68)));
+  // نص التفسير يتبع حجم خط الآيات بنسبة تناسبية (65-70%) + تعديل المستخدم من داخل نافذة التفسير
+  const base = Math.min(26, Math.max(15, Math.round(fontSize * 0.68)));
+  return Math.min(34, Math.max(13, base + getTafsirFontDelta()));
+}
+function applyTafsirFontSize(){
+  const px = getTafsirFontSize() + 'px';
+  document.querySelectorAll('.tafsir-modal-body, .inline-tafsir-text').forEach(el => { el.style.fontSize = px; });
+}
+function changeTafsirFont(step){
+  if(step === 0) tafsirFontDeltaCache = 0;
+  else tafsirFontDeltaCache = Math.min(12, Math.max(-4, getTafsirFontDelta() + step * 2));
+  try{ localStorage.setItem('tafsirFontDelta', String(tafsirFontDeltaCache)); } catch(e){}
+  applyTafsirFontSize();
 }
 function getStoredTafsir(slug, surahId, ayahId){
   try{
@@ -4108,11 +4183,64 @@ function showTafsir(surahId, ayahId, surahName){
   }
   // عند الانتقال لآية جديدة نرجّع التمرير لأول النافذة
   const modalBox = overlay.querySelector('.tafsir-modal');
-  if(modalBox) modalBox.scrollTop = 0;
+  if(modalBox){
+    modalBox.scrollTop = 0;
+    modalBox.setAttribute('aria-label', subtitle.textContent);
+    localizeTafsirModalA11y();
+    if(!wasOpen){
+      tafsirLastFocus = document.activeElement;
+      try{ modalBox.focus({ preventScroll: true }); } catch(e){}
+    }
+  }
   currentTafsirCtx = { surahId, ayahId };
   renderTafsirCollapseAllButtons();
   loadTafsirContent(surahId, ayahId);
   updateTafsirNavButtons();
+  scheduleTafsirPrefetch(surahId, ayahId);
+}
+
+// ---------- (4) تحميل مسبق لتفسير الآية التالية والسابقة (في الذاكرة فقط، بدون ازدحام التخزين) ----------
+let tafsirPrefetchTimer = null;
+function getAdjacentAyah(surahId, ayahId, dir){
+  const surah = QURAN_DATA.find(x => x.id === surahId);
+  if(!surah) return null;
+  let sId = surahId, aId = ayahId + dir;
+  if(aId < 1){
+    const prev = QURAN_DATA.find(x => x.id === surahId - 1);
+    if(!prev) return null;
+    sId = prev.id; aId = prev.total_verses;
+  } else if(aId > surah.total_verses){
+    const next = QURAN_DATA.find(x => x.id === surahId + 1);
+    if(!next) return null;
+    sId = next.id; aId = 1;
+  }
+  return { surahId: sId, ayahId: aId };
+}
+function prefetchTafsirFor(target, slug){
+  const key = getTafsirCacheKey(slug, target.surahId, target.ayahId);
+  if(tafsirCache[key] || getStoredTafsir(slug, target.surahId, target.ayahId)) return;
+  const info = getSourceInfo(slug);
+  const urls = info.type === 'translation'
+    ? [`https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${slug}/${target.surahId}/${target.ayahId}.json`]
+    : [`https://cdn.jsdelivr.net/gh/spa5k/tafsir_api@main/tafsir/${slug}/${target.surahId}/${target.ayahId}.json`];
+  fetch(urls[0])
+    .then(res => { if(!res.ok) throw new Error('prefetch failed'); return res.json(); })
+    .then(data => { if(data && data.text) tafsirCache[key] = data.text; })
+    .catch(() => { /* التحميل المسبق اختياري، نتجاهل أي فشل */ });
+}
+function scheduleTafsirPrefetch(surahId, ayahId){
+  if(tafsirPrefetchTimer) clearTimeout(tafsirPrefetchTimer);
+  tafsirPrefetchTimer = setTimeout(function(){
+    // نحترم وضع توفير البيانات وحالة عدم الاتصال
+    const conn = navigator.connection || {};
+    if(!navigator.onLine || conn.saveData) return;
+    if(!currentTafsirCtx || currentTafsirCtx.surahId !== surahId || currentTafsirCtx.ayahId !== ayahId) return;
+    const slugs = getSelectedTafsirSlugs().slice(0, 3); // حد أقصى 3 مصادر لتجنب الإفراط
+    [1, -1].forEach(dir => {
+      const target = getAdjacentAyah(surahId, ayahId, dir);
+      if(target) slugs.forEach(slug => prefetchTafsirFor(target, slug));
+    });
+  }, 900);
 }
 
 function updateTafsirNavButtons(){
@@ -4154,9 +4282,45 @@ function navigateTafsir(direction){
 const TAFSIR_CHEVRON_SVG = '<svg class="tafsir-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
 const INLINE_TAFSIR_CHEVRON_SVG = '<svg class="inline-tafsir-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
 // يفتح/يقفل بلوك مصدر تفسير واحد (بالنقر على عنوانه)
+// حالة الطي لكل مصدر على حدة: تتخزن كاستثناء فوق حالة "اطوِ/افتح الكل" ، وتتصفّر عند الضغط على الزر العام
+let tafsirSlugOverridesCache = null;
+function getTafsirSlugOverrides(){
+  if(tafsirSlugOverridesCache) return tafsirSlugOverridesCache;
+  let o = {};
+  try{ const raw = JSON.parse(localStorage.getItem('tafsirSlugCollapsed') || '{}'); if(raw && typeof raw === 'object') o = raw; } catch(e){}
+  tafsirSlugOverridesCache = o;
+  return o;
+}
+function saveTafsirSlugOverrides(){
+  try{ localStorage.setItem('tafsirSlugCollapsed', JSON.stringify(getTafsirSlugOverrides())); } catch(e){}
+}
+function isTafsirSlugCollapsed(slug){
+  const o = getTafsirSlugOverrides();
+  return (slug in o) ? !!o[slug] : getTafsirAllCollapsed();
+}
+function syncTafsirAria(){
+  document.querySelectorAll('.tafsir-source-block, .inline-tafsir-block').forEach(b => {
+    const h = b.querySelector('.tafsir-source-heading, .inline-tafsir-label');
+    if(h) h.setAttribute('aria-expanded', b.classList.contains('collapsed') ? 'false' : 'true');
+  });
+}
+function tafsirHeadingKey(e, el){
+  if(e.target !== el) return; // لا نتعارض مع أزرار النسخ/المشاركة داخل العنوان
+  if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleTafsirBlockCollapse(el); }
+}
 function toggleTafsirBlockCollapse(headingEl){
   const block = headingEl.closest('.tafsir-source-block, .inline-tafsir-block');
-  if(block) block.classList.toggle('collapsed');
+  if(!block) return;
+  const nowCollapsed = !block.classList.contains('collapsed');
+  const slug = block.dataset.slug;
+  if(!slug){ block.classList.toggle('collapsed'); syncTafsirAria(); return; }
+  getTafsirSlugOverrides()[slug] = nowCollapsed ? 1 : 0;
+  saveTafsirSlugOverrides();
+  // نطبّقها على نفس المصدر في كل مكان (النافذة + تحت كل الآيات)
+  document.querySelectorAll('.tafsir-source-block, .inline-tafsir-block').forEach(b => {
+    if(b.dataset.slug === slug) b.classList.toggle('collapsed', nowCollapsed);
+  });
+  syncTafsirAria();
 }
 
 // ---------- طي/فتح كل بلوكات التفسير دفعة واحدة (في كل الآيات، والمودال) ----------
@@ -4170,11 +4334,14 @@ function getTafsirAllCollapsed(){
 }
 function setTafsirAllCollapsed(collapsed){
   tafsirAllCollapsedCache = collapsed;
+  tafsirSlugOverridesCache = {};
+  saveTafsirSlugOverrides();
   try{ localStorage.setItem('tafsirAllCollapsed', collapsed ? '1' : '0'); } catch(e){ /* تجاهل أخطاء التخزين */ }
   // نطبّق الحالة فورًا على كل البلوكات الموجودة حاليًا في الصفحة (المودال + كل الآيات المعروضة)
   document.querySelectorAll('.tafsir-source-block, .inline-tafsir-block').forEach(block => {
     block.classList.toggle('collapsed', collapsed);
   });
+  syncTafsirAria();
   renderTafsirCollapseAllButtons();
 }
 function toggleTafsirAllCollapsed(){
@@ -4194,13 +4361,55 @@ function loadTafsirContent(surahId, ayahId){
   const slugs = getSelectedTafsirSlugs();
   body.innerHTML = '';
   // نبدأ كل بلوك بحالة الطي العامة الحالية (اللي المستخدم ضبطها بزرار "اطوِ الكل/افتح الكل")
-  const collapseByDefault = getTafsirAllCollapsed();
   slugs.forEach((slug, i) => {
     const block = document.createElement('div');
-    block.className = 'tafsir-source-block' + (collapseByDefault ? ' collapsed' : '');
+    block.dataset.slug = slug;
+    block.className = 'tafsir-source-block' + (isTafsirSlugCollapsed(slug) ? ' collapsed' : '');
     body.appendChild(block);
     loadTafsirSourceBlock(slug, surahId, ayahId, block);
   });
+}
+
+const TAFSIR_COPY_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+const TAFSIR_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+const TAFSIR_SHARE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.5"/><line x1="15.4" y1="6.5" x2="8.6" y2="10.5"/></svg>';
+function getTafsirBlockPayload(btn){
+  const block = btn.closest('.tafsir-source-block');
+  if(!block) return null;
+  const body = block.querySelector('.tafsir-modal-body');
+  const nameEl = block.querySelector('.tafsir-source-heading > span');
+  if(!body || !currentTafsirCtx) return null;
+  const subEl = document.getElementById('tafsir-modal-subtitle');
+  const head = subEl ? subEl.textContent.trim() : '';
+  const title = `${head} (${nameEl ? nameEl.textContent : ''})`;
+  return { title, text: `${title}\n\n${body.innerText.trim()}` };
+}
+function flashTafsirActionDone(btn){
+  const old = btn.innerHTML;
+  btn.innerHTML = TAFSIR_CHECK_SVG;
+  btn.classList.add('done');
+  setTimeout(function(){ btn.innerHTML = old; btn.classList.remove('done'); }, 1400);
+}
+function copyTafsirBlock(btn){
+  const data = getTafsirBlockPayload(btn);
+  if(!data) return;
+  function fallback(){
+    const ta = document.createElement('textarea');
+    ta.value = data.text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try{ ok = document.execCommand('copy'); } catch(e){}
+    document.body.removeChild(ta);
+    if(ok) flashTafsirActionDone(btn);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(data.text).then(() => flashTafsirActionDone(btn)).catch(fallback);
+  } else fallback();
+}
+function shareTafsirBlock(btn){
+  const data = getTafsirBlockPayload(btn);
+  if(!data || typeof navigator.share !== 'function') return;
+  navigator.share({ title: data.title, text: data.text }).catch(() => { /* المستخدم ألغى المشاركة */ });
 }
 
 function loadTafsirSourceBlock(slug, surahId, ayahId, block){
@@ -4208,7 +4417,7 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
   const key = getTafsirCacheKey(slug, surahId, ayahId);
   const isEn = document.documentElement.getAttribute('data-lang') === 'en';
   const sourceLabel = isEn ? (sourceInfo.nameEn || sourceInfo.name) : sourceInfo.name;
-  const heading = `<div class="tafsir-source-heading" onclick="toggleTafsirBlockCollapse(this)"><span>${sourceLabel}</span>${TAFSIR_CHEVRON_SVG}</div>`;
+  const heading = `<div class="tafsir-source-heading" onclick="toggleTafsirBlockCollapse(this)" role="button" tabindex="0" aria-expanded="true" onkeydown="tafsirHeadingKey(event, this)"><span>${sourceLabel}</span>${TAFSIR_CHEVRON_SVG}</div>`;
 
   // نتأكد إن البلوك لسه ممثل نفس السياق (المودال لسه فاتح على نفس الآية والمصدر لسه مختار) قبل الكتابة فيه
   function stillValid(){
@@ -4216,11 +4425,22 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
       currentTafsirCtx.surahId === surahId && currentTafsirCtx.ayahId === ayahId &&
       getSelectedTafsirSlugs().includes(slug);
   }
+  const copyLbl = isEn ? 'Copy' : 'نسخ';
+  const shareLbl = isEn ? 'Share' : 'مشاركة';
+  const canShare = typeof navigator.share === 'function';
+  const actionsHtml = `<span class="tafsir-heading-actions">` +
+    `<button type="button" class="tafsir-act-btn" title="${copyLbl}" aria-label="${copyLbl}" onclick="event.stopPropagation(); copyTafsirBlock(this)">${TAFSIR_COPY_SVG}</button>` +
+    (canShare ? `<button type="button" class="tafsir-act-btn" title="${shareLbl}" aria-label="${shareLbl}" onclick="event.stopPropagation(); shareTafsirBlock(this)">${TAFSIR_SHARE_SVG}</button>` : '') +
+    `</span>`;
+  const headingWithActions = `<div class="tafsir-source-heading" onclick="toggleTafsirBlockCollapse(this)" role="button" tabindex="0" aria-expanded="true" onkeydown="tafsirHeadingKey(event, this)"><span>${sourceLabel}</span>${actionsHtml}${TAFSIR_CHEVRON_SVG}</div>`;
   function renderBody(text){
     if(!stillValid()) return;
-    block.innerHTML = `${heading}<div class="tafsir-modal-body" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
+    block.innerHTML = `${headingWithActions}<div class="tafsir-modal-body" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
+    syncTafsirAria();
+    reapplyTafsirSearch();
   }
   function renderLoading(){
+    setTimeout(syncTafsirAria, 0);
     block.innerHTML = `${heading}<div class="tafsir-modal-loading">${skeletonLinesHtml(6, { tall:true, label: sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir') })}</div>`;
   }
   function renderError(){
@@ -4228,6 +4448,7 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
     const isOffline = !navigator.onLine;
     const msg = isOffline ? t('tafsir_load_error_offline') : t('tafsir_load_error');
     block.innerHTML = `${heading}<div class="tafsir-modal-error">${msg}</div>`;
+    syncTafsirAria();
     if(isOffline) showOfflineToast();
   }
 
@@ -4264,8 +4485,27 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
 
 let tafsirHistoryPushed = false;
 let tafsirIgnoreNextPop = false;
+let tafsirLastFocus = null;
+function localizeTafsirModalA11y(){
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  const set = (sel, label) => { const el = document.querySelector(sel); if(el){ el.setAttribute('aria-label', label); el.setAttribute('title', label); } };
+  const btns = document.querySelectorAll('.tafsir-font-ctrl button');
+  const grp = document.querySelector('.tafsir-font-ctrl');
+  if(grp) grp.setAttribute('aria-label', isEn ? 'Tafsir font size' : 'حجم خط التفسير');
+  if(btns[0]){ btns[0].setAttribute('aria-label', isEn ? 'Search in tafsir' : 'بحث في التفسير'); btns[0].setAttribute('title', isEn ? 'Search in tafsir' : 'بحث في التفسير'); }
+  if(btns[1]){ btns[1].setAttribute('aria-label', isEn ? 'Smaller font' : 'تصغير الخط'); btns[1].setAttribute('title', isEn ? 'Smaller font' : 'تصغير الخط'); }
+  if(btns[2]){ btns[2].setAttribute('aria-label', isEn ? 'Larger font' : 'تكبير الخط'); btns[2].setAttribute('title', isEn ? 'Larger font' : 'تكبير الخط'); }
+  set('#tafsir-search-prev', isEn ? 'Previous result' : 'النتيجة السابقة');
+  set('#tafsir-search-next', isEn ? 'Next result' : 'النتيجة التالية');
+}
 function closeTafsirModal(){
+  const wasOpenNow = document.getElementById('tafsir-overlay').classList.contains('open');
   document.getElementById('tafsir-overlay').classList.remove('open');
+  if(wasOpenNow && tafsirLastFocus && typeof tafsirLastFocus.focus === 'function' && document.contains(tafsirLastFocus)){
+    try{ tafsirLastFocus.focus({ preventScroll: true }); } catch(e){}
+  }
+  tafsirLastFocus = null;
+  if(typeof closeTafsirSearch === 'function') closeTafsirSearch();
   document.querySelectorAll('.tafsir-multiselect-panel.open').forEach(p => p.classList.remove('open'));
   // لو القفل جه من زر X أو الضغط بره النافذة، نشيل المدخل اللي زرعناه في سجل المتصفح
   if(tafsirHistoryPushed){
@@ -4289,6 +4529,179 @@ window.addEventListener('popstate', function(e){
     e.stopImmediatePropagation();
   }
 });
+
+
+// ---------- البحث داخل التفسير مع تظليل الكلمة (يتجاهل التشكيل وفروق الألف والياء/الألف المقصورة) ----------
+let tafsirSearchQuery = '';
+let tafsirSearchHits = [];
+let tafsirSearchIndex = -1;
+let tafsirSearchTimer = null;
+function normalizeArabicChar(ch){
+  const c = ch.charCodeAt(0);
+  // التشكيل وعلامات القرآن والتطويل: نتجاهلها تمامًا
+  if((c >= 0x064B && c <= 0x065F) || c === 0x0670 || c === 0x0640 || (c >= 0x06D6 && c <= 0x06ED)) return '';
+  if(c === 0x0623 || c === 0x0625 || c === 0x0622 || c === 0x0671) return 'ا';
+  if(c === 0x0649) return 'ي';
+  if(c === 0x0629) return 'ه';
+  return ch.toLowerCase();
+}
+function normalizeArabicStr(str){
+  let out = '';
+  for(const ch of str) out += normalizeArabicChar(ch);
+  return out;
+}
+function clearTafsirHighlights(){
+  document.querySelectorAll('#tafsir-modal-body mark.tafsir-hit').forEach(m => {
+    const parent = m.parentNode;
+    if(!parent) return;
+    parent.replaceChild(document.createTextNode(m.textContent), m);
+    parent.normalize();
+  });
+  tafsirSearchHits = [];
+  tafsirSearchIndex = -1;
+}
+function highlightTafsirMatches(query){
+  const normQ = normalizeArabicStr(query).trim();
+  if(normQ.length < 2) return;
+  document.querySelectorAll('#tafsir-modal-body .tafsir-modal-body').forEach(root => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const nodes = [];
+    while(walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(node => {
+      const text = node.nodeValue;
+      // نبني النص المُطبَّع مع خريطة ترجع لمواضع الحروف الأصلية
+      let norm = '';
+      const map = [];
+      for(let i = 0; i < text.length; i++){
+        const n = normalizeArabicChar(text[i]);
+        for(let k = 0; k < n.length; k++){ norm += n[k]; map.push(i); }
+      }
+      if(norm.indexOf(normQ) === -1) return;
+      const ranges = [];
+      let from = 0, idx;
+      while((idx = norm.indexOf(normQ, from)) !== -1){
+        const start = map[idx];
+        let end = map[idx + normQ.length - 1] + 1;
+        while(end < text.length && normalizeArabicChar(text[end]) === '') end++; // نضمّ تشكيل آخر حرف
+        ranges.push([start, end]);
+        from = idx + normQ.length;
+      }
+      // نقسم العقدة من الآخر للأول عشان المواضع ما تتغير
+      let current = node;
+      for(let r = ranges.length - 1; r >= 0; r--){
+        const [st, en] = ranges[r];
+        const after = current.splitText(en);
+        const mid = current.splitText(st);
+        const mark = document.createElement('mark');
+        mark.className = 'tafsir-hit';
+        mark.textContent = mid.nodeValue;
+        mid.parentNode.replaceChild(mark, mid);
+      }
+    });
+  });
+  tafsirSearchHits = Array.from(document.querySelectorAll('#tafsir-modal-body mark.tafsir-hit'));
+}
+function updateTafsirSearchCount(){
+  const el = document.getElementById('tafsir-search-count');
+  if(!el) return;
+  const hasQuery = normalizeArabicStr(tafsirSearchQuery).trim().length >= 2;
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  if(!hasQuery) el.textContent = '';
+  else if(!tafsirSearchHits.length) el.textContent = isEn ? 'No results' : 'لا نتائج';
+  else el.textContent = `${tafsirSearchIndex + 1} / ${tafsirSearchHits.length}`;
+  ['tafsir-search-prev', 'tafsir-search-next'].forEach(id => {
+    const b = document.getElementById(id);
+    if(b) b.disabled = tafsirSearchHits.length < 2;
+  });
+}
+function focusTafsirHit(scroll){
+  tafsirSearchHits.forEach(m => m.classList.remove('current'));
+  const m = tafsirSearchHits[tafsirSearchIndex];
+  if(!m){ updateTafsirSearchCount(); return; }
+  m.classList.add('current');
+  if(scroll){
+    // لو النتيجة داخل مصدر مطوي نفتحه (بدون تغيير تفضيل المستخدم المحفوظ)
+    const blk = m.closest('.tafsir-source-block');
+    if(blk && blk.classList.contains('collapsed')) blk.classList.remove('collapsed');
+    m.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  updateTafsirSearchCount();
+}
+function runTafsirSearch(scrollToFirst){
+  clearTafsirHighlights();
+  highlightTafsirMatches(tafsirSearchQuery);
+  tafsirSearchIndex = tafsirSearchHits.length ? 0 : -1;
+  focusTafsirHit(!!scrollToFirst);
+}
+function reapplyTafsirSearch(){
+  // تُستدعى بعد تحميل كل مصدر أو الانتقال لآية جديدة: نعيد التظليل بدون قفز التمرير
+  const bar = document.getElementById('tafsir-search-bar');
+  if(!bar || bar.style.display === 'none' || !tafsirSearchQuery) return;
+  if(tafsirSearchTimer) clearTimeout(tafsirSearchTimer);
+  tafsirSearchTimer = setTimeout(function(){
+    const keep = tafsirSearchIndex;
+    clearTafsirHighlights();
+    highlightTafsirMatches(tafsirSearchQuery);
+    tafsirSearchIndex = tafsirSearchHits.length ? Math.min(Math.max(keep, 0), tafsirSearchHits.length - 1) : -1;
+    focusTafsirHit(false);
+  }, 60);
+}
+function stepTafsirSearch(dir){
+  if(!tafsirSearchHits.length) return;
+  tafsirSearchIndex = (tafsirSearchIndex + dir + tafsirSearchHits.length) % tafsirSearchHits.length;
+  focusTafsirHit(true);
+}
+function setTafsirSearchBarHeight(){
+  const bar = document.getElementById('tafsir-search-bar');
+  const box = document.querySelector('#tafsir-overlay .tafsir-modal');
+  if(!box) return;
+  const h = (bar && bar.style.display !== 'none') ? bar.offsetHeight : 0;
+  box.style.setProperty('--tafsir-search-h', h + 'px');
+}
+function openTafsirSearch(){
+  const bar = document.getElementById('tafsir-search-bar');
+  const input = document.getElementById('tafsir-search-input');
+  const toggleBtn = document.getElementById('tafsir-search-toggle');
+  if(!bar || !input) return;
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  input.placeholder = isEn ? 'Search in tafsir…' : 'ابحث في التفسير…';
+  bar.style.display = 'flex';
+  if(toggleBtn) toggleBtn.classList.add('active');
+  setTafsirSearchBarHeight();
+  input.value = tafsirSearchQuery;
+  input.focus();
+  input.select();
+  if(tafsirSearchQuery) runTafsirSearch(false);
+  else updateTafsirSearchCount();
+}
+function closeTafsirSearch(){
+  const bar = document.getElementById('tafsir-search-bar');
+  const toggleBtn = document.getElementById('tafsir-search-toggle');
+  clearTafsirHighlights();
+  if(bar) bar.style.display = 'none';
+  if(toggleBtn) toggleBtn.classList.remove('active');
+  setTafsirSearchBarHeight();
+}
+function toggleTafsirSearch(){
+  const bar = document.getElementById('tafsir-search-bar');
+  if(bar && bar.style.display !== 'none') closeTafsirSearch();
+  else openTafsirSearch();
+}
+function attachTafsirSearchInput(){
+  const input = document.getElementById('tafsir-search-input');
+  if(!input || input.dataset.bound) return;
+  input.dataset.bound = '1';
+  input.addEventListener('input', function(){
+    tafsirSearchQuery = input.value;
+    if(tafsirSearchTimer) clearTimeout(tafsirSearchTimer);
+    tafsirSearchTimer = setTimeout(function(){ runTafsirSearch(true); }, 180);
+  });
+  input.addEventListener('keydown', function(e){
+    e.stopPropagation(); // نمنع اختصارات الكيبورد العامة (الأسهم، Esc الخاص بقفل النافذة)
+    if(e.key === 'Enter'){ e.preventDefault(); stepTafsirSearch(e.shiftKey ? -1 : 1); }
+    else if(e.key === 'Escape'){ e.preventDefault(); closeTafsirSearch(); }
+  });
+}
 
 // ---------- (2) السحب يمين/يسار داخل النافذة للانتقال بين الآيات ----------
 function attachTafsirSwipe(){
@@ -4350,14 +4763,14 @@ function getFocusableElements(container){
 function attachModalFocusTrap(){
   document.addEventListener('keydown', function(e){
     if(e.key !== 'Tab') return;
-    const modalIds = ['settings-overlay', 'shortcuts-overlay'];
+    const modalIds = ['settings-overlay', 'shortcuts-overlay', 'tafsir-overlay'];
     const openOverlayId = modalIds.find(id => {
       const el = document.getElementById(id);
       return el && el.classList.contains('open');
     });
     if(!openOverlayId) return;
     const overlay = document.getElementById(openOverlayId);
-    const modal = overlay.querySelector('.settings-modal');
+    const modal = overlay.querySelector('.settings-modal, .tafsir-modal');
     if(!modal) return;
     const focusables = getFocusableElements(modal);
     if(focusables.length === 0) return;
@@ -4459,10 +4872,10 @@ function loadInlineTafsirForElement(el){
   el.dataset.loaded = '1';
   el.innerHTML = '';
   // نبدأ كل بلوك بحالة الطي العامة الحالية (نفس الحالة في كل الآيات وفي المودال)
-  const collapseByDefault = getTafsirAllCollapsed();
   slugs.forEach((slug, i) => {
     const block = document.createElement('div');
-    block.className = 'inline-tafsir-block' + (collapseByDefault ? ' collapsed' : '');
+    block.dataset.slug = slug;
+    block.className = 'inline-tafsir-block' + (isTafsirSlugCollapsed(slug) ? ' collapsed' : '');
     el.appendChild(block);
     loadInlineTafsirSourceBlock(slug, surahId, ayahId, block, el, slugsKey);
   });
@@ -4472,18 +4885,20 @@ function loadInlineTafsirSourceBlock(slug, surahId, ayahId, block, containerEl, 
   const sourceInfo = getSourceInfo(slug);
   const key = getTafsirCacheKey(slug, surahId, ayahId);
   const label = (sourceInfo.type === 'translation' ? t('inline_tafsir_translation_prefix') : t('inline_tafsir_tafsir_prefix')) + ' — ' + sourceInfo.name;
-  const labelHtml = `<span class="inline-tafsir-label" onclick="toggleTafsirBlockCollapse(this)"><span>${label}</span>${INLINE_TAFSIR_CHEVRON_SVG}</span>`;
+  const labelHtml = `<span class="inline-tafsir-label" onclick="toggleTafsirBlockCollapse(this)" role="button" tabindex="0" aria-expanded="true" onkeydown="tafsirHeadingKey(event, this)"><span>${label}</span>${INLINE_TAFSIR_CHEVRON_SVG}</span>`;
 
   function stillValid(){ return block.isConnected && containerEl.dataset.loadedSlugs === slugsKey; }
   function render(text){
     if(!stillValid()) return;
     block.innerHTML = `${labelHtml}<div class="inline-tafsir-text" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
+    syncTafsirAria();
   }
   function renderError(){
     if(!stillValid()) return;
     const isOffline = !navigator.onLine;
     const msg = isOffline ? t('tafsir_load_error_offline') : t('tafsir_load_error');
     block.innerHTML = `${labelHtml}<div class="inline-tafsir-error">${msg}</div>`;
+    syncTafsirAria();
     if(isOffline) showOfflineToast();
   }
 
@@ -4492,6 +4907,7 @@ function loadInlineTafsirSourceBlock(slug, surahId, ayahId, block, containerEl, 
   if(stored){ tafsirCache[key] = stored; render(stored); return; }
 
   block.innerHTML = `${labelHtml}<div class="inline-tafsir-loading">${skeletonLinesHtml(3, { label: sourceInfo.type === 'translation' ? t('loading_translation') : t('loading_tafsir') })}</div>`;
+  syncTafsirAria();
   const sources = sourceInfo.type === 'translation'
     ? [
         `https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${slug}/${surahId}/${ayahId}.json`,
@@ -7772,8 +8188,7 @@ function changeFont(delta){
   document.querySelectorAll('.ayah-text').forEach(el => el.style.fontSize = fontSize + 'px');
   const frame = document.querySelector('.mushaf-page-frame');
   if(frame) frame.style.fontSize = fontSize + 'px';
-  const tafsirBody = document.querySelector('.tafsir-modal-body');
-  if(tafsirBody) tafsirBody.style.fontSize = getTafsirFontSize() + 'px';
+  applyTafsirFontSize();
   try{ localStorage.setItem('quran-font-size', fontSize); }catch(e){}
 }
 
@@ -7783,8 +8198,7 @@ function resetFontSize(){
   document.querySelectorAll('.ayah-text').forEach(el => el.style.fontSize = fontSize + 'px');
   const frame = document.querySelector('.mushaf-page-frame');
   if(frame) frame.style.fontSize = fontSize + 'px';
-  const tafsirBody = document.querySelector('.tafsir-modal-body');
-  if(tafsirBody) tafsirBody.style.fontSize = getTafsirFontSize() + 'px';
+  applyTafsirFontSize();
   try{ localStorage.setItem('quran-font-size', fontSize); }catch(e){}
 }
 
@@ -8733,6 +9147,7 @@ function toggleLanguage(){
 
 window.addEventListener('DOMContentLoaded', function(){
   try{ attachTafsirSwipe(); } catch(e){}
+  try{ attachTafsirSearchInput(); } catch(e){}
   try{ applyLanguage(document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar'); }catch(e){}
   try{ renderTafsirCollapseAllButtons(); }catch(e){}
 });
@@ -8813,7 +9228,9 @@ function attachDisplayModeShortcuts(){
         if(nextBtn && !nextBtn.disabled) navigateTafsir(1);
       } else if(tKey === 'escape'){
         e.preventDefault();
-        closeTafsirModal();
+        const openPanel = document.querySelector('.tafsir-multiselect-panel.open');
+        if(openPanel){ openPanel.classList.remove('open'); syncTafsirMultiselectAria(); }
+        else closeTafsirModal();
       }
       return;
     }
@@ -9084,7 +9501,7 @@ if('serviceWorker' in navigator){
           <div class="tafsir-source-row">
             <span class="label" data-i18n="tafsir_source_label">مصدر التفسير/الترجمة</span>
             <div class="tafsir-multiselect-wrap" id="tafsir-multiselect-wrap-settings">
-              <button type="button" class="tafsir-multiselect-btn font-select" id="tafsir-multiselect-btn-settings" onclick="toggleTafsirMultiselectPanel('settings')">
+              <button type="button" class="tafsir-multiselect-btn font-select" id="tafsir-multiselect-btn-settings" aria-haspopup="true" aria-expanded="false" onclick="toggleTafsirMultiselectPanel('settings')">
                 <span id="tafsir-multiselect-label-settings"></span>
               </button>
               <div class="tafsir-multiselect-panel" id="tafsir-multiselect-panel-settings"></div>
@@ -9241,11 +9658,11 @@ if('serviceWorker' in navigator){
   </div>
 
   <div class="tafsir-overlay" id="tafsir-overlay" onclick="if(event.target===this) closeTafsirModal()">
-    <div class="tafsir-modal">
+    <div class="tafsir-modal" role="dialog" aria-modal="true" tabindex="-1">
       <div class="tafsir-modal-header">
         <div>
           <div class="tafsir-multiselect-wrap tafsir-source-select-wrap" id="tafsir-multiselect-wrap-modal">
-            <button type="button" class="tafsir-multiselect-btn tafsir-modal-title" id="tafsir-multiselect-btn-modal" onclick="toggleTafsirMultiselectPanel('modal')">
+            <button type="button" class="tafsir-multiselect-btn tafsir-modal-title" id="tafsir-multiselect-btn-modal" aria-haspopup="true" aria-expanded="false" onclick="toggleTafsirMultiselectPanel('modal')">
               <span id="tafsir-multiselect-label-modal"></span>
               <svg class="tafsir-source-select-arrow" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
@@ -9253,12 +9670,32 @@ if('serviceWorker' in navigator){
           </div>
           <div class="tafsir-modal-subtitle" id="tafsir-modal-subtitle"></div>
         </div>
+        <div class="tafsir-font-ctrl" role="group" aria-label="حجم خط التفسير">
+          <button type="button" id="tafsir-search-toggle" onclick="toggleTafsirSearch()" aria-label="بحث في التفسير" title="بحث في التفسير">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+          <button type="button" onclick="changeTafsirFont(-1)" aria-label="تصغير الخط" title="تصغير الخط" style="font-size:11px;">أ</button>
+          <button type="button" onclick="changeTafsirFont(1)" aria-label="تكبير الخط" title="تكبير الخط" style="font-size:16px;">أ</button>
+        </div>
         <button type="button" class="tafsir-collapse-all-btn tafsir-collapse-all-btn-modal" onclick="toggleTafsirAllCollapsed()">
           <svg class="tafsir-collapse-all-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
           <span data-i18n="tafsir_collapse_all">اطوِ الكل</span>
         </button>
         <button class="tafsir-modal-close" onclick="closeTafsirModal()" title="إغلاق" data-i18n-title="close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="tafsir-search-bar" id="tafsir-search-bar" style="display:none;">
+        <input type="search" id="tafsir-search-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ابحث في التفسير…" aria-label="ابحث في التفسير">
+        <span class="tafsir-search-count" id="tafsir-search-count" aria-live="polite"></span>
+        <button type="button" class="tafsir-act-btn" id="tafsir-search-prev" onclick="stepTafsirSearch(-1)" aria-label="النتيجة السابقة" title="النتيجة السابقة">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        <button type="button" class="tafsir-act-btn" id="tafsir-search-next" onclick="stepTafsirSearch(1)" aria-label="النتيجة التالية" title="النتيجة التالية">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <button type="button" class="tafsir-act-btn" onclick="closeTafsirSearch()" aria-label="إغلاق البحث" title="إغلاق البحث">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div id="tafsir-modal-body"></div>
