@@ -1172,6 +1172,48 @@
   .tafsir-collapse-all-btn.is-collapsed .tafsir-collapse-all-icon{ transform:rotate(-90deg); }
   .tafsir-collapse-all-btn-modal{ margin-inline-end:8px; }
   .tafsir-collapse-all-bar{ justify-content:flex-end; margin:0 0 10px; }
+  .tafsir-modal{ overflow-x:hidden; box-sizing:border-box; }
+  .tafsir-modal-header > div:first-child{ min-width:0; flex:1 1 auto; }
+  .tafsir-modal-header .tafsir-multiselect-btn{ max-width:100%; }
+  .tafsir-modal-header .tafsir-multiselect-btn > span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; }
+  .tafsir-modal-body{ overflow-wrap:anywhere; word-break:break-word; max-width:100%; }
+  .tafsir-modal-body img, .tafsir-modal-body table{ max-width:100%; }
+  /* قائمة التفاسير والتراجم: أكبر وتعرض نتائج أكثر */
+  .tafsir-multiselect-panel{
+    min-width:300px; max-width:min(440px, calc(100vw - 40px));
+    max-height:min(560px, 70vh); padding:10px;
+  }
+  .tafsir-ms-option{ padding:10px 10px; font-size:14px; }
+  .tafsir-ms-group-label{ font-size:12px; padding:10px 10px 6px; }
+  .tafsir-ms-option input[type="checkbox"]{ width:17px; height:17px; }
+  /* الشاشات الكبيرة: نافذة أوسع وارتفاع أكبر */
+  @media (min-width:900px){
+    .tafsir-overlay{ padding:24px; }
+    .tafsir-modal{ max-width:min(1000px, 92vw); max-height:90vh; padding:24px 28px; }
+    .tafsir-modal-nav{ bottom:-24px; }
+  }
+  @media (min-width:1400px){
+    .tafsir-modal{ max-width:min(1280px, 90vw); }
+  }
+  /* لو أكثر من مصدر مختار: نعرضهم جنب بعض بدل ما يطلعوا تحت بعض */
+  @media (min-width:1100px){
+    #tafsir-modal-body{
+      display:grid; grid-template-columns:repeat(auto-fit, minmax(380px, 1fr)); gap:0 28px; align-items:start;
+    }
+    #tafsir-modal-body .tafsir-source-block + .tafsir-source-block{ margin-top:0; padding-top:0; border-top:none; }
+  }
+  .tafsir-modal-nav{ padding-bottom:4px; }
+  .tafsir-nav-btn{ min-width:0; }
+  @media (max-width:600px){
+    .tafsir-overlay{ padding:10px 10px calc(10px + env(safe-area-inset-bottom, 0px)); align-items:flex-end; }
+    .tafsir-modal{ max-height:calc(100dvh - 20px - env(safe-area-inset-bottom, 0px)); padding:14px; border-radius:16px; }
+    .tafsir-modal-nav{ bottom:-14px; padding-bottom:calc(4px + env(safe-area-inset-bottom, 0px)); }
+    .tafsir-modal-header{ flex-wrap:wrap; }
+    .tafsir-modal-header > div:first-child{ flex:1 1 100%; order:1; }
+    .tafsir-modal-header .tafsir-collapse-all-btn-modal{ order:2; margin-inline-end:auto; }
+    .tafsir-modal-header .tafsir-modal-close{ order:3; }
+    .tafsir-nav-btn{ font-size:12.5px; padding:9px 8px; }
+  }
   .tafsir-collapse-all-bar .tafsir-collapse-all-btn{ background:var(--surface); }
   @media (max-width:600px){
     .control-group-tafsir{ padding:13px 14px 14px; }
@@ -2097,7 +2139,7 @@
     <div class="tafsir-collapse-all-bar" id="tafsir-collapse-all-bar" style="display:none;">
       <button type="button" class="tafsir-collapse-all-btn" onclick="toggleTafsirAllCollapsed()">
         <svg class="tafsir-collapse-all-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-        <span></span>
+        <span data-i18n="tafsir_collapse_all">اطوِ الكل</span>
       </button>
     </div>
     <div class="ayat-list" id="ayat-list"></div>
@@ -4030,6 +4072,7 @@ function showTafsir(surahId, ayahId, surahName){
   subtitle.textContent = `${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}`;
   overlay.classList.add('open');
   currentTafsirCtx = { surahId, ayahId };
+  renderTafsirCollapseAllButtons();
   loadTafsirContent(surahId, ayahId);
   updateTafsirNavButtons();
 }
@@ -4300,6 +4343,7 @@ function applyInlineTafsirState(){
   if(settingsWrap) settingsWrap.classList.toggle('disabled', isContinuous);
   if(wrap) wrap.classList.toggle('is-disabled', isContinuous);
   if(bar) bar.style.display = (enabled && !isContinuous) ? 'flex' : 'none';
+  renderTafsirCollapseAllButtons();
   if(!list) return;
   list.classList.toggle('show-inline-tafsir', enabled && !isContinuous);
   setupInlineTafsirObserver();
@@ -8599,6 +8643,11 @@ function toggleLanguage(){
   applyLanguage(saved);
 })();
 
+window.addEventListener('DOMContentLoaded', function(){
+  try{ applyLanguage(document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar'); }catch(e){}
+  try{ renderTafsirCollapseAllButtons(); }catch(e){}
+});
+
 function attachSwipeNavigation(){
   const container = document.getElementById('read-view');
   if(!container) return;
@@ -9117,7 +9166,7 @@ if('serviceWorker' in navigator){
         </div>
         <button type="button" class="tafsir-collapse-all-btn tafsir-collapse-all-btn-modal" onclick="toggleTafsirAllCollapsed()">
           <svg class="tafsir-collapse-all-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          <span></span>
+          <span data-i18n="tafsir_collapse_all">اطوِ الكل</span>
         </button>
         <button class="tafsir-modal-close" onclick="closeTafsirModal()" title="إغلاق" data-i18n-title="close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
