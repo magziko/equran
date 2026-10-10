@@ -1184,6 +1184,15 @@
     max-height:min(560px, 70vh); padding:10px;
   }
   .tafsir-ms-option{ padding:10px 10px; font-size:14px; }
+  .tafsir-ms-actions{
+    position:sticky; top:-10px; z-index:1; display:flex; gap:8px; padding:4px 0 8px; margin:-2px 0 2px;
+    background:var(--bg-elev); border-bottom:1px solid var(--border);
+  }
+  .tafsir-ms-actions button{
+    flex:1; padding:7px 8px; border-radius:8px; border:1px solid var(--border);
+    background:transparent; color:var(--text-muted); font-family:inherit; font-size:12.5px; font-weight:700; cursor:pointer;
+  }
+  .tafsir-ms-actions button:hover{ border-color:var(--accent); color:var(--accent-soft); }
   .tafsir-ms-group-label{ font-size:12px; padding:10px 10px 6px; }
   .tafsir-ms-option input[type="checkbox"]{ width:17px; height:17px; }
   /* الشاشات الكبيرة: نافذة أوسع وارتفاع أكبر */
@@ -3992,7 +4001,21 @@ function buildTafsirMultiselectPanelHTML(){
   }
   const tafsirGroup = `<div class="tafsir-ms-group-label">${isEn ? 'Tafsir & Word Meanings' : 'التفسير ومعاني الكلمات'}</div>` + TAFSIR_SOURCES_LIST.map(optionRow).join('');
   const translationGroup = `<div class="tafsir-ms-group-label">${isEn ? 'Translation of Meanings' : 'ترجمة المعاني'}</div>` + TRANSLATION_SOURCES_LIST.map(optionRow).join('');
-  return (isEn ? translationGroup + tafsirGroup : tafsirGroup + translationGroup);
+  const actions = `<div class="tafsir-ms-actions">` +
+    `<button type="button" onclick="selectAllTafsirSources()">${isEn ? 'Select all' : 'تحديد الكل'}</button>` +
+    `<button type="button" onclick="clearTafsirSources()">${isEn ? 'Clear' : 'مسح الكل'}</button>` +
+    `</div>`;
+  return actions + (isEn ? translationGroup + tafsirGroup : tafsirGroup + translationGroup);
+}
+function selectAllTafsirSources(){
+  setSelectedTafsirSlugs(ALL_TAFSIR_SOURCES.map(s => s.slug));
+  renderTafsirMultiselectPanels();
+  syncTafsirSelectionChange();
+}
+function clearTafsirSources(){
+  setSelectedTafsirSlugs([]);
+  renderTafsirMultiselectPanels();
+  syncTafsirSelectionChange();
 }
 
 function renderTafsirMultiselectLabel(){
@@ -4001,10 +4024,17 @@ function renderTafsirMultiselectLabel(){
     const src = getSourceInfo(slug);
     return isEn ? (src.nameEn || src.name) : src.name;
   });
-  const text = names.join('، ');
+  const n = names.length;
+  let text;
+  if(n === 0) text = isEn ? 'Choose sources' : 'اختر مصدرًا';
+  else if(n <= 2) text = names.join('، ');
+  else text = isEn ? `${n} sources selected` : `${n} مصادر مختارة`;
   ['modal', 'settings'].forEach(ctx => {
     const labelEl = document.getElementById(`tafsir-multiselect-label-${ctx}`);
-    if(labelEl) labelEl.textContent = text;
+    if(labelEl){
+      labelEl.textContent = text;
+      labelEl.title = names.join('، ');
+    }
   });
 }
 
@@ -4070,7 +4100,15 @@ function showTafsir(surahId, ayahId, surahName){
   const subtitle = document.getElementById('tafsir-modal-subtitle');
   renderTafsirMultiselectPanels();
   subtitle.textContent = `${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}`;
+  const wasOpen = overlay.classList.contains('open');
   overlay.classList.add('open');
+  // زر الرجوع في الموبايل يقفل النافذة بدل ما يخرج من السورة
+  if(!wasOpen && !tafsirHistoryPushed){
+    try{ history.pushState({ tafsirModal: true }, ''); tafsirHistoryPushed = true; } catch(e){ /* تجاهل */ }
+  }
+  // عند الانتقال لآية جديدة نرجّع التمرير لأول النافذة
+  const modalBox = overlay.querySelector('.tafsir-modal');
+  if(modalBox) modalBox.scrollTop = 0;
   currentTafsirCtx = { surahId, ayahId };
   renderTafsirCollapseAllButtons();
   loadTafsirContent(surahId, ayahId);
@@ -4224,8 +4262,58 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
   tryFetch(0);
 }
 
+let tafsirHistoryPushed = false;
+let tafsirIgnoreNextPop = false;
 function closeTafsirModal(){
   document.getElementById('tafsir-overlay').classList.remove('open');
+  document.querySelectorAll('.tafsir-multiselect-panel.open').forEach(p => p.classList.remove('open'));
+  // لو القفل جه من زر X أو الضغط بره النافذة، نشيل المدخل اللي زرعناه في سجل المتصفح
+  if(tafsirHistoryPushed){
+    tafsirHistoryPushed = false;
+    tafsirIgnoreNextPop = true;
+    setTimeout(function(){ tafsirIgnoreNextPop = false; }, 800);
+    try{ history.back(); } catch(e){ tafsirIgnoreNextPop = false; }
+  }
+}
+// يُسجَّل قبل فخّ الخروج الأساسي، فيلتقط زر الرجوع أولًا ويقفل النافذة فقط
+window.addEventListener('popstate', function(e){
+  if(tafsirIgnoreNextPop){
+    tafsirIgnoreNextPop = false;
+    e.stopImmediatePropagation();
+    return;
+  }
+  const ov = document.getElementById('tafsir-overlay');
+  if(tafsirHistoryPushed && ov && ov.classList.contains('open')){
+    tafsirHistoryPushed = false;
+    closeTafsirModal();
+    e.stopImmediatePropagation();
+  }
+});
+
+// ---------- (2) السحب يمين/يسار داخل النافذة للانتقال بين الآيات ----------
+function attachTafsirSwipe(){
+  const box = document.querySelector('#tafsir-overlay .tafsir-modal');
+  if(!box || box.dataset.swipeBound) return;
+  box.dataset.swipeBound = '1';
+  let sx = 0, sy = 0, st = 0, tracking = false;
+  box.addEventListener('touchstart', function(e){
+    if(e.touches.length !== 1 || e.target.closest('.tafsir-multiselect-wrap, .tafsir-modal-nav, button, input')){ tracking = false; return; }
+    sx = e.touches[0].clientX; sy = e.touches[0].clientY; st = Date.now(); tracking = true;
+  }, { passive: true });
+  box.addEventListener('touchend', function(e){
+    if(!tracking) return;
+    tracking = false;
+    const sel = window.getSelection && window.getSelection();
+    if(sel && String(sel).length > 0) return; // المستخدم بيحدد نص
+    const t0 = e.changedTouches[0];
+    const dx = t0.clientX - sx, dy = t0.clientY - sy;
+    if(Math.abs(dx) < 70 || Math.abs(dx) < Math.abs(dy) * 1.8 || Date.now() - st > 700) return;
+    const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+    // عربي (RTL): سحب لليمين = الآية التالية، لليسار = السابقة. وبالعكس في الإنجليزي
+    const forward = isEn ? dx < 0 : dx > 0;
+    const btn = document.getElementById(forward ? 'tafsir-next-btn' : 'tafsir-prev-btn');
+    if(btn && !btn.disabled) navigateTafsir(forward ? 1 : -1);
+  }, { passive: true });
 }
 
 /* ===================== نافذة الإعدادات المشتركة (تفتح من الفهرس أو من داخل السورة بدون التأثير على موضع القراءة) ===================== */
@@ -8644,6 +8732,7 @@ function toggleLanguage(){
 })();
 
 window.addEventListener('DOMContentLoaded', function(){
+  try{ attachTafsirSwipe(); } catch(e){}
   try{ applyLanguage(document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar'); }catch(e){}
   try{ renderTafsirCollapseAllButtons(); }catch(e){}
 });
