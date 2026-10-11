@@ -11,7 +11,12 @@
 const CACHE_PREFIX = 'quran-app-';
 
 // غيّر الرقم (v6, v7, ...) لما تحب تجبر الأجهزة تعيد تخزين الملفات الأساسية
-const CACHE_NAME = CACHE_PREFIX + 'cache-v5';
+const CACHE_NAME = CACHE_PREFIX + 'cache-v6';
+
+// كاش التفسير والترجمات المحمّلة للأوفلاين.
+// ⚠️ اسمه عمدًا لا يبدأ بـ CACHE_PREFIX، فلا يُحذف عند تغيير رقم الإصدار أعلاه
+// (وإلا كان المستخدم سيفقد كل ما حمّله مع كل تحديث للتطبيق).
+const TAFSIR_CACHE = 'quran-tafsir-offline-v1';
 
 // الأساسي: لازم يتخزن، ولو فشل تخزينه يفشل الـ install كله
 // فتفضل النسخة القديمة الشغالة ولا تتحذف.
@@ -77,6 +82,22 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
+// هل الطلب لملف تفسير/ترجمة (من مصادر jsDelivr أو GitHub المستخدمة في التطبيق)؟
+function isTafsirRequest(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'cdn.jsdelivr.net') {
+      return u.pathname.includes('/gh/spa5k/tafsir_api') ||
+             u.pathname.includes('/gh/fawazahmed0/quran-api');
+    }
+    if (u.hostname === 'raw.githubusercontent.com') {
+      return u.pathname.startsWith('/spa5k/tafsir_api/') ||
+             u.pathname.startsWith('/fawazahmed0/quran-api/');
+    }
+  } catch (e) { /* تجاهل */ }
+  return false;
+}
+
 // ── الجلب: الكاش أولًا (يشتغل فورًا أوفلاين) + تحديث في الخلفية ──
 self.addEventListener('fetch', (event) => {
   const req = event.request;
@@ -89,8 +110,47 @@ self.addEventListener('fetch', (event) => {
   // حالة خاصة معروفة في أدوات المطوّر
   if (req.cache === 'only-if-cached' && req.mode !== 'same-origin') return;
 
+  // التفسير والترجمات: من كاش الأوفلاين أولًا (محتواها ثابت)، وإلا من الشبكة مع تخزينها
+  if (isTafsirRequest(req.url)) {
+    event.respondWith(handleTafsirFetch(event, req));
+    return;
+  }
+
   event.respondWith(handleFetch(event, req));
 });
+
+async function handleTafsirFetch(event, req) {
+  const cache = await caches.open(TAFSIR_CACHE);
+  const hit = await cache.match(req, { ignoreVary: true });
+  if (hit) return hit;
+  try {
+    const res = await fetch(req);
+    if (res && res.status === 200 && (res.type === 'cors' || res.type === 'basic')) {
+      event.waitUntil(cache.put(req, res.clone()).catch(() => {}));
+    }
+    return res;
+  } catch (err) {
+    return new Response('', { status: 408, statusText: 'Offline' });
+  }
+}
+
+// نقارن محتوى النسختين (بالـ SHA-256) لنعرف هل نزلت نسخة جديدة من الصفحة فعلًا
+async function sameBody(a, b) {
+  const [ba, bb] = await Promise.all([a.arrayBuffer(), b.arrayBuffer()]);
+  if (ba.byteLength !== bb.byteLength) return false;
+  const [da, db] = await Promise.all([
+    crypto.subtle.digest('SHA-256', ba),
+    crypto.subtle.digest('SHA-256', bb)
+  ]);
+  const x = new Uint8Array(da), y = new Uint8Array(db);
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false;
+  return true;
+}
+
+async function notifyClients(message) {
+  const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  all.forEach((c) => c.postMessage(message));
+}
 
 async function handleFetch(event, req) {
   const cache = await caches.open(CACHE_NAME);
@@ -102,12 +162,25 @@ async function handleFetch(event, req) {
     cached = await cache.match(req, { ignoreSearch: true });
   }
 
+  // نسخة من الرد المخزّن للمقارنة (لازم نأخدها قبل ما الصفحة تستهلك الرد الأصلي)
+  const cachedForCompare = (isNavigation && cached) ? cached.clone() : null;
+
   let cachePut = Promise.resolve();
   const network = fetch(req).then((res) => {
     // نخزّن النسخة الجديدة لو الطلب نجح (ما نخزّنش الردود المعاد توجيهها)
     if (res && res.status === 200 && !res.redirected &&
         (res.type === 'basic' || res.type === 'cors')) {
-      cachePut = cache.put(req, res.clone()).catch(() => {});
+      const forStore = res.clone();
+      const forCompare = cachedForCompare ? res.clone() : null;
+      cachePut = (async () => {
+        let changed = false;
+        if (forCompare) {
+          try { changed = !(await sameBody(cachedForCompare, forCompare)); } catch (e) { /* تجاهل */ }
+        }
+        await cache.put(req, forStore).catch(() => {});
+        // بعد ما النسخة الجديدة اتخزّنت، نبلّغ الصفحة لتعرض "يوجد تحديث"
+        if (changed) await notifyClients({ type: 'UPDATE_READY' });
+      })();
     }
     return res;
   });
