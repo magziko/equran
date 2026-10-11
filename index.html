@@ -1281,6 +1281,24 @@
     padding:7px 14px; border-radius:10px; border:none; background:var(--accent); color:#fff;
     font-family:inherit; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap;
   }
+  /* نافذة اختيار نطاق الآيات للمشاركة */
+  .share-range-controls{ display:flex; gap:10px; margin-bottom:10px; }
+  .share-range-controls label{ flex:1; display:flex; flex-direction:column; gap:4px; font-size:12.5px; color:var(--text-muted); }
+  .share-range-controls select{ width:100%; }
+  .share-range-quick{ display:flex; gap:8px; margin-bottom:10px; }
+  .share-range-quick .offline-dl-btn{ flex:1; }
+  .share-range-preview{
+    max-height:34vh; overflow-y:auto; padding:10px 12px; border:1px solid var(--border); border-radius:12px;
+    background:var(--surface); direction:rtl; text-align:right; margin-bottom:8px;
+  }
+  .share-pv-row{ padding:2px 0; opacity:.78; }
+  .share-pv-row.anchor{ opacity:1; }
+  .share-pv-text{ font-size:22px !important; line-height:2.1; }
+  .share-pv-num{ color:var(--accent-soft); font-size:15px; white-space:nowrap; }
+  .share-range-note{ min-height:20px; font-size:12.5px; line-height:1.7; color:var(--text-muted); margin-bottom:8px; }
+  .share-range-note.err{ color:#e0707a; }
+  .share-range-actions{ display:flex; gap:8px; margin-top:12px; }
+  .share-range-actions .primary{ flex:1; }
   .ready-toast{ border-color:#3fb27f; }
   .ready-sub{ display:block; margin-top:3px; font-size:12px; font-weight:500; color:var(--text-muted); line-height:1.6; }
   .update-toast-close{ border:none; background:transparent; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1; padding:0 4px; }
@@ -3625,13 +3643,21 @@ function truncateLinesWithEllipsis(ctx, lines, maxLines, maxWidth){
   return out;
 }
 
-async function shareAyahAsImage(surahId, ayahId, surahName){
+async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
   const surah = QURAN.find(s => s.id === surahId);
-  const verse = surah && surah.verses.find(v => v.id === ayahId);
-  if(!surah || !verse) return;
-  const text = verse.text;
+  if(!surah) return;
+  const verses = surah.verses.filter(v => v.id >= fromAyah && v.id <= toAyah);
+  if(!verses.length) return;
+  const isRange = verses.length > 1;
+  const ayahId = fromAyah;
+  const text = isRange
+    ? verses.map(v => `${v.text} ﴿${toArabicDigits(v.id)}﴾`).join(' ')
+    : verses[0].text;
   const quranFontName = getQuranFontFamilyForCanvas();
   const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  const refLabel = isRange
+    ? `${t('surah_word')} ${surahName} — ${isEn ? 'Ayahs' : 'الآيات'} ${fromAyah}–${toAyah}`
+    : `${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}`;
 
   // نجيب التفسير/الترجمة المختار (لو الخيار مفعّل) بالتوازي، وأي مصدر يفشل نتجاهله بهدوء
   const slugs = isShareImageTafsirEnabled() ? getSelectedTafsirSlugs() : [];
@@ -3639,14 +3665,23 @@ async function shareAyahAsImage(surahId, ayahId, surahName){
   if(slugs.length){
     const toastTimer = setTimeout(showShareImageToast, 450);
     try{
-      const results = await Promise.all(slugs.map(slug =>
-        shareWithTimeout(fetchTafsirTextForShare(slug, surahId, ayahId), 10000)
-          .then(raw => {
-            const info = getSourceInfo(slug);
-            return { label: isEn ? (info.nameEn || info.name) : info.name, text: tafsirHtmlToPlainText(raw) };
-          })
-          .catch(() => null)
-      ));
+      const results = await Promise.all(slugs.map(async slug => {
+        const info = getSourceInfo(slug);
+        const label = isEn ? (info.nameEn || info.name) : info.name;
+        try{
+          const parts = await Promise.all(verses.map(v =>
+            shareWithTimeout(fetchTafsirTextForShare(slug, surahId, v.id), 10000)
+              .then(raw => ({ id: v.id, txt: tafsirHtmlToPlainText(raw) }))
+              .catch(() => ({ id: v.id, txt: '' }))
+          ));
+          // مصادر كثيرة تعيد نفس الشرح لمجموعة آيات: نحذف المكرر المتتالي
+          let prev = '';
+          const merged = parts.filter(x => x.txt && x.txt !== prev && (prev = x.txt, true))
+            .map(x => isRange ? `(${isEn ? x.id : toArabicDigits(x.id)}) ${x.txt}` : x.txt)
+            .join(' ');
+          return { label, text: merged };
+        } catch(e){ return null; }
+      }));
       extras = results.filter(r => r && r.text);
     } finally {
       clearTimeout(toastTimer);
@@ -3671,7 +3706,7 @@ async function shareAyahAsImage(surahId, ayahId, surahName){
   scratch.direction = 'rtl';
 
   // ---- قياس نص الآية، مع تصغير الخط تلقائيًا لو طويل عشان يتظبط في المساحة المتاحة ----
-  const ayahMaxBlockH = extras.length ? 500 : 560;
+  const ayahMaxBlockH = isRange ? (extras.length ? 760 : 1100) : (extras.length ? 500 : 560);
   let fontSize = 58;
   let lines = [];
   do{
@@ -3730,6 +3765,9 @@ async function shareAyahAsImage(surahId, ayahId, surahName){
   if(used.length){
     const real = used.reduce((sum, b) => sum + BLOCK_GAP + HEADING_H + b.lines.length * b.lh + BLOCK_PAD_BOTTOM, 0);
     H = Math.min(MAX_H, Math.max(MIN_H, Math.ceil(extrasStartY + real + BOTTOM_RESERVE)));
+  } else {
+    // نص آيات طويل بدون تفسير: نكبّر ارتفاع الصورة بدل أن يخرج النص عن الإطار
+    H = Math.min(MAX_H, Math.max(MIN_H, Math.ceil(topY + totalTextHeight + 330)));
   }
 
   const canvas = document.createElement('canvas');
@@ -3778,7 +3816,7 @@ async function shareAyahAsImage(surahId, ayahId, surahName){
   // اسم السورة ورقم الآية
   ctx.font = `600 30px "Cairo"`;
   ctx.fillStyle = '#d4af5a';
-  ctx.fillText(`${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}`, W / 2, sepY + labelOffset);
+  ctx.fillText(refLabel, W / 2, sepY + labelOffset);
 
   // بلوكات التفسير/الترجمة
   if(used.length){
@@ -3820,12 +3858,12 @@ async function shareAyahAsImage(surahId, ayahId, surahName){
 
   canvas.toBlob(async (blob) => {
     if(!blob) return;
-    const fileName = `ayah-${surahId}-${ayahId}.png`;
+    const fileName = isRange ? `ayah-${surahId}-${fromAyah}-${toAyah}.png` : `ayah-${surahId}-${ayahId}.png`;
     let file = null;
     try{ file = new File([blob], fileName, { type: 'image/png' }); }catch(e){}
     if(file && navigator.canShare && navigator.canShare({ files: [file] })){
       try{
-        await navigator.share({ files: [file], title: `${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}` });
+        await navigator.share({ files: [file], title: refLabel });
         return;
       }catch(e){
         if(e && e.name === 'AbortError') return; // المستخدم ألغى المشاركة بنفسه
@@ -5011,6 +5049,128 @@ if('serviceWorker' in navigator){
   });
 }
 
+
+// ---------- مشاركة آية كصورة مع إمكانية إضافة الآيات المرتبطة بها (قبل/بعد) ----------
+const SHARE_RANGE_MAX_AYAT = 10;
+const SHARE_RANGE_MAX_CHARS = 1400;
+let shareRangeCtx = null; // { surahId, surahName, from, to, total, anchor }
+function toArabicDigits(n){ return String(n).replace(/\d/g, d => '٠١٢٣٤٥٦٧٨٩'[d]); }
+
+// نقطة الدخول القديمة (من قائمة الآية): تفتح نافذة اختيار النطاق
+function shareAyahAsImage(surahId, ayahId, surahName){
+  openShareRangeDialog(surahId, ayahId, surahName);
+}
+function openShareRangeDialog(surahId, ayahId, surahName){
+  const surah = QURAN.find(x => x.id === surahId);
+  if(!surah) return;
+  shareRangeCtx = { surahId, surahName, from: ayahId, to: ayahId, total: surah.total_verses, anchor: ayahId };
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  const set = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
+  set('share-range-title', offT('مشاركة كصورة', 'Share as image'));
+  set('share-range-from-label', offT('من آية', 'From ayah'));
+  set('share-range-to-label', offT('إلى آية', 'To ayah'));
+  set('share-range-prev-btn', offT('+ الآية السابقة', '+ Previous ayah'));
+  set('share-range-next-btn', offT('+ الآية التالية', '+ Next ayah'));
+  set('share-range-tafsir-label', offT('تضمين التفسير/الترجمة المختار', 'Include the selected tafsir/translation'));
+  set('share-range-go', offT('إنشاء الصورة ومشاركتها', 'Create & share image'));
+  set('share-range-cancel', offT('إلغاء', 'Cancel'));
+  const opts = Array.from({ length: surah.total_verses }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
+  document.getElementById('share-range-from').innerHTML = opts;
+  document.getElementById('share-range-to').innerHTML = opts;
+  const tafsirChk = document.getElementById('share-range-tafsir');
+  if(tafsirChk) tafsirChk.checked = isShareImageTafsirEnabled();
+  document.getElementById('share-range-overlay').classList.add('open');
+  renderShareRange();
+  requestAnimationFrame(() => {
+    const go = document.getElementById('share-range-go');
+    if(go) go.focus();
+  });
+}
+function closeShareRangeDialog(){
+  const ov = document.getElementById('share-range-overlay');
+  if(ov) ov.classList.remove('open');
+}
+function shareRangeVerses(){
+  const c = shareRangeCtx;
+  const surah = c && QURAN.find(x => x.id === c.surahId);
+  return surah ? surah.verses.filter(v => v.id >= c.from && v.id <= c.to) : [];
+}
+function renderShareRange(){
+  const c = shareRangeCtx;
+  if(!c) return;
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  document.getElementById('share-range-from').value = String(c.from);
+  document.getElementById('share-range-to').value = String(c.to);
+  const verses = shareRangeVerses();
+  const box = document.getElementById('share-range-preview');
+  box.textContent = '';
+  verses.forEach(v => {
+    const row = document.createElement('div');
+    row.className = 'share-pv-row' + (v.id === c.anchor ? ' anchor' : '');
+    const txt = document.createElement('span');
+    txt.className = 'ayah-text share-pv-text';
+    txt.textContent = v.text + ' ';
+    const num = document.createElement('span');
+    num.className = 'share-pv-num';
+    num.textContent = `﴿${toArabicDigits(v.id)}﴾`;
+    row.appendChild(txt); row.appendChild(num);
+    box.appendChild(row);
+  });
+  const chars = verses.reduce((a, v) => a + v.text.length, 0);
+  const tooLong = chars > SHARE_RANGE_MAX_CHARS;
+  const note = document.getElementById('share-range-note');
+  const anchorVerse = QURAN.find(x => x.id === c.surahId).verses.find(v => v.id === c.anchor);
+  if(tooLong){
+    note.className = 'share-range-note err';
+    note.textContent = offT('النص طويل جدًا لصورة واحدة، قلّل عدد الآيات.', 'The text is too long for one image — select fewer ayahs.');
+  } else if(verses.length === 1 && anchorVerse && anchorVerse.text.length < 45){
+    note.className = 'share-range-note';
+    note.textContent = offT('هذه آية قصيرة، وقد يكتمل معناها بما قبلها أو بعدها — أضِف ما تحتاجه من الأزرار أعلاه.', 'This is a short ayah; its meaning may continue from the previous or next one — add them with the buttons above.');
+  } else if(verses.length >= SHARE_RANGE_MAX_AYAT){
+    note.className = 'share-range-note';
+    note.textContent = offT(`الحد الأقصى ${SHARE_RANGE_MAX_AYAT} آيات في الصورة الواحدة.`, `Up to ${SHARE_RANGE_MAX_AYAT} ayahs per image.`);
+  } else {
+    note.className = 'share-range-note';
+    note.textContent = '';
+  }
+  const span = c.to - c.from + 1;
+  document.getElementById('share-range-prev-btn').disabled = c.from <= 1 || span >= SHARE_RANGE_MAX_AYAT;
+  document.getElementById('share-range-next-btn').disabled = c.to >= c.total || span >= SHARE_RANGE_MAX_AYAT;
+  document.getElementById('share-range-go').disabled = tooLong;
+}
+function onShareRangeChange(which){
+  const c = shareRangeCtx;
+  if(!c) return;
+  let from = parseInt(document.getElementById('share-range-from').value, 10) || c.from;
+  let to = parseInt(document.getElementById('share-range-to').value, 10) || c.to;
+  if(from > to){ if(which === 'from') to = from; else from = to; }
+  if(to - from + 1 > SHARE_RANGE_MAX_AYAT){
+    if(which === 'from') to = from + SHARE_RANGE_MAX_AYAT - 1; else from = to - SHARE_RANGE_MAX_AYAT + 1;
+  }
+  c.from = Math.max(1, from); c.to = Math.min(c.total, to);
+  renderShareRange();
+}
+function extendShareRange(dir){
+  const c = shareRangeCtx;
+  if(!c || (c.to - c.from + 1) >= SHARE_RANGE_MAX_AYAT) return;
+  if(dir < 0 && c.from > 1) c.from--;
+  else if(dir > 0 && c.to < c.total) c.to++;
+  renderShareRange();
+}
+function confirmShareRange(){
+  const c = shareRangeCtx;
+  if(!c) return;
+  const chk = document.getElementById('share-range-tafsir');
+  if(chk){
+    toggleShareImageTafsir(chk.checked);
+    const settingsChk = document.getElementById('share-image-tafsir-toggle');
+    if(settingsChk) settingsChk.checked = chk.checked;
+  }
+  const { surahId, surahName, from, to } = c;
+  closeShareRangeDialog();
+  generateAyahImage(surahId, from, to, surahName);
+}
+
 // ---------- (2) السحب يمين/يسار داخل النافذة للانتقال بين الآيات ----------
 function attachTafsirSwipe(){
   const box = document.querySelector('#tafsir-overlay .tafsir-modal');
@@ -5071,7 +5231,7 @@ function getFocusableElements(container){
 function attachModalFocusTrap(){
   document.addEventListener('keydown', function(e){
     if(e.key !== 'Tab') return;
-    const modalIds = ['settings-overlay', 'shortcuts-overlay', 'tafsir-overlay'];
+    const modalIds = ['settings-overlay', 'shortcuts-overlay', 'share-range-overlay', 'tafsir-overlay'];
     const openOverlayId = modalIds.find(id => {
       const el = document.getElementById(id);
       return el && el.classList.contains('open');
@@ -9559,6 +9719,12 @@ function attachDisplayModeShortcuts(){
 
     // زر Esc يقفل مودال الإعدادات أو مودال الاختصارات لو مفتوحين
     if(e.key === 'Escape' || e.key === 'Esc'){
+      const shareRangeOverlay = document.getElementById('share-range-overlay');
+      if(shareRangeOverlay && shareRangeOverlay.classList.contains('open')){
+        e.preventDefault();
+        closeShareRangeDialog();
+        return;
+      }
       const shortcutsOverlay = document.getElementById('shortcuts-overlay');
       if(shortcutsOverlay && shortcutsOverlay.classList.contains('open')){
         e.preventDefault();
@@ -10031,6 +10197,37 @@ if('serviceWorker' in navigator){
           <span data-i18n="next_ayah">الآية التالية</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-overlay" id="share-range-overlay" onclick="if(event.target===this) closeShareRangeDialog()">
+    <div class="settings-modal share-range-modal" role="dialog" aria-modal="true" aria-labelledby="share-range-title">
+      <div class="settings-modal-header">
+        <span class="settings-modal-title" id="share-range-title">مشاركة كصورة</span>
+        <button type="button" class="settings-modal-close" onclick="closeShareRangeDialog()" aria-label="إغلاق" title="إغلاق">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="share-range-controls">
+        <label><span id="share-range-from-label">من آية</span>
+          <select id="share-range-from" class="font-select" onchange="onShareRangeChange('from')"></select></label>
+        <label><span id="share-range-to-label">إلى آية</span>
+          <select id="share-range-to" class="font-select" onchange="onShareRangeChange('to')"></select></label>
+      </div>
+      <div class="share-range-quick">
+        <button type="button" class="offline-dl-btn" id="share-range-prev-btn" onclick="extendShareRange(-1)">+ الآية السابقة</button>
+        <button type="button" class="offline-dl-btn" id="share-range-next-btn" onclick="extendShareRange(1)">+ الآية التالية</button>
+      </div>
+      <div class="share-range-preview" id="share-range-preview"></div>
+      <div class="share-range-note" id="share-range-note" role="status" aria-live="polite"></div>
+      <label class="test-mode-toggle-row">
+        <input type="checkbox" id="share-range-tafsir">
+        <span id="share-range-tafsir-label">تضمين التفسير/الترجمة المختار</span>
+      </label>
+      <div class="share-range-actions">
+        <button type="button" class="offline-dl-btn primary" id="share-range-go" onclick="confirmShareRange()">إنشاء الصورة ومشاركتها</button>
+        <button type="button" class="offline-dl-btn" id="share-range-cancel" onclick="closeShareRangeDialog()">إلغاء</button>
       </div>
     </div>
   </div>
