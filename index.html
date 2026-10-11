@@ -1250,6 +1250,40 @@
   @media (min-width:1100px){
     #tafsir-modal-body .tafsir-modal-body{ max-width:72ch; margin-inline:auto; }
   }
+  /* قسم التحميل للأوفلاين في الإعدادات */
+  .offline-dl-group{ width:100%; gap:8px; padding-top:12px; border-top:1px solid var(--border); }
+  .offline-dl-row{ display:flex; gap:8px; width:100%; align-items:center; flex-wrap:wrap; }
+  .offline-dl-row select{ flex:1 1 180px; min-width:0; }
+  .offline-dl-btn{
+    padding:9px 14px; border-radius:10px; border:1px solid var(--border); background:transparent;
+    color:var(--text); font-family:inherit; font-size:13px; font-weight:700; cursor:pointer;
+  }
+  .offline-dl-btn:hover{ border-color:var(--accent); color:var(--accent-soft); }
+  .offline-dl-btn.primary{ background:var(--accent); border-color:var(--accent); color:#fff; }
+  .offline-dl-btn.primary:hover{ color:#fff; filter:brightness(1.08); }
+  .offline-dl-btn.danger{ color:#e0707a; border-color:rgba(224,112,122,.45); }
+  .offline-dl-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .offline-dl-info{ font-size:12.5px; color:var(--text-muted); line-height:1.7; width:100%; }
+  .offline-dl-info.small{ font-size:11.5px; opacity:.85; }
+  .offline-dl-info.ok{ color:#3fb27f; }
+  .offline-dl-info.err{ color:#e0707a; }
+  #offline-dl-progress{ width:100%; height:8px; accent-color:var(--accent); }
+  /* تنبيه "يوجد تحديث" */
+  .update-toast{
+    position:fixed; left:50%; bottom:22px; transform:translate(-50%, 24px); z-index:100000;
+    display:none; align-items:center; gap:10px; max-width:calc(100vw - 24px);
+    padding:10px 12px 10px 16px; border-radius:14px; background:var(--bg-elev); color:var(--text);
+    border:1px solid var(--accent); box-shadow:0 10px 30px rgba(0,0,0,.35); font-size:14px; font-weight:700;
+    opacity:0; transition:opacity .25s ease, transform .25s ease;
+  }
+  .update-toast.show{ display:flex; opacity:1; transform:translate(-50%, 0); }
+  .update-toast-btn{
+    padding:7px 14px; border-radius:10px; border:none; background:var(--accent); color:#fff;
+    font-family:inherit; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap;
+  }
+  .ready-toast{ border-color:#3fb27f; }
+  .ready-sub{ display:block; margin-top:3px; font-size:12px; font-weight:500; color:var(--text-muted); line-height:1.6; }
+  .update-toast-close{ border:none; background:transparent; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1; padding:0 4px; }
   .tafsir-font-ctrl{ display:flex; gap:4px; flex-shrink:0; }
   .tafsir-font-ctrl button{
     width:30px; height:30px; border-radius:9px; border:1px solid var(--border);
@@ -1979,6 +2013,18 @@
 </head>
 <body>
 
+<div class="update-toast ready-toast" id="ready-toast" role="status" aria-live="polite">
+  <span>
+    <span id="ready-toast-text">✓ التطبيق جاهز للعمل بدون إنترنت</span>
+    <small class="ready-sub" id="ready-toast-sub">التفسير والترجمات: حمّلها من الإعدادات لتعمل بدون إنترنت أيضًا.</small>
+  </span>
+  <button type="button" class="update-toast-close" onclick="hideReadyToast()" aria-label="إغلاق">×</button>
+</div>
+<div class="update-toast" id="update-toast" role="status" aria-live="polite">
+  <span id="update-toast-text">يوجد تحديث جديد للتطبيق</span>
+  <button type="button" class="update-toast-btn" id="update-toast-btn" onclick="applyAppUpdate()">تحديث الآن</button>
+  <button type="button" class="update-toast-close" onclick="hideUpdateToast()" aria-label="إغلاق">×</button>
+</div>
 <div class="offline-banner" id="offline-banner" role="status" aria-live="polite">
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"/><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/><path d="M10.71 5.05A16 16 0 0 1 22.58 9"/><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
   <span id="offline-banner-text" data-i18n="offline_banner_text">لا يوجد اتصال بالإنترنت — بعض الميزات (التفسير، الترجمة، تحميل الصفحات) لن تعمل حاليًا.</span>
@@ -4132,6 +4178,7 @@ function onTafsirMultiselectToggle(checkboxEl){
 }
 
 function syncTafsirSelectionChange(){
+  if(typeof refreshOfflineTafsirStatus === 'function') refreshOfflineTafsirStatus();
   if(currentTafsirCtx) loadTafsirContent(currentTafsirCtx.surahId, currentTafsirCtx.ayahId);
   refreshVisibleInlineTafsir();
 }
@@ -4708,6 +4755,262 @@ function attachTafsirSearchInput(){
   });
 }
 
+
+// ---------- تحميل التفسير والترجمات للأوفلاين ----------
+// يخزّن ملفات التفسير في كاش مستقل (نفس اسمه في sw.js) لا يُحذف عند تحديث التطبيق.
+const OFFLINE_TAFSIR_CACHE = 'quran-tafsir-offline-v1';
+let offlineDlRunning = false;
+let offlineDlCancel = false;
+function offT(ar, en){ return document.documentElement.getAttribute('data-lang') === 'en' ? en : ar; }
+function buildTafsirUrls(slug, surahId, ayahId){
+  const info = getSourceInfo(slug);
+  return info.type === 'translation'
+    ? [
+        `https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${slug}/${surahId}/${ayahId}.json`,
+        `https://raw.githubusercontent.com/fawazahmed0/quran-api/1/editions/${slug}/${surahId}/${ayahId}.json`
+      ]
+    : [
+        `https://cdn.jsdelivr.net/gh/spa5k/tafsir_api@main/tafsir/${slug}/${surahId}/${ayahId}.json`,
+        `https://raw.githubusercontent.com/spa5k/tafsir_api/main/tafsir/${slug}/${surahId}/${ayahId}.json`
+      ];
+}
+function getOfflineDoneMap(){
+  try{ const m = JSON.parse(localStorage.getItem('tafsirOfflineDone') || '{}'); return (m && typeof m === 'object') ? m : {}; } catch(e){ return {}; }
+}
+function markOfflineDone(slug, surahId){
+  const m = getOfflineDoneMap();
+  m[slug + '|' + surahId] = Date.now();
+  try{ localStorage.setItem('tafsirOfflineDone', JSON.stringify(m)); } catch(e){}
+}
+function offlineSelectedSurahs(){
+  const sel = document.getElementById('offline-surah-select');
+  const v = sel ? sel.value : 'current';
+  if(v === 'all') return QURAN_DATA.slice();
+  if(v === 'current') return currentSurahId ? QURAN_DATA.filter(x => x.id === currentSurahId) : [];
+  const n = parseInt(v, 10);
+  return QURAN_DATA.filter(x => x.id === n);
+}
+function setOfflineStatus(text, cls){
+  const el = document.getElementById('offline-dl-status');
+  if(!el) return;
+  el.textContent = text || '';
+  el.className = 'offline-dl-info' + (cls ? ' ' + cls : '');
+}
+function fillOfflineSurahSelect(){
+  const sel = document.getElementById('offline-surah-select');
+  if(!sel) return;
+  const lang = document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar';
+  if(sel.dataset.lang === lang && sel.options.length) return;
+  const keep = sel.value || 'current';
+  const isEn = lang === 'en';
+  let html = `<option value="current">${isEn ? 'Currently open surah' : 'السورة المفتوحة حاليًا'}</option>`;
+  QURAN_DATA.forEach(x => {
+    html += `<option value="${x.id}">${x.id}. ${isEn ? (x.transliteration || x.name) : x.name}</option>`;
+  });
+  html += `<option value="all">${isEn ? 'The whole Quran (large download)' : 'القرآن كله (حجم كبير)'}</option>`;
+  sel.innerHTML = html;
+  sel.dataset.lang = lang;
+  sel.value = keep;
+}
+function refreshOfflineTafsirStatus(){
+  if(!document.getElementById('offline-surah-select')) return;
+  fillOfflineSurahSelect();
+  const t1 = document.getElementById('offline-dl-title');
+  if(t1) t1.textContent = offT('التحميل للأوفلاين (التفسير والترجمات)', 'Offline download (tafsir & translations)');
+  const startBtn = document.getElementById('offline-dl-start');
+  if(startBtn) startBtn.textContent = offT('تحميل', 'Download');
+  const cancelBtn = document.getElementById('offline-dl-cancel');
+  if(cancelBtn) cancelBtn.textContent = offT('إيقاف', 'Stop');
+  const clearBtn = document.getElementById('offline-dl-clear');
+  if(clearBtn) clearBtn.textContent = offT('حذف التفسير المحمّل', 'Delete downloaded tafsir');
+
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  const slugs = getSelectedTafsirSlugs();
+  const srcEl = document.getElementById('offline-dl-sources');
+  if(srcEl){
+    if(!slugs.length) srcEl.textContent = offT('اختر مصدرًا واحدًا على الأقل من "مصدر التفسير/الترجمة" أعلاه.', 'Pick at least one source above.');
+    else srcEl.textContent = offT('المصادر التي ستُحمَّل: ', 'Sources to download: ') +
+      slugs.map(sl => { const i = getSourceInfo(sl); return isEn ? (i.nameEn || i.name) : i.name; }).join(isEn ? ', ' : '، ');
+  }
+  if(!offlineDlRunning){
+    const surahs = offlineSelectedSurahs();
+    const done = getOfflineDoneMap();
+    if(slugs.length && surahs.length){
+      let ok = 0;
+      surahs.forEach(x => slugs.forEach(sl => { if(done[sl + '|' + x.id]) ok++; }));
+      const all = surahs.length * slugs.length;
+      if(ok === all) setOfflineStatus(offT('✓ محمّلة بالكامل وتعمل بدون إنترنت', '✓ Fully downloaded — works offline'), 'ok');
+      else if(ok > 0) setOfflineStatus(offT(`محمّل ${ok} من ${all} (سورة × مصدر)`, `Downloaded ${ok} of ${all} (surah × source)`));
+      else setOfflineStatus('');
+    } else setOfflineStatus('');
+  }
+  refreshOfflineStorageInfo();
+}
+async function refreshOfflineStorageInfo(){
+  const el = document.getElementById('offline-dl-storage');
+  if(!el) return;
+  try{
+    if(!navigator.storage || !navigator.storage.estimate){ el.textContent = ''; return; }
+    const est = await navigator.storage.estimate();
+    const mb = n => (n / 1048576).toFixed(n > 10485760 ? 0 : 1);
+    el.textContent = offT(`المساحة التي يستخدمها الموقع على جهازك: ${mb(est.usage || 0)} م.ب`, `Storage used by this site: ${mb(est.usage || 0)} MB`);
+  } catch(e){ el.textContent = ''; }
+}
+async function downloadOneTafsir(cache, job){
+  const urls = buildTafsirUrls(job.slug, job.surahId, job.ayahId);
+  // لو أي رابط من الروابط البديلة محمّل سابقًا، فلا داعي لإعادة التنزيل
+  for(const url of urls){
+    try{ if(await cache.match(url, { ignoreVary: true })) return true; } catch(e){}
+  }
+  for(let attempt = 0; attempt < 2 && !offlineDlCancel; attempt++){
+    for(const url of urls){
+      try{
+        if(await cache.match(url, { ignoreVary: true })) return true;
+        const res = await fetch(url);
+        // 404 = المصدر لا يحتوي هذه الآية (مثل أسباب النزول): نخزّن الرد كما هو ونعدّه نجاحًا
+        if(res && (res.ok || res.status === 404)){ await cache.put(url, res.clone()); return true; }
+      } catch(e){ /* نجرّب الرابط التالي */ }
+    }
+    await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+  }
+  return false;
+}
+async function startOfflineTafsirDownload(){
+  if(offlineDlRunning) return;
+  if(!('caches' in window)){ setOfflineStatus(offT('المتصفح لا يدعم التخزين للأوفلاين.', 'This browser does not support offline storage.'), 'err'); return; }
+  const slugs = getSelectedTafsirSlugs();
+  if(!slugs.length){ setOfflineStatus(offT('اختر مصدرًا واحدًا على الأقل أولًا.', 'Pick at least one source first.'), 'err'); return; }
+  const surahs = offlineSelectedSurahs();
+  if(!surahs.length){ setOfflineStatus(offT('افتح سورة أولًا أو اختر سورة من القائمة.', 'Open a surah first or choose one from the list.'), 'err'); return; }
+  if(!navigator.onLine){ setOfflineStatus(offT('لا يوجد اتصال بالإنترنت الآن.', 'You are offline right now.'), 'err'); return; }
+  const total = surahs.reduce((a, x) => a + x.total_verses, 0) * slugs.length;
+  const isAll = surahs.length > 1;
+  if(isAll && !confirm(offT(`سيتم تنزيل نحو ${total.toLocaleString('ar-EG')} ملفًا صغيرًا. قد يستغرق وقتًا ويستهلك بيانات ومساحة. متابعة؟`, `About ${total.toLocaleString()} small files will be downloaded. It may take a while and use data and storage. Continue?`))) return;
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
+
+  offlineDlRunning = true; offlineDlCancel = false;
+  const startBtn = document.getElementById('offline-dl-start');
+  const cancelBtn = document.getElementById('offline-dl-cancel');
+  const bar = document.getElementById('offline-dl-progress');
+  if(startBtn) startBtn.disabled = true;
+  if(cancelBtn) cancelBtn.style.display = '';
+  if(bar){ bar.style.display = ''; bar.max = total; bar.value = 0; }
+
+  const cache = await caches.open(OFFLINE_TAFSIR_CACHE);
+  const jobs = [];
+  const remaining = {};
+  const failedKeys = new Set();
+  surahs.forEach(x => slugs.forEach(sl => {
+    remaining[sl + '|' + x.id] = x.total_verses;
+    for(let a = 1; a <= x.total_verses; a++) jobs.push({ slug: sl, surahId: x.id, ayahId: a });
+  }));
+  let finished = 0, failed = 0, lastPaint = 0;
+  function paint(force){
+    const now = Date.now();
+    if(!force && now - lastPaint < 120) return;
+    lastPaint = now;
+    if(bar) bar.value = finished;
+    setOfflineStatus(offT(`جارٍ التحميل… ${finished} / ${total}`, `Downloading… ${finished} / ${total}`));
+  }
+  async function worker(){
+    while(!offlineDlCancel){
+      const job = jobs.shift();
+      if(!job) return;
+      const key = job.slug + '|' + job.surahId;
+      const ok = await downloadOneTafsir(cache, job);
+      if(!ok){ failed++; failedKeys.add(key); }
+      finished++;
+      if(--remaining[key] === 0 && !failedKeys.has(key)) markOfflineDone(job.slug, job.surahId);
+      paint(false);
+    }
+  }
+  await Promise.all(Array.from({ length: 6 }, worker));
+
+  const cancelled = offlineDlCancel;
+  offlineDlRunning = false; offlineDlCancel = false;
+  if(startBtn) startBtn.disabled = false;
+  if(cancelBtn) cancelBtn.style.display = 'none';
+  if(bar){ bar.value = finished; setTimeout(() => { if(!offlineDlRunning) bar.style.display = 'none'; }, 1200); }
+  if(cancelled) setOfflineStatus(offT('تم الإيقاف. ما تم تحميله حتى الآن محفوظ ويعمل أوفلاين.', 'Stopped. What was downloaded so far is saved and works offline.'));
+  else if(failed) setOfflineStatus(offT(`اكتمل مع تعذّر ${failed} ملف. تأكد من الاتصال واضغط "تحميل" لإكمال الناقص.`, `Finished, but ${failed} files failed. Check your connection and press Download to retry.`), 'err');
+  else setOfflineStatus(offT('✓ اكتمل التحميل — التفسير متاح الآن بدون إنترنت.', '✓ Done — tafsir is now available offline.'), 'ok');
+  refreshOfflineStorageInfo();
+}
+function cancelOfflineTafsirDownload(){ if(offlineDlRunning) offlineDlCancel = true; }
+async function clearOfflineTafsir(){
+  if(!confirm(offT('حذف كل التفسير والترجمات المحمّلة من جهازك؟ (يمكنك تحميلها مجددًا لاحقًا)', 'Delete all downloaded tafsir and translations from this device? (You can download them again later.)'))) return;
+  try{ if('caches' in window) await caches.delete(OFFLINE_TAFSIR_CACHE); } catch(e){}
+  try{ localStorage.removeItem('tafsirOfflineDone'); } catch(e){}
+  setOfflineStatus(offT('تم الحذف.', 'Deleted.'), 'ok');
+  refreshOfflineStorageInfo();
+}
+
+// ---------- تنبيه "يوجد تحديث جديد" (يصل من sw.js بعد تخزين النسخة الجديدة) ----------
+function showUpdateToast(){
+  const el = document.getElementById('update-toast');
+  if(!el) return;
+  const txt = document.getElementById('update-toast-text');
+  const btn = document.getElementById('update-toast-btn');
+  if(txt) txt.textContent = offT('يوجد تحديث جديد للتطبيق', 'A new version is available');
+  if(btn) btn.textContent = offT('تحديث الآن', 'Update now');
+  el.classList.add('show');
+}
+function hideUpdateToast(){
+  const el = document.getElementById('update-toast');
+  if(el) el.classList.remove('show');
+}
+function applyAppUpdate(){ location.reload(); }
+// ---------- رسالة "جاهز للعمل بدون إنترنت ✓" (أول زيارة فقط، وتختفي تلقائيًا) ----------
+let readyToastTimer = null;
+function showReadyToast(){
+  const el = document.getElementById('ready-toast');
+  if(!el) return;
+  const a = document.getElementById('ready-toast-text');
+  const b = document.getElementById('ready-toast-sub');
+  if(a) a.textContent = offT('✓ التطبيق جاهز للعمل بدون إنترنت', '✓ The app is ready to work offline');
+  if(b) b.textContent = offT('التفسير والترجمات: حمّلها من الإعدادات لتعمل بدون إنترنت أيضًا.', 'Tafsir & translations: download them from Settings to use them offline too.');
+  el.classList.add('show');
+  clearTimeout(readyToastTimer);
+  readyToastTimer = setTimeout(hideReadyToast, 9000); // تختفي وحدها بعد 9 ثوانٍ
+}
+function hideReadyToast(){
+  clearTimeout(readyToastTimer);
+  const el = document.getElementById('ready-toast');
+  if(el) el.classList.remove('show');
+}
+// نحمّل خطوط Google (ملف التنسيق + ملفات الخط) عبر الـ service worker كي تُخزَّن للأوفلاين
+// (في أول زيارة تُطلب هذه الخطوط قبل أن يتولى الـ service worker التحكم فلا تُخزَّن بمفردها)
+async function warmOfflineFonts(){
+  const link = document.getElementById('google-fonts-link');
+  if(!link || !link.href) return;
+  try{
+    const res = await fetch(link.href);
+    if(!res.ok) return;
+    const css = await res.text();
+    const urls = Array.from(new Set((css.match(/https:\/\/fonts\.gstatic\.com\/[^)'"\s]+/g) || [])));
+    await Promise.allSettled(urls.map(u => fetch(u)));
+  } catch(e){ /* نكمل حتى لو تعذّر */ }
+}
+(function(){
+  if(!('serviceWorker' in navigator) || navigator.serviceWorker.controller) return; // يهمنا أول زيارة فقط
+  let fired = false;
+  navigator.serviceWorker.addEventListener('controllerchange', async function(){
+    if(fired) return;
+    fired = true;
+    try{ if(localStorage.getItem('offlineReadyShown') === '1') return; } catch(e){}
+    await Promise.race([warmOfflineFonts(), new Promise(r => setTimeout(r, 20000))]);
+    try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch(e){}
+    try{ localStorage.setItem('offlineReadyShown', '1'); } catch(e){}
+    showReadyToast();
+  });
+})();
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', function(ev){
+    if(ev.data && ev.data.type === 'UPDATE_READY') showUpdateToast();
+  });
+}
+
 // ---------- (2) السحب يمين/يسار داخل النافذة للانتقال بين الآيات ----------
 function attachTafsirSwipe(){
   const box = document.querySelector('#tafsir-overlay .tafsir-modal');
@@ -4802,6 +5105,7 @@ function openSettingsModal(){
   if(repeatGroup) repeatGroup.style.display = hasActiveReading ? '' : 'none';
   if(note) note.style.display = hasActiveReading ? 'none' : 'block';
   document.getElementById('settings-overlay').classList.add('open');
+  try{ refreshOfflineTafsirStatus(); } catch(e){}
   requestAnimationFrame(() => {
     const modal = document.querySelector('#settings-overlay .settings-modal');
     const first = getFocusableElements(modal)[0];
@@ -9153,6 +9457,7 @@ function toggleLanguage(){
 window.addEventListener('DOMContentLoaded', function(){
   try{ attachTafsirSwipe(); } catch(e){}
   try{ attachTafsirSearchInput(); } catch(e){}
+  try{ refreshOfflineTafsirStatus(); } catch(e){}
   try{ applyLanguage(document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar'); }catch(e){}
   try{ renderTafsirCollapseAllButtons(); }catch(e){}
 });
@@ -9512,6 +9817,19 @@ if('serviceWorker' in navigator){
               <div class="tafsir-multiselect-panel" id="tafsir-multiselect-panel-settings"></div>
             </div>
           </div>
+        </div>
+        <div class="control-group offline-dl-group" id="control-group-offline-tafsir">
+          <span class="label" id="offline-dl-title">التحميل للأوفلاين (التفسير والترجمات)</span>
+          <div class="offline-dl-row">
+            <select id="offline-surah-select" class="font-select" onchange="refreshOfflineTafsirStatus()" aria-labelledby="offline-dl-title"></select>
+            <button type="button" id="offline-dl-start" class="offline-dl-btn primary" onclick="startOfflineTafsirDownload()">تحميل</button>
+            <button type="button" id="offline-dl-cancel" class="offline-dl-btn" style="display:none;" onclick="cancelOfflineTafsirDownload()">إيقاف</button>
+          </div>
+          <div class="offline-dl-info" id="offline-dl-sources"></div>
+          <progress id="offline-dl-progress" value="0" max="1" style="display:none;"></progress>
+          <div class="offline-dl-info" id="offline-dl-status" role="status" aria-live="polite"></div>
+          <div class="offline-dl-info small" id="offline-dl-storage"></div>
+          <button type="button" id="offline-dl-clear" class="offline-dl-btn danger" onclick="clearOfflineTafsir()">حذف التفسير المحمّل</button>
         </div>
         <div class="control-group">
           <label class="test-mode-toggle-row">
