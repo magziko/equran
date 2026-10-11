@@ -2388,7 +2388,10 @@ const SURAH_MEANING_EN = {
   109:"The Disbelievers", 110:"The Divine Support", 111:"The Palm Fiber", 112:"Sincerity",
   113:"The Daybreak", 114:"Mankind"
 };
-const DEFAULT_FONT_SIZE = 28;
+// حجم الخط الافتراضي لأول زيارة: أكبر وأوضح (أي مستخدم غيّر الحجم بنفسه يحتفظ باختياره المحفوظ)
+const DEFAULT_FONT_SIZE = (function(){
+  try{ return window.matchMedia('(min-width: 900px)').matches ? 38 : 34; }catch(e){ return 34; }
+})();
 let fontSize = (function(){
   try{
     const saved = parseInt(localStorage.getItem('quran-font-size'));
@@ -2663,8 +2666,10 @@ let boldActive = (function(){
     if(saved === 'on') return true;
     if(saved === 'off') return false;
   }catch(e){}
-  return false;
+  return true; // الخط العريض مفعّل افتراضيًا لأول زيارة، ويقدر المستخدم يلغيه بزر B
 })();
+// نفعّل العرض فورًا (قبل اكتمال التهيئة) كي لا يظهر النص رفيعًا لحظة ثم يتحول لعريض
+document.documentElement.setAttribute('data-bold', boldActive ? 'on' : 'off');
 let displayMode = (function(){
   try{
     const saved = localStorage.getItem('quran-display-mode');
@@ -9415,7 +9420,7 @@ if('serviceWorker' in navigator){
           <span class="label" data-i18n="font_size_label">حجم الخط</span>
           <div class="font-controls">
             <button onclick="changeFont(-1)">−</button>
-            <span class="size-display" id="font-size-display">28</span>
+            <span class="size-display" id="font-size-display">34</span>
             <button onclick="changeFont(1)">+</button>
             <button class="bold-toggle-btn" id="bold-toggle-btn" onclick="toggleBold()" title="خط عريض" aria-label="خط عريض" data-i18n-title="bold_label">B</button>
             <button class="font-reset-btn" onclick="resetFontSize()" title="استعادة حجم الخط الافتراضي" data-i18n-title="reset_font_title">
