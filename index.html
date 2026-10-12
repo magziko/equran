@@ -1281,6 +1281,29 @@
     padding:7px 14px; border-radius:10px; border:none; background:var(--accent); color:#fff;
     font-family:inherit; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap;
   }
+  /* شريط سياق الآية في نافذة التفسير (الآيات المجاورة) */
+  .tafsir-context{ margin-bottom:10px; border:1px solid var(--border); border-radius:12px; background:var(--surface); overflow:hidden; }
+  .tafsir-ctx-head{ display:flex; align-items:center; gap:8px; padding:4px 10px; }
+  .tafsir-ctx-toggle{
+    flex:1; display:flex; align-items:center; gap:6px; background:none; border:none; color:var(--text-muted);
+    font-family:inherit; font-size:13px; font-weight:700; cursor:pointer; padding:6px 0; text-align:start;
+  }
+  .tafsir-ctx-toggle svg{ width:14px; height:14px; transition:transform .2s; flex-shrink:0; }
+  .tafsir-context.collapsed .tafsir-ctx-toggle svg{ transform:rotate(-90deg); }
+  .tafsir-ctx-btns{ display:flex; gap:4px; }
+  .tafsir-ctx-btns .tafsir-act-btn:disabled{ opacity:.4; cursor:not-allowed; }
+  .tafsir-ctx-rows{ padding:2px 8px 8px; direction:rtl; text-align:right; max-height:38vh; overflow-y:auto; }
+  .tafsir-ctx-row{
+    display:block; width:100%; text-align:right; padding:4px 10px; border-radius:8px; border:none; background:none;
+    color:inherit; font-family:inherit; border-inline-start:3px solid transparent;
+  }
+  .tafsir-ctx-row.neighbor{ opacity:.62; cursor:pointer; }
+  .tafsir-ctx-row.neighbor:hover, .tafsir-ctx-row.neighbor:focus-visible{ opacity:1; background:var(--accent-bg); }
+  .tafsir-ctx-row.current{ opacity:1; background:var(--accent-bg); border-inline-start-color:var(--accent); }
+  .tafsir-ctx-text{ font-size:20px !important; line-height:2; }
+  .tafsir-ctx-row.neighbor .tafsir-ctx-text{ display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  .tafsir-ctx-num{ color:var(--accent-soft); font-size:14px; white-space:nowrap; }
+  @media (min-width:900px){ .tafsir-ctx-text{ font-size:22px !important; } }
   /* نافذة اختيار نطاق الآيات للمشاركة */
   .share-range-controls{ display:flex; gap:10px; margin-bottom:10px; }
   .share-range-controls label{ flex:1; display:flex; flex-direction:column; gap:4px; font-size:12.5px; color:var(--text-muted); }
@@ -4283,6 +4306,7 @@ function showTafsir(surahId, ayahId, surahName){
     }
   }
   currentTafsirCtx = { surahId, ayahId };
+  renderTafsirContext();
   renderTafsirCollapseAllButtons();
   loadTafsirContent(surahId, ayahId);
   updateTafsirNavButtons();
@@ -5169,6 +5193,109 @@ function confirmShareRange(){
   const { surahId, surahName, from, to } = c;
   closeShareRangeDialog();
   generateAyahImage(surahId, from, to, surahName);
+}
+
+
+// ---------- شريط "السياق": الآيات المجاورة داخل نافذة التفسير ----------
+let tafsirCtxRadiusCache = null;
+function getTafsirContextRadius(){
+  if(tafsirCtxRadiusCache !== null) return tafsirCtxRadiusCache;
+  let v = 1;
+  try{ const raw = localStorage.getItem('tafsirContextRadius'); if(raw !== null) v = parseInt(raw, 10); } catch(e){}
+  tafsirCtxRadiusCache = (isNaN(v) ? 1 : Math.min(4, Math.max(0, v)));
+  return tafsirCtxRadiusCache;
+}
+function isTafsirContextHidden(){
+  try{ return localStorage.getItem('tafsirContextHidden') === '1'; } catch(e){ return false; }
+}
+function changeTafsirContextRadius(delta){
+  tafsirCtxRadiusCache = Math.min(4, Math.max(0, getTafsirContextRadius() + delta));
+  try{ localStorage.setItem('tafsirContextRadius', String(tafsirCtxRadiusCache)); } catch(e){}
+  renderTafsirContext();
+}
+function toggleTafsirContext(){
+  try{ localStorage.setItem('tafsirContextHidden', isTafsirContextHidden() ? '0' : '1'); } catch(e){}
+  renderTafsirContext();
+}
+function openTafsirContextNeighbor(ayahId){
+  if(!currentTafsirCtx) return;
+  const surah = QURAN_DATA.find(x => x.id === currentTafsirCtx.surahId);
+  if(surah) showTafsir(surah.id, ayahId, surah.name);
+}
+function renderTafsirContext(){
+  const box = document.getElementById('tafsir-context');
+  if(!box || !currentTafsirCtx) return;
+  const { surahId, ayahId } = currentTafsirCtx;
+  const surah = (typeof QURAN !== 'undefined') && QURAN.find(x => x.id === surahId);
+  if(!surah){ box.style.display = 'none'; return; }
+  const hidden = isTafsirContextHidden();
+  const r = getTafsirContextRadius();
+  const total = surah.total_verses;
+  box.style.display = '';
+  box.classList.toggle('collapsed', hidden);
+  box.textContent = '';
+
+  // الرأس: عنوان قابل للطي + أزرار تقليل/زيادة الآيات المجاورة
+  const head = document.createElement('div');
+  head.className = 'tafsir-ctx-head';
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'tafsir-ctx-toggle';
+  toggle.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+  toggle.innerHTML = TAFSIR_CHEVRON_SVG.replace('class="tafsir-collapse-icon"', '');
+  const label = document.createElement('span');
+  label.textContent = offT('سياق الآية', 'Ayah context');
+  toggle.appendChild(label);
+  toggle.addEventListener('click', toggleTafsirContext);
+  head.appendChild(toggle);
+
+  if(!hidden){
+    const btns = document.createElement('div');
+    btns.className = 'tafsir-ctx-btns';
+    const mk = (txt, aria, delta, disabled) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tafsir-act-btn';
+      b.textContent = txt;
+      b.style.fontSize = '16px';
+      b.setAttribute('aria-label', aria);
+      b.title = aria;
+      b.disabled = disabled;
+      b.addEventListener('click', () => changeTafsirContextRadius(delta));
+      return b;
+    };
+    const exhausted = r >= Math.max(ayahId - 1, total - ayahId);
+    btns.appendChild(mk('−', offT('تقليل الآيات المجاورة', 'Show fewer neighbouring ayahs'), -1, r <= 0));
+    btns.appendChild(mk('+', offT('زيادة الآيات المجاورة', 'Show more neighbouring ayahs'), 1, r >= 4 || exhausted));
+    head.appendChild(btns);
+  }
+  box.appendChild(head);
+  if(hidden) return;
+
+  // الصفوف: الآيات المجاورة داخل نفس السورة، والآية الحالية مميّزة
+  const rows = document.createElement('div');
+  rows.className = 'tafsir-ctx-rows';
+  const from = Math.max(1, ayahId - r), to = Math.min(total, ayahId + r);
+  surah.verses.filter(v => v.id >= from && v.id <= to).forEach(v => {
+    const isCurrent = v.id === ayahId;
+    const row = document.createElement(isCurrent ? 'div' : 'button');
+    if(!isCurrent) row.type = 'button';
+    row.className = 'tafsir-ctx-row ' + (isCurrent ? 'current' : 'neighbor');
+    if(isCurrent) row.setAttribute('aria-current', 'true');
+    else row.addEventListener('click', () => openTafsirContextNeighbor(v.id));
+    const txt = document.createElement('span');
+    txt.className = 'ayah-text tafsir-ctx-text';
+    txt.textContent = v.text + ' ';
+    const num = document.createElement('span');
+    num.className = 'tafsir-ctx-num';
+    num.textContent = `﴿${toArabicDigits(v.id)}﴾`;
+    row.appendChild(txt); row.appendChild(num);
+    rows.appendChild(row);
+  });
+  box.appendChild(rows);
+  // نمرّر لتظهر الآية الحالية في وسط الشريط لو كان فيه تمرير
+  const cur = rows.querySelector('.current');
+  if(cur && rows.scrollHeight > rows.clientHeight) rows.scrollTop = Math.max(0, cur.offsetTop - rows.clientHeight / 2 + cur.offsetHeight / 2);
 }
 
 // ---------- (2) السحب يمين/يسار داخل النافذة للانتقال بين الآيات ----------
@@ -10174,6 +10301,7 @@ if('serviceWorker' in navigator){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
+      <div class="tafsir-context" id="tafsir-context" style="display:none;"></div>
       <div class="tafsir-search-bar" id="tafsir-search-bar" style="display:none;">
         <input type="search" id="tafsir-search-input" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="ابحث في التفسير…" aria-label="ابحث في التفسير">
         <span class="tafsir-search-count" id="tafsir-search-count" aria-live="polite"></span>
