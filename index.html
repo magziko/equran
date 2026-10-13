@@ -2851,7 +2851,23 @@ function buildNormalizedIndex(text){
     looseNorm += norm[i];
     looseMap.push(i);
   }
-  return { norm, map, looseNorm, looseMap };
+  // فهرس "إملائي": المصحف يكتب كلمات مثل الصلاة والزكاة والحياة بواو + ألف خنجرية (صلوٰة)
+  // بينما يكتبها الناس بألف عادية، فنحوّل "وٰ" إلى ا ونحذف الهمزة المنفصلة (يستهزءون ↔ يستهزئون)
+  let altNorm = '';
+  const altMap = [];
+  for(let i = 0; i < text.length; i++){
+    const ch = text[i];
+    if(DIACRITICS_RE.test(ch)) continue;
+    if(ch === 'و'){
+      let j = i + 1;
+      while(j < text.length && DIACRITICS_RE.test(text[j])) j++;
+      if(text[j] === '\u0670'){ altNorm += 'ا'; altMap.push(i); i = j; continue; }
+    }
+    if(ch === 'ء') continue;
+    altNorm += normalizeArabicChar(ch);
+    altMap.push(i);
+  }
+  return { norm, map, looseNorm, looseMap, altNorm, altMap };
 }
 
 function normalizeArabicText(text){
@@ -2869,8 +2885,8 @@ function buildAyahSearchIndex(){
   const index = [];
   for(const surah of QURAN){
     for(const v of surah.verses){
-      const { norm, map, looseNorm, looseMap } = buildNormalizedIndex(v.text);
-      index.push({ surahId: surah.id, surahName: surah.name, ayahId: v.id, text: v.text, norm, map, looseNorm, looseMap });
+      const { norm, map, looseNorm, looseMap, altNorm, altMap } = buildNormalizedIndex(v.text);
+      index.push({ surahId: surah.id, surahName: surah.name, ayahId: v.id, text: v.text, norm, map, looseNorm, looseMap, altNorm, altMap });
     }
   }
   AYAH_INDEX = index;
@@ -6366,6 +6382,7 @@ function playTimedSegment(folderUrl, surahId, startMs, endMs){
 function loadAndPlayAyah(surahId, ayahId){
   const reciter = RECITERS[selectedReciter] || RECITERS.husary;
   clearTimedSegmentWatcher();
+  updateMediaSession(surahId, ayahId);
 
   if(reciter.type === 'timed'){
     getAyahTiming(reciter.readId, surahId, ayahId).then(timing => {
@@ -6431,6 +6448,87 @@ function playAyahAudio(surahId, ayahId, cardId){
   loadAndPlayAyah(surahId, ayahId);
 }
 
+/* ---------- أزرار التحكم على شاشة القفل / إشعار التشغيل (Media Session) ---------- */
+let mediaSessionMeta = { surahId: null, ayahId: null };
+let mediaSessionReady = false;
+function updateMediaSession(surahId, ayahId){
+  if(ayahId) mediaSessionMeta = { surahId, ayahId };
+  else mediaSessionMeta = { surahId, ayahId: null };
+  if(!('mediaSession' in navigator) || typeof MediaMetadata === 'undefined') return;
+  const surah = QURAN.find(x => x.id === surahId);
+  if(!surah) return;
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  const title = ayahId
+    ? `${t('surah_word')} ${surah.name} — ${t('ayah_word')} ${ayahId}`
+    : `${t('surah_word')} ${surah.name}`;
+  try{
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title,
+      artist: reciter.name || '',
+      album: document.documentElement.getAttribute('data-lang') === 'en' ? 'The Holy Quran' : 'القرآن الكريم',
+      artwork: [
+        { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
+        { src: 'icon-192.png', sizes: '192x192', type: 'image/png' }
+      ]
+    });
+  } catch(e){ /* تجاهل */ }
+}
+function setMediaPlaybackState(state){
+  if(!('mediaSession' in navigator)) return;
+  try{ navigator.mediaSession.playbackState = state; } catch(e){}
+}
+// السابق/التالي من شاشة القفل: حسب وضع التشغيل الحالي
+function mediaSessionStep(dir){
+  if(repeatState.active) return; // وضع التكرار للحفظ له إيقاعه الخاص
+  if(listenState.active){
+    if(listenState.sequenceMode){
+      listenState.paused = false;
+      listenState.verseIndex = Math.max(0, listenState.verseIndex + dir);
+      playListenAyahStep();
+    } else if(dir > 0){
+      advanceListenToNextSurah();
+    } else {
+      const prev = QURAN.find(x => x.id === currentSurahId - 1);
+      if(prev){
+        listenState.paused = false;
+        listenState.suppressAutoStop = true;
+        openSurah(prev.id);
+        listenState.suppressAutoStop = false;
+        playListenSurah(prev.id);
+      }
+    }
+    return;
+  }
+  // تشغيل آية منفردة: ننتقل للآية المجاورة داخل نفس السورة
+  const { surahId, ayahId } = mediaSessionMeta;
+  if(!surahId || !ayahId) return;
+  const surah = QURAN.find(x => x.id === surahId);
+  const target = ayahId + dir;
+  if(!surah || target < 1 || target > surah.total_verses) return;
+  playAyahAudio(surahId, target, getAyahCardId(surahId, target));
+}
+function setupMediaSession(){
+  if(mediaSessionReady || !('mediaSession' in navigator)) return;
+  mediaSessionReady = true;
+  const set = (action, fn) => { try{ navigator.mediaSession.setActionHandler(action, fn); } catch(e){ /* إجراء غير مدعوم */ } };
+  set('play', () => {
+    if(listenState.active && listenState.paused) startFullSurahListen();
+    else if(ayahAudioPlayer && ayahAudioPlayer.src) ayahAudioPlayer.play().catch(() => {});
+  });
+  set('pause', () => {
+    if(listenState.active && !listenState.paused) pauseFullSurahListen();
+    else if(ayahAudioPlayer) ayahAudioPlayer.pause();
+  });
+  set('stop', () => {
+    if(repeatState.active) stopAyahRepeat();
+    else if(listenState.active) stopFullSurahListen();
+    else { if(ayahAudioPlayer) ayahAudioPlayer.pause(); stopAyahAudioUI(); }
+    setMediaPlaybackState('none');
+  });
+  set('nexttrack', () => mediaSessionStep(1));
+  set('previoustrack', () => mediaSessionStep(-1));
+}
+
 function ensureAyahAudioPlayer(){
   if(ayahAudioPlayer) return;
   ayahAudioPlayer = new Audio();
@@ -6438,6 +6536,12 @@ function ensureAyahAudioPlayer(){
   ayahAudioPlayer.addEventListener('play', () => { ayahAudioPlayer.playbackRate = playbackSpeed; });
   ayahAudioPlayer.addEventListener('timeupdate', () => updateWbwHighlightFromTime(ayahAudioPlayer.currentTime));
   ayahAudioPlayer.addEventListener('ended', onAyahAudioEnded);
+  ayahAudioPlayer.addEventListener('play', () => setMediaPlaybackState('playing'));
+  ayahAudioPlayer.addEventListener('pause', () => setMediaPlaybackState('paused'));
+  ayahAudioPlayer.addEventListener('ended', () => {
+    if(!listenState.active && !repeatState.active) setMediaPlaybackState('paused');
+  });
+  setupMediaSession();
   ayahAudioPlayer.addEventListener('error', () => {
     console.warn('تعذر تحميل تلاوة هذه الآية.');
     if(repeatState.active) stopAyahRepeat(); else if(listenState.active) stopFullSurahListen(); else stopAyahAudioUI();
@@ -6668,6 +6772,7 @@ async function startListenTimingWatcher(surahId, readId){
         card.scrollIntoView({ behavior:'smooth', block:'center' });
       }
       setupWbwForCard(cardId);
+      updateMediaSession(surahId, current.ayah); // تحديث العنوان على شاشة القفل مع تقدّم الآيات
       wbwBoundsMs = { start: current.start_time, end: current.end_time || (current.start_time + 8000) };
     }
   };
@@ -6761,6 +6866,7 @@ function playListenSurah(surahId){
     const audioUrl = `${reciter.folder}${surahPart}.mp3`;
     stopAyahAudioUI();
     ayahAudioPlayer.src = audioUrl;
+    updateMediaSession(surahId, null);
     ayahAudioPlayer.play().catch(() => {
       console.warn('تعذر تشغيل ملف السورة كاملة، سيتم الانتقال للسورة التالية.');
       advanceListenToNextSurah();
@@ -7635,28 +7741,49 @@ function searchAyahs(query){
   const qNorm = normalizeArabicText(query).trim();
   if(!qNorm) return { results: [], truncated: false };
   const qLoose = qNorm.replace(/[اء ]/g, '');
-  const results = [];
-  let truncated = false;
+  // صيغ البحث على الفهرس الإملائي: بدون الهمزة المنفصلة، ومع حذف ئ (للكلمات مثل يستهزئون)
+  const qAlt = qNorm.replace(/ء/g, '');
+  const qAlt2 = normalizeArabicText(String(query).replace(/ئ/g, '')).trim().replace(/ء/g, '');
+  const altCandidates = Array.from(new Set([qAlt, qAlt2].filter(x => x && x.length >= 2)));
+  const buckets = [[], [], []]; // 0: مطابق تمامًا، 1: مطابق بإملاء المصحف، 2: متساهل
   for(const entry of AYAH_INDEX){
-    let start, end;
+    let start, end, level = -1;
     const idx = entry.norm.indexOf(qNorm);
     if(idx !== -1){
       start = entry.map[idx];
       end = entry.map[idx + qNorm.length - 1] + 1;
-    } else if(qLoose.length >= 2){
-      const idx2 = entry.looseNorm.indexOf(qLoose);
-      if(idx2 === -1) continue;
-      const normStart = entry.looseMap[idx2];
-      const normEnd = entry.looseMap[idx2 + qLoose.length - 1];
-      start = entry.map[normStart];
-      end = entry.map[normEnd] + 1;
+      level = 0;
     } else {
-      continue;
+      if(entry.altNorm){
+        for(const c of altCandidates){
+          const k = entry.altNorm.indexOf(c);
+          if(k !== -1){
+            start = entry.altMap[k];
+            end = entry.altMap[k + c.length - 1] + 1;
+            level = 1;
+            break;
+          }
+        }
+      }
+      if(level === -1 && qLoose.length >= 2){
+        const idx2 = entry.looseNorm.indexOf(qLoose);
+        if(idx2 !== -1){
+          const normStart = entry.looseMap[idx2];
+          const normEnd = entry.looseMap[idx2 + qLoose.length - 1];
+          start = entry.map[normStart];
+          end = entry.map[normEnd] + 1;
+          level = 2;
+        }
+      }
     }
+    if(level === -1) continue;
     while(end < entry.text.length && DIACRITICS_RE.test(entry.text[end])) end++;
-    results.push({ surahId: entry.surahId, surahName: entry.surahName, ayahId: entry.ayahId, text: entry.text, start, end });
-    if(results.length >= MAX_AYAH_RESULTS){ truncated = true; break; }
+    buckets[level].push({ surahId: entry.surahId, surahName: entry.surahName, ayahId: entry.ayahId, text: entry.text, start, end });
   }
+  // الأدق أولًا (ثم ترتيب المصحف داخل كل مستوى)
+  let results = buckets[0].concat(buckets[1], buckets[2]);
+  let truncated = false;
+  if(results.length > MAX_AYAH_RESULTS){ results = results.slice(0, MAX_AYAH_RESULTS); truncated = true; }
   return { results, truncated };
 }
 
