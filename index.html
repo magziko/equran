@@ -4650,7 +4650,7 @@ let tafsirSearchQuery = '';
 let tafsirSearchHits = [];
 let tafsirSearchIndex = -1;
 let tafsirSearchTimer = null;
-function normalizeArabicChar(ch){
+function normalizeTafsirChar(ch){
   const c = ch.charCodeAt(0);
   // التشكيل وعلامات القرآن والتطويل: نتجاهلها تمامًا
   if((c >= 0x064B && c <= 0x065F) || c === 0x0670 || c === 0x0640 || (c >= 0x06D6 && c <= 0x06ED)) return '';
@@ -4659,9 +4659,9 @@ function normalizeArabicChar(ch){
   if(c === 0x0629) return 'ه';
   return ch.toLowerCase();
 }
-function normalizeArabicStr(str){
+function normalizeTafsirStr(str){
   let out = '';
-  for(const ch of str) out += normalizeArabicChar(ch);
+  for(const ch of str) out += normalizeTafsirChar(ch);
   return out;
 }
 function clearTafsirHighlights(){
@@ -4675,7 +4675,7 @@ function clearTafsirHighlights(){
   tafsirSearchIndex = -1;
 }
 function highlightTafsirMatches(query){
-  const normQ = normalizeArabicStr(query).trim();
+  const normQ = normalizeTafsirStr(query).trim();
   if(normQ.length < 2) return;
   document.querySelectorAll('#tafsir-modal-body .tafsir-modal-body').forEach(root => {
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
@@ -4687,7 +4687,7 @@ function highlightTafsirMatches(query){
       let norm = '';
       const map = [];
       for(let i = 0; i < text.length; i++){
-        const n = normalizeArabicChar(text[i]);
+        const n = normalizeTafsirChar(text[i]);
         for(let k = 0; k < n.length; k++){ norm += n[k]; map.push(i); }
       }
       if(norm.indexOf(normQ) === -1) return;
@@ -4696,7 +4696,7 @@ function highlightTafsirMatches(query){
       while((idx = norm.indexOf(normQ, from)) !== -1){
         const start = map[idx];
         let end = map[idx + normQ.length - 1] + 1;
-        while(end < text.length && normalizeArabicChar(text[end]) === '') end++; // نضمّ تشكيل آخر حرف
+        while(end < text.length && normalizeTafsirChar(text[end]) === '') end++; // نضمّ تشكيل آخر حرف
         ranges.push([start, end]);
         from = idx + normQ.length;
       }
@@ -4718,7 +4718,7 @@ function highlightTafsirMatches(query){
 function updateTafsirSearchCount(){
   const el = document.getElementById('tafsir-search-count');
   if(!el) return;
-  const hasQuery = normalizeArabicStr(tafsirSearchQuery).trim().length >= 2;
+  const hasQuery = normalizeTafsirStr(tafsirSearchQuery).trim().length >= 2;
   const isEn = document.documentElement.getAttribute('data-lang') === 'en';
   if(!hasQuery) el.textContent = '';
   else if(!tafsirSearchHits.length) el.textContent = isEn ? 'No results' : 'لا نتائج';
