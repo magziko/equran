@@ -7882,6 +7882,49 @@ let lastAyahSearch = null;
 function showApproxAyahResults(){
   if(lastAyahSearch) renderAyahSearchResults(lastAyahSearch.query, lastAyahSearch.dropdownId, true);
 }
+// تحويل الأرقام العربية/الفارسية إلى لاتينية
+function toLatinDigits(str){
+  return String(str).replace(/[\u0660-\u0669]/g, d => d.charCodeAt(0) - 0x0660).replace(/[\u06F0-\u06F9]/g, d => d.charCodeAt(0) - 0x06F0);
+}
+// يفهم: "14" (آية في السورة المفتوحة، أو رقم سورة من الرئيسية) و"18:14" أو "18 14" أو "18-14" (سورة:آية)
+function buildAyahJumpRows(query){
+  const q = toLatinDigits(query).trim();
+  const rows = [];
+  let numericOnly = false;
+  let m = q.match(/^(\d{1,3})\s*[:\-\/.،,\s]\s*(\d{1,3})$/);
+  const inReadView = document.getElementById('read-view') && document.getElementById('read-view').style.display !== 'none';
+  const row = (surah, ayah, label) => {
+    const verse = surah.verses.find(v => v.id === ayah);
+    const snippet = verse ? verse.text.slice(0, 90) + (verse.text.length > 90 ? '…' : '') : '';
+    return `<div class="ayah-search-result ayah-search-jump" onclick="jumpToAyah(${surah.id}, ${ayah})">
+      <div class="ayah-search-meta">↩ ${label}: ${t('surah_word')} ${surah.name} — ${t('ayah_word')} ${ayah}</div>
+      <div class="ayah-search-snippet">${snippet}</div></div>`;
+  };
+  if(m){
+    numericOnly = true;
+    const surah = QURAN.find(x => x.id === parseInt(m[1], 10));
+    const ayah = parseInt(m[2], 10);
+    if(surah && ayah >= 1 && ayah <= surah.total_verses) rows.push(row(surah, ayah, offT('الانتقال إلى', 'Go to')));
+  } else if(/^\d{1,3}$/.test(q)){
+    numericOnly = true;
+    const n = parseInt(q, 10);
+    const cur = inReadView && currentSurahId ? QURAN.find(x => x.id === currentSurahId) : null;
+    if(cur && n >= 1 && n <= cur.total_verses) rows.push(row(cur, n, offT('الانتقال إلى', 'Go to')));
+    const target = QURAN.find(x => x.id === n);
+    if(target && (!cur || target.id !== cur.id)){
+      rows.push(`<div class="ayah-search-result ayah-search-jump" onclick="openSurahFromSearch(${target.id})">
+        <div class="ayah-search-meta">↩ ${offT('فتح', 'Open')} ${t('surah_word')} ${target.name}</div>
+        <div class="ayah-search-snippet">${target.total_verses} ${t('ayah_word')}</div></div>`);
+    }
+  }
+  return { rows: rows.join(''), numericOnly };
+}
+function openSurahFromSearch(surahId){
+  document.querySelectorAll('.ayah-search-dropdown').forEach(d => { d.style.display = 'none'; d.innerHTML = ''; });
+  document.querySelectorAll('.ayah-search-box input').forEach(i => { i.value = ''; });
+  openSurah(surahId);
+}
+
 function renderAyahSearchResults(query, dropdownId, includeApprox){
   dropdownId = dropdownId || 'ayah-search-dropdown';
   if(!AYAH_INDEX.length) buildAyahSearchIndex();
@@ -7890,6 +7933,13 @@ function renderAyahSearchResults(query, dropdownId, includeApprox){
   if(!q){ dropdown.style.display = 'none'; dropdown.innerHTML = ''; return; }
 
   lastAyahSearch = { query: q, dropdownId };
+  const jump = buildAyahJumpRows(q);
+  if(jump.numericOnly && jump.rows){
+    // رقم آية/سورة: نعرض الانتقال مباشرة (الأرقام لا توجد في نص الآيات أصلًا)
+    dropdown.innerHTML = jump.rows;
+    dropdown.style.display = 'block';
+    return;
+  }
   const { results, truncated, approxHidden } = searchAyahs(q, includeApprox);
 
   if(results.length === 0){
@@ -7923,6 +7973,14 @@ function jumpToAyah(surahId, ayahId){
 }
 
 function onAyahSearchKeydown(e){
+  if(e.key === 'Enter'){
+    // Enter يفتح أول نتيجة (آية أو انتقال برقم)
+    const box = e.target.closest('.ayah-search-box');
+    const dropdown = box ? box.querySelector('.ayah-search-dropdown') : document.getElementById('ayah-search-dropdown');
+    const first = dropdown && dropdown.querySelector('.ayah-search-result');
+    if(first){ e.preventDefault(); first.click(); }
+    return;
+  }
   if(e.key === 'Escape'){
     const box = e.target.closest('.ayah-search-box');
     const dropdown = box ? box.querySelector('.ayah-search-dropdown') : document.getElementById('ayah-search-dropdown');
@@ -9140,7 +9198,7 @@ const I18N_STRINGS = {
     browse_hizb_full: 'تصفح بالأحزاب',
     browse_hizb_short: 'الأحزاب',
     search_surah: 'ابحث عن سورة...',
-    search_ayah: 'ابحث في نص الآيات... (اكتب كلمة أو جزء من آية)',
+    search_ayah: 'ابحث في نص الآيات، أو اكتب رقم الآية (14 أو 18:14) ثم Enter',
     voice_search: 'بحث صوتي',
     voice_note: 'إملاء صوتي',
     voice_did_you_mean: 'لم أتعرّف على اسم السورة بدقة، هل تقصد:',
@@ -9280,6 +9338,9 @@ const I18N_STRINGS = {
     shortcut_theme: 'تبديل الوضع الداكن/الفاتح (داخل السورة)',
     shortcut_tafsir: 'إظهار/إخفاء التفسير المضمّن (داخل السورة)',
     shortcut_play_pause: 'تشغيل/إيقاف تلاوة الآية (داخل السورة)',
+    shortcut_ayah_step: 'الآية السابقة / التالية في التلاوة (داخل السورة)',
+    shortcut_tafsir_open: 'فتح تفسير الآية الحالية (داخل السورة)',
+    shortcut_help: 'فتح/إغلاق قائمة الاختصارات',
     shortcut_listen: 'تشغيل/إيقاف الاستماع المتواصل للسورة (داخل السورة)',
     shortcut_repeat: 'تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)',
     shortcut_bookmark: 'إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)',
@@ -9433,7 +9494,7 @@ const I18N_STRINGS = {
     browse_hizb_full: 'Browse by Hizb',
     browse_hizb_short: 'Hizb',
     search_surah: 'Search for a surah...',
-    search_ayah: 'Search ayah text... (type a word or part of an ayah)',
+    search_ayah: 'Search ayah text, or type an ayah number (14 or 18:14) then Enter',
     voice_search: 'Voice search',
     voice_note: 'Voice dictation',
     voice_did_you_mean: "Couldn't recognize the surah name exactly, did you mean:",
@@ -9573,6 +9634,9 @@ const I18N_STRINGS = {
     shortcut_theme: 'Toggle dark/light mode (while reading)',
     shortcut_tafsir: 'Show/hide inline tafsir (while reading)',
     shortcut_play_pause: 'Play/pause ayah recitation (while reading)',
+    shortcut_ayah_step: 'Previous / next ayah in the recitation (while reading)',
+    shortcut_tafsir_open: 'Open tafsir of the current ayah (while reading)',
+    shortcut_help: 'Open/close the shortcuts list',
     shortcut_listen: 'Start/pause continuous listening to the surah (while reading)',
     shortcut_repeat: 'Start/stop ayah repeat using the repeat settings, or the current ayah if the range is unchanged (while reading)',
     shortcut_bookmark: 'Add/remove bookmark for current ayah (while reading)',
@@ -9978,6 +10042,41 @@ function showShortcutToast(text){
   clearTimeout(shortcutToastTimer);
   shortcutToastTimer = setTimeout(() => el.classList.remove('show'), 2200);
 }
+
+// الآية المرجعية: آخر آية شُغّلت/اختيرت، وإلا أول بطاقة آية ظاهرة في الشاشة
+function getReferenceAyah(){
+  const parse = id => { const m = String(id || '').match(/-(\d+)-(\d+)$/); return m ? { surahId: parseInt(m[1], 10), ayahId: parseInt(m[2], 10) } : null; };
+  const fromLast = parse(lastActiveAyahCardId);
+  if(fromLast && document.getElementById(lastActiveAyahCardId)) return fromLast;
+  const cards = document.querySelectorAll('.ayah-card');
+  for(const c of cards){
+    const r = c.getBoundingClientRect();
+    if(r.bottom > 80){ const p = parse(c.id); if(p) return p; }
+  }
+  return fromLast;
+}
+function stepAyahShortcut(dir){
+  if(repeatState.active){ showShortcutToast(offT('الانتقال بين الآيات غير متاح أثناء التكرار', 'Ayah stepping is unavailable while repeating')); return; }
+  if(listenState.active && !listenState.sequenceMode){
+    showShortcutToast(offT('الانتقال بين الآيات يعمل مع القرّاء الذين تُشغَّل تلاوتهم آية بآية', 'Ayah stepping works with reciters whose recitation plays ayah by ayah'));
+    return;
+  }
+  if(!listenState.active && !mediaSessionMeta.ayahId){
+    showShortcutToast(offT('شغّل آية أولًا ثم استخدم [ و ]', 'Play an ayah first, then use [ and ]'));
+    return;
+  }
+  mediaSessionStep(dir);
+  showShortcutToast(dir > 0 ? offT('⏭ الآية التالية', '⏭ Next ayah') : offT('⏮ الآية السابقة', '⏮ Previous ayah'));
+}
+function openTafsirShortcut(){
+  const ov = document.getElementById('tafsir-overlay');
+  if(ov && ov.classList.contains('open')){ closeTafsirModal(); return; }
+  const ref = getReferenceAyah();
+  const surah = ref && QURAN_DATA.find(x => x.id === ref.surahId);
+  if(!ref || !surah){ showShortcutToast(offT('اختر آية أو شغّلها أولًا', 'Select or play an ayah first')); return; }
+  showTafsir(ref.surahId, ref.ayahId, surah.name);
+}
+
 function toggleListenShortcut(){
   if(listenState.active && !listenState.paused){
     pauseFullSurahListen();
@@ -10065,6 +10164,10 @@ function attachDisplayModeShortcuts(){
         const openPanel = document.querySelector('.tafsir-multiselect-panel.open');
         if(openPanel){ openPanel.classList.remove('open'); syncTafsirMultiselectAria(); }
         else closeTafsirModal();
+      } else if(e.code === 'KeyJ' || tKey === 'j' || e.key === 'ت'){
+        // نفس اختصار الفتح (J / ت) يغلق نافذة التفسير
+        e.preventDefault();
+        closeTafsirModal();
       }
       return;
     }
@@ -10103,12 +10206,20 @@ function attachDisplayModeShortcuts(){
       }
     }
 
-    // اختصار "/" للتركيز على مربع البحث في نص الآيات (من الصفحة الرئيسية أو داخل السورة)
-    if(e.key === '/'){
+    // اختصار "?" (أو "؟"): فتح/إغلاق قائمة الاختصارات
+    if(e.key === '?' || e.key === '؟' || (e.code === 'Slash' && e.shiftKey)){
+      e.preventDefault();
+      const ov = document.getElementById('shortcuts-overlay');
+      if(ov && ov.classList.contains('open')) closeShortcutsModal(); else openShortcutsModal();
+      return;
+    }
+
+    // اختصار "/" أو "F" / "ب": البحث في نص الآيات أو الانتقال لآية برقمها (من الرئيسية أو داخل السورة)
+    if(e.key === '/' || e.code === 'KeyF' || e.key === 'f' || e.key === 'F' || e.key === 'ب'){
       e.preventDefault();
       const readViewVisible = document.getElementById('read-view').style.display !== 'none';
       const input = document.getElementById(readViewVisible ? 'ayah-search-input-read' : 'ayah-search-input');
-      if(input) input.focus();
+      if(input){ input.focus(); input.select(); }
       return;
     }
 
@@ -10140,6 +10251,11 @@ function attachDisplayModeShortcuts(){
       toggleListenShortcut();
       return;
     }
+    // اختصار "[" و"]": الآية السابقة/التالية في التلاوة
+    if(e.code === 'BracketLeft' || e.key === '['){ e.preventDefault(); stepAyahShortcut(-1); return; }
+    if(e.code === 'BracketRight' || e.key === ']'){ e.preventDefault(); stepAyahShortcut(1); return; }
+    // اختصار "J" / "ت": فتح تفسير الآية الحالية
+    if(e.code === 'KeyJ' || e.key === 'j' || e.key === 'J' || e.key === 'ت'){ e.preventDefault(); openTafsirShortcut(); return; }
     // اختصار "R" / "ق": تشغيل/إيقاف تكرار الآيات (Repeat)
     if(e.code === 'KeyR' || e.key === 'r' || e.key === 'R' || e.key === 'ق'){
       e.preventDefault();
@@ -10463,7 +10579,7 @@ if('serviceWorker' in navigator){
           <tbody>
             <tr><td><kbd>,</kbd></td><td data-i18n="shortcut_settings">فتح/إغلاق الإعدادات</td></tr>
             <tr><td><kbd>Esc</kbd></td><td data-i18n="shortcut_escape">إغلاق أي نافذة مفتوحة (الإعدادات، الاختصارات، التفسير)</td></tr>
-            <tr><td><kbd>/</kbd></td><td data-i18n="shortcut_search">التركيز على مربع البحث في نص الآيات</td></tr>
+            <tr><td><kbd>/</kbd> / <kbd>F</kbd> / <kbd>ب</kbd></td><td data-i18n="shortcut_search">التركيز على مربع البحث في نص الآيات</td></tr>
             <tr><td><kbd>G</kbd> / <kbd>ل</kbd></td><td data-i18n="shortcut_resume">الانتقال لآخر نقطة قراءة محفوظة</td></tr>
             <tr><td><kbd>U</kbd> / <kbd>ع</kbd></td><td data-i18n="shortcut_lang_ar">التبديل للغة العربية</td></tr>
             <tr><td><kbd>E</kbd> / <kbd>ث</kbd></td><td data-i18n="shortcut_lang_en">التبديل للغة الإنجليزية</td></tr>
@@ -10473,6 +10589,9 @@ if('serviceWorker' in navigator){
             <tr><td><kbd>T</kbd></td><td data-i18n="shortcut_tafsir">إظهار/إخفاء التفسير المضمّن (داخل السورة)</td></tr>
             <tr><td><kbd>Space</kbd></td><td data-i18n="shortcut_play_pause">تشغيل/إيقاف تلاوة الآية (داخل السورة)</td></tr>
             <tr><td><kbd>P</kbd> / <kbd>ح</kbd></td><td data-i18n="shortcut_listen">تشغيل/إيقاف الاستماع المتواصل للسورة (داخل السورة)</td></tr>
+            <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td data-i18n="shortcut_ayah_step">الآية السابقة / التالية في التلاوة (داخل السورة)</td></tr>
+            <tr><td><kbd>J</kbd> / <kbd>ت</kbd></td><td data-i18n="shortcut_tafsir_open">فتح تفسير الآية الحالية (داخل السورة)</td></tr>
+            <tr><td><kbd>?</kbd></td><td data-i18n="shortcut_help">فتح/إغلاق قائمة الاختصارات</td></tr>
             <tr><td><kbd>R</kbd> / <kbd>ق</kbd></td><td data-i18n="shortcut_repeat">تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)</td></tr>
             <tr><td><kbd>B</kbd></td><td data-i18n="shortcut_bookmark">إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)</td></tr>
             <tr><td><kbd>S</kbd></td><td data-i18n="shortcut_cards_mode">وضع العرض: آيات منفصلة (بطاقات)</td></tr>
