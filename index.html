@@ -3574,6 +3574,118 @@ function drawAyahLine(ctx, line, cx, y, quranFont, markerFont, baseColor){
   ctx.fillStyle = baseColor;
 }
 
+
+// ---------- خلفية صورة المشاركة: صفحة مصحف مرسومة برمجيًا (بدون ملفات صور خارجية فتعمل أوفلاين) ----------
+function isShareImageMushafBgEnabled(){
+  try{ return localStorage.getItem('shareImageMushafBg') !== '0'; } catch(e){ return true; }
+}
+function setShareImageMushafBg(on){
+  try{ localStorage.setItem('shareImageMushafBg', on ? '1' : '0'); } catch(e){}
+}
+function drawMushafBackground(ctx, W, H, seed){
+  // مولّد أرقام عشوائية ثابت بالبذرة، فتبقى الصورة نفسها لنفس الآية
+  const rnd = (function(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })(seed || 7);
+  const GOLD = '212,175,90';
+  const roundRect = (x, y, w, h, r) => {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+  };
+
+  // 1) خلفية الطاولة
+  const base = ctx.createLinearGradient(0, 0, W, H);
+  base.addColorStop(0, '#0a201d'); base.addColorStop(1, '#10302a');
+  ctx.fillStyle = base; ctx.fillRect(0, 0, W, H);
+
+  // 2) حافة أوراق المصحف المتراصة على اليسار (كعب المصحف على اليمين)
+  const px = 34, py = 30, pw = W - 68, ph = H - 60;
+  for(let i = 7; i >= 1; i--){
+    ctx.strokeStyle = `rgba(${GOLD},${0.10 + (8 - i) * 0.035})`;
+    ctx.lineWidth = 1.4;
+    roundRect(px - i * 2.6, py + i * 1.6, pw, ph - i * 3.2, 24);
+    ctx.stroke();
+  }
+
+  // 3) جسم الصفحة
+  const page = ctx.createLinearGradient(px, 0, px + pw, 0);
+  page.addColorStop(0, '#173b33'); page.addColorStop(0.55, '#1b453b'); page.addColorStop(1, '#122f27');
+  ctx.fillStyle = page; roundRect(px, py, pw, ph, 24); ctx.fill();
+  ctx.save();
+  roundRect(px, py, pw, ph, 24); ctx.clip();
+
+  // ظل كعب المصحف على اليمين وإضاءة خفيفة على الحافة اليسرى
+  const spine = ctx.createLinearGradient(px + pw - 190, 0, px + pw, 0);
+  spine.addColorStop(0, 'rgba(0,0,0,0)'); spine.addColorStop(1, 'rgba(0,0,0,0.42)');
+  ctx.fillStyle = spine; ctx.fillRect(px + pw - 190, py, 190, ph);
+  const edge = ctx.createLinearGradient(px, 0, px + 80, 0);
+  edge.addColorStop(0, 'rgba(255,240,200,0.07)'); edge.addColorStop(1, 'rgba(255,240,200,0)');
+  ctx.fillStyle = edge; ctx.fillRect(px, py, 80, ph);
+
+  // 4) أسطر مصحف خافتة: كلمات متخيّلة بأطوال مختلفة (خلفية فقط، لا تُقرأ)
+  const left = 120, right = W - 120, lineGap = 66;
+  ctx.lineCap = 'round';
+  for(let y = 210; y < H - 200; y += lineGap){
+    let x = right;
+    const lastLine = y + lineGap >= H - 200;
+    const stopAt = lastLine ? right - (right - left) * (0.35 + rnd() * 0.3) : left;
+    while(x > stopAt + 30){
+      const w = 38 + rnd() * 130;
+      const w2 = Math.min(w, x - stopAt);
+      ctx.strokeStyle = `rgba(${GOLD},${0.040 + rnd() * 0.028})`;
+      ctx.lineWidth = 9 + rnd() * 4;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - w2, y); ctx.stroke();
+      if(rnd() > 0.72){ // نقطة/علامة تشكيل صغيرة فوق الكلمة
+        ctx.beginPath(); ctx.arc(x - w2 * rnd(), y - 15, 2.2, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${GOLD},0.07)`; ctx.fill();
+      }
+      x -= w2 + 16 + rnd() * 12;
+    }
+  }
+
+  // 5) إضاءة هادئة وسط الصفحة (تحسّن وضوح النص) وتعتيم الأطراف
+  const glow = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, Math.max(W, H) * 0.75);
+  glow.addColorStop(0, 'rgba(255,238,190,0.07)'); glow.addColorStop(0.55, 'rgba(0,0,0,0)'); glow.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = glow; ctx.fillRect(px, py, pw, ph);
+
+  // 6) ملمس الورق
+  for(let i = 0; i < 2600; i++){
+    ctx.fillStyle = rnd() > 0.5 ? 'rgba(255,240,205,0.035)' : 'rgba(0,0,0,0.05)';
+    ctx.fillRect(px + rnd() * pw, py + rnd() * ph, 1.4, 1.4);
+  }
+  ctx.restore();
+
+  // 7) إطار المصحف الذهبي المزدوج
+  ctx.strokeStyle = `rgba(${GOLD},0.75)`; ctx.lineWidth = 3; ctx.strokeRect(62, 62, W - 124, H - 124);
+  ctx.strokeStyle = `rgba(${GOLD},0.35)`; ctx.lineWidth = 1.2; ctx.strokeRect(76, 76, W - 152, H - 152);
+
+  // 8) زخارف الزوايا: وردة صغيرة وأقواس
+  const corner = (cx, cy, sx, sy) => {
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy);
+    ctx.strokeStyle = `rgba(${GOLD},0.7)`; ctx.fillStyle = `rgba(${GOLD},0.65)`; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+    for(let k = 0; k < 8; k++){
+      const a = k * Math.PI / 4;
+      ctx.beginPath(); ctx.ellipse(Math.cos(a) * 24, Math.sin(a) * 24, 7, 3.2, a, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0, 0, 44, 0, Math.PI / 2); ctx.lineWidth = 1.2; ctx.strokeStyle = `rgba(${GOLD},0.45)`; ctx.stroke();
+    ctx.restore();
+  };
+  corner(76, 76, 1, 1); corner(W - 76, 76, -1, 1); corner(76, H - 76, 1, -1); corner(W - 76, H - 76, -1, -1);
+
+  // 9) شريط زخرفي أعلى الصفحة (كرتوش) وخط زخرفي أسفلها
+  const diamond = (cx, cy, r) => { ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath(); };
+  ctx.strokeStyle = `rgba(${GOLD},0.55)`; ctx.fillStyle = `rgba(${GOLD},0.55)`; ctx.lineWidth = 1.6;
+  roundRect(190, 100, W - 380, 40, 20); ctx.stroke();
+  for(let x = 240; x <= W - 240; x += 34){ diamond(x, 120, 4.2); ctx.fill(); }
+  diamond(W / 2, 120, 9); ctx.stroke();
+  ctx.strokeStyle = `rgba(${GOLD},0.4)`;
+  ctx.beginPath(); ctx.moveTo(210, H - 112); ctx.lineTo(W / 2 - 22, H - 112); ctx.moveTo(W / 2 + 22, H - 112); ctx.lineTo(W - 210, H - 112); ctx.stroke();
+  ctx.fillStyle = `rgba(${GOLD},0.55)`; diamond(W / 2, H - 112, 7); ctx.fill();
+}
+
 function wrapCanvasText(ctx, text, maxWidth){
   const words = text.split(' ');
   const lines = [];
@@ -3845,20 +3957,25 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  // خلفية متدرجة ثابتة (بغض النظر عن ثيم التطبيق) عشان الصورة تبقى واضحة لأي حد يستقبلها
-  const grad = ctx.createLinearGradient(0, 0, W, H);
-  grad.addColorStop(0, '#0f2d29');
-  grad.addColorStop(1, '#173e37');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, W, H);
+  if(isShareImageMushafBgEnabled()){
+    // خلفية على هيئة صفحة مصحف
+    drawMushafBackground(ctx, W, H, surahId * 1000 + fromAyah);
+  } else {
+    // خلفية متدرجة ثابتة (بغض النظر عن ثيم التطبيق) عشان الصورة تبقى واضحة لأي حد يستقبلها
+    const grad = ctx.createLinearGradient(0, 0, W, H);
+    grad.addColorStop(0, '#0f2d29');
+    grad.addColorStop(1, '#173e37');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
 
-  // إطار زخرفي بسيط
-  ctx.strokeStyle = 'rgba(212,175,90,0.55)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(48, 48, W - 96, H - 96);
-  ctx.strokeStyle = 'rgba(212,175,90,0.25)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(60, 60, W - 120, H - 120);
+    // إطار زخرفي بسيط
+    ctx.strokeStyle = 'rgba(212,175,90,0.55)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(48, 48, W - 96, H - 96);
+    ctx.strokeStyle = 'rgba(212,175,90,0.25)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(60, 60, W - 120, H - 120);
+  }
 
   ctx.direction = 'rtl';
   ctx.textAlign = 'center';
@@ -5147,6 +5264,7 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   set('share-range-prev-btn', offT('+ الآية السابقة', '+ Previous ayah'));
   set('share-range-next-btn', offT('+ الآية التالية', '+ Next ayah'));
   set('share-range-tafsir-label', offT('تضمين التفسير/الترجمة المختار', 'Include the selected tafsir/translation'));
+  set('share-range-mushaf-label', offT('خلفية على هيئة صفحة مصحف', 'Mushaf page background'));
   set('share-range-go', offT('إنشاء الصورة ومشاركتها', 'Create & share image'));
   set('share-range-cancel', offT('إلغاء', 'Cancel'));
   const opts = Array.from({ length: surah.total_verses }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
@@ -5154,6 +5272,8 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   document.getElementById('share-range-to').innerHTML = opts;
   const tafsirChk = document.getElementById('share-range-tafsir');
   if(tafsirChk) tafsirChk.checked = isShareImageTafsirEnabled();
+  const mushafChk = document.getElementById('share-range-mushaf');
+  if(mushafChk) mushafChk.checked = isShareImageMushafBgEnabled();
   document.getElementById('share-range-overlay').classList.add('open');
   renderShareRange();
   requestAnimationFrame(() => {
@@ -5241,6 +5361,8 @@ function confirmShareRange(){
     const settingsChk = document.getElementById('share-image-tafsir-toggle');
     if(settingsChk) settingsChk.checked = chk.checked;
   }
+  const mushafChk = document.getElementById('share-range-mushaf');
+  if(mushafChk) setShareImageMushafBg(mushafChk.checked);
   const { surahId, surahName, from, to } = c;
   closeShareRangeDialog();
   generateAyahImage(surahId, from, to, surahName);
@@ -9341,6 +9463,9 @@ const I18N_STRINGS = {
     shortcut_ayah_step: 'الآية السابقة / التالية في التلاوة (داخل السورة)',
     shortcut_tafsir_open: 'فتح تفسير الآية الحالية (داخل السورة)',
     shortcut_help: 'فتح/إغلاق قائمة الاختصارات',
+    shortcut_share_image: 'مشاركة الآية الحالية كصورة (داخل السورة)',
+    shortcut_note: 'إضافة/تعديل ملاحظة للآية الحالية (داخل السورة)',
+    shortcut_edges: 'الانتقال لأول آية / آخر آية (داخل السورة)',
     shortcut_listen: 'تشغيل/إيقاف الاستماع المتواصل للسورة (داخل السورة)',
     shortcut_repeat: 'تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)',
     shortcut_bookmark: 'إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)',
@@ -9637,6 +9762,9 @@ const I18N_STRINGS = {
     shortcut_ayah_step: 'Previous / next ayah in the recitation (while reading)',
     shortcut_tafsir_open: 'Open tafsir of the current ayah (while reading)',
     shortcut_help: 'Open/close the shortcuts list',
+    shortcut_share_image: 'Share the current ayah as an image (while reading)',
+    shortcut_note: 'Add/edit a note for the current ayah (while reading)',
+    shortcut_edges: 'Jump to the first / last ayah (while reading)',
     shortcut_listen: 'Start/pause continuous listening to the surah (while reading)',
     shortcut_repeat: 'Start/stop ayah repeat using the repeat settings, or the current ayah if the range is unchanged (while reading)',
     shortcut_bookmark: 'Add/remove bookmark for current ayah (while reading)',
@@ -10068,6 +10196,29 @@ function stepAyahShortcut(dir){
   mediaSessionStep(dir);
   showShortcutToast(dir > 0 ? offT('⏭ الآية التالية', '⏭ Next ayah') : offT('⏮ الآية السابقة', '⏮ Previous ayah'));
 }
+
+function shareCurrentAyahShortcut(){
+  const ref = getReferenceAyah();
+  const surah = ref && QURAN.find(x => x.id === ref.surahId);
+  if(!ref || !surah){ showShortcutToast(offT('اختر آية أو شغّلها أولًا', 'Select or play an ayah first')); return; }
+  shareAyahAsImage(ref.surahId, ref.ayahId, surah.name);
+}
+function noteCurrentAyahShortcut(){
+  const ref = getReferenceAyah();
+  const surah = ref && QURAN.find(x => x.id === ref.surahId);
+  if(!ref || !surah){ showShortcutToast(offT('اختر آية أو شغّلها أولًا', 'Select or play an ayah first')); return; }
+  openNoteModal(ref.surahId, ref.ayahId, surah.name);
+}
+function scrollToEdgeAyah(which){
+  const cards = document.querySelectorAll('.ayah-card');
+  if(!cards.length) return;
+  const el = which === 'first' ? cards[0] : cards[cards.length - 1];
+  el.scrollIntoView({ behavior: 'smooth', block: which === 'first' ? 'start' : 'end' });
+  el.classList.add('flash-highlight');
+  setTimeout(() => el.classList.remove('flash-highlight'), 1500);
+  showShortcutToast(which === 'first' ? offT('⇱ أول آية', '⇱ First ayah') : offT('⇲ آخر آية', '⇲ Last ayah'));
+}
+
 function openTafsirShortcut(){
   const ov = document.getElementById('tafsir-overlay');
   if(ov && ov.classList.contains('open')){ closeTafsirModal(); return; }
@@ -10245,19 +10396,42 @@ function attachDisplayModeShortcuts(){
 
     if(document.getElementById('read-view').style.display === 'none') return;
 
+    // لا تعمل اختصارات القراءة التالية والنافذة (ملاحظة/مشاركة/إعدادات/اختصارات) مفتوحة فوق الصفحة
+    const blockingOverlay = ['note-overlay', 'share-range-overlay', 'shortcuts-overlay', 'settings-overlay', 'exit-confirm-overlay']
+      .some(id => { const el = document.getElementById(id); return el && el.classList.contains('open'); });
+
+    // اختصار "I" / "ه": مشاركة الآية الحالية كصورة
+    if(!blockingOverlay && (e.code === 'KeyI' || e.key === 'i' || e.key === 'I' || e.key === 'ه')){
+      e.preventDefault();
+      shareCurrentAyahShortcut();
+      return;
+    }
+    // اختصار "N" / "ى": إضافة/تعديل ملاحظة للآية الحالية
+    if(!blockingOverlay && (e.code === 'KeyN' || e.key === 'n' || e.key === 'N' || e.key === 'ى')){
+      e.preventDefault();
+      noteCurrentAyahShortcut();
+      return;
+    }
+    // اختصار "Home" / "End": أول آية / آخر آية
+    if(!blockingOverlay && (e.key === 'Home' || e.key === 'End')){
+      e.preventDefault();
+      scrollToEdgeAyah(e.key === 'Home' ? 'first' : 'last');
+      return;
+    }
+
     // اختصار "P" / "ح": تشغيل/إيقاف الاستماع المتواصل للسورة (Play)
-    if(e.code === 'KeyP' || e.key === 'p' || e.key === 'P' || e.key === 'ح'){
+    if(!blockingOverlay && (e.code === 'KeyP' || e.key === 'p' || e.key === 'P' || e.key === 'ح')){
       e.preventDefault();
       toggleListenShortcut();
       return;
     }
     // اختصار "[" و"]": الآية السابقة/التالية في التلاوة
-    if(e.code === 'BracketLeft' || e.key === '['){ e.preventDefault(); stepAyahShortcut(-1); return; }
-    if(e.code === 'BracketRight' || e.key === ']'){ e.preventDefault(); stepAyahShortcut(1); return; }
+    if(!blockingOverlay && (e.code === 'BracketLeft' || e.key === '[')){ e.preventDefault(); stepAyahShortcut(-1); return; }
+    if(!blockingOverlay && (e.code === 'BracketRight' || e.key === ']')){ e.preventDefault(); stepAyahShortcut(1); return; }
     // اختصار "J" / "ت": فتح تفسير الآية الحالية
-    if(e.code === 'KeyJ' || e.key === 'j' || e.key === 'J' || e.key === 'ت'){ e.preventDefault(); openTafsirShortcut(); return; }
+    if(!blockingOverlay && (e.code === 'KeyJ' || e.key === 'j' || e.key === 'J' || e.key === 'ت')){ e.preventDefault(); openTafsirShortcut(); return; }
     // اختصار "R" / "ق": تشغيل/إيقاف تكرار الآيات (Repeat)
-    if(e.code === 'KeyR' || e.key === 'r' || e.key === 'R' || e.key === 'ق'){
+    if(!blockingOverlay && (e.code === 'KeyR' || e.key === 'r' || e.key === 'R' || e.key === 'ق')){
       e.preventDefault();
       toggleRepeatShortcut();
       return;
@@ -10591,6 +10765,9 @@ if('serviceWorker' in navigator){
             <tr><td><kbd>P</kbd> / <kbd>ح</kbd></td><td data-i18n="shortcut_listen">تشغيل/إيقاف الاستماع المتواصل للسورة (داخل السورة)</td></tr>
             <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td data-i18n="shortcut_ayah_step">الآية السابقة / التالية في التلاوة (داخل السورة)</td></tr>
             <tr><td><kbd>J</kbd> / <kbd>ت</kbd></td><td data-i18n="shortcut_tafsir_open">فتح تفسير الآية الحالية (داخل السورة)</td></tr>
+            <tr><td><kbd>I</kbd> / <kbd>ه</kbd></td><td data-i18n="shortcut_share_image">مشاركة الآية الحالية كصورة (داخل السورة)</td></tr>
+            <tr><td><kbd>N</kbd> / <kbd>ى</kbd></td><td data-i18n="shortcut_note">إضافة/تعديل ملاحظة للآية الحالية (داخل السورة)</td></tr>
+            <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td data-i18n="shortcut_edges">الانتقال لأول آية / آخر آية (داخل السورة)</td></tr>
             <tr><td><kbd>?</kbd></td><td data-i18n="shortcut_help">فتح/إغلاق قائمة الاختصارات</td></tr>
             <tr><td><kbd>R</kbd> / <kbd>ق</kbd></td><td data-i18n="shortcut_repeat">تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)</td></tr>
             <tr><td><kbd>B</kbd></td><td data-i18n="shortcut_bookmark">إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)</td></tr>
@@ -10723,6 +10900,10 @@ if('serviceWorker' in navigator){
       <label class="test-mode-toggle-row">
         <input type="checkbox" id="share-range-tafsir">
         <span id="share-range-tafsir-label">تضمين التفسير/الترجمة المختار</span>
+      </label>
+      <label class="test-mode-toggle-row">
+        <input type="checkbox" id="share-range-mushaf">
+        <span id="share-range-mushaf-label">خلفية على هيئة صفحة مصحف</span>
       </label>
       <div class="share-range-actions">
         <button type="button" class="offline-dl-btn primary" id="share-range-go" onclick="confirmShareRange()">إنشاء الصورة ومشاركتها</button>
