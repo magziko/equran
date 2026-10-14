@@ -3542,6 +3542,28 @@ function renderReadingAyahCard(idPrefix, surahId, ayahId, surahName, text){
 }
 
 /* ---------- مشاركة آية كصورة (Canvas → مشاركة عبر Web Share API أو تنزيل PNG) ---------- */
+// يرسم سطر آية، ولو فيه علامات نهاية آية ﴿١٤﴾ يرسمها بخط عادي مستقل بدل خط المصحف:
+// بعض خطوط المصحف (مثل خط المدينة) تحوّل الأرقام العربية إلى زخرفة بيضاوية خاصة بها وقد تعكس ترتيبها
+function drawAyahLine(ctx, line, cx, y, quranFont, markerFont, baseColor){
+  const parts = line.split(/(\uFD3F[^\uFD3E]*\uFD3E)/).filter(p => p !== '');
+  const isMarker = p => p.charCodeAt(0) === 0xFD3F && p.charCodeAt(p.length - 1) === 0xFD3E;
+  if(!parts.some(isMarker)){ ctx.font = quranFont; ctx.fillText(line, cx, y); return; }
+  const widths = parts.map(p => { ctx.font = isMarker(p) ? markerFont : quranFont; return ctx.measureText(p).width; });
+  const total = widths.reduce((a, b) => a + b, 0);
+  const prevAlign = ctx.textAlign;
+  ctx.textAlign = 'right';
+  let x = cx + total / 2; // نص عربي: نبدأ من الحافة اليمنى للسطر
+  parts.forEach((p, i) => {
+    const marker = isMarker(p);
+    ctx.font = marker ? markerFont : quranFont;
+    ctx.fillStyle = marker ? '#d4af5a' : baseColor;
+    ctx.fillText(p, x, y);
+    x -= widths[i];
+  });
+  ctx.textAlign = prevAlign;
+  ctx.fillStyle = baseColor;
+}
+
 function wrapCanvasText(ctx, text, maxWidth){
   const words = text.split(' ');
   const lines = [];
@@ -3838,10 +3860,13 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
   let y = used.length
     ? topY + lineHeight / 2
     : H / 2 - totalTextHeight / 2 + lineHeight / 2 - 30;
+  const ayahFontCss = `${fontSize}px \"${quranFontName}\"`;
+  const markerFontCss = `600 ${Math.round(fontSize * 0.6)}px \"Cairo\", \"Amiri Quran\", serif`;
   lines.forEach(line => {
-    ctx.fillText(line, W / 2, y);
+    drawAyahLine(ctx, line, W / 2, y, ayahFontCss, markerFontCss, '#f3e9d2');
     y += lineHeight;
   });
+  ctx.font = ayahFontCss;
 
   // فاصل زخرفي صغير
   const sepY = y + labelGapTop;
