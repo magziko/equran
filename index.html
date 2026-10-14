@@ -1322,6 +1322,15 @@
   .share-range-note.err{ color:#e0707a; }
   .share-range-actions{ display:flex; gap:8px; margin-top:12px; }
   .share-range-actions .primary{ flex:1; }
+  .shortcut-toast{
+    position:fixed; left:50%; bottom:28px; transform:translate(-50%, 16px); z-index:100001;
+    max-width:calc(100vw - 32px); padding:9px 18px; border-radius:999px; background:var(--bg-elev); color:var(--text);
+    border:1px solid var(--accent); box-shadow:0 8px 24px rgba(0,0,0,.35); font-size:14px; font-weight:700;
+    opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease; text-align:center;
+  }
+  .shortcut-toast.show{ opacity:1; transform:translate(-50%, 0); }
+  .ayah-search-approx{ cursor:pointer; color:var(--accent-soft); font-weight:700; }
+  .ayah-search-approx:hover, .ayah-search-approx:focus-visible{ text-decoration:underline; }
   .ready-toast{ border-color:#3fb27f; }
   .ready-sub{ display:block; margin-top:3px; font-size:12px; font-weight:500; color:var(--text-muted); line-height:1.6; }
   .update-toast-close{ border:none; background:transparent; color:var(--text-muted); font-size:20px; cursor:pointer; line-height:1; padding:0 4px; }
@@ -2054,6 +2063,7 @@
 </head>
 <body>
 
+<div class="shortcut-toast" id="shortcut-toast" role="status" aria-live="polite"></div>
 <div class="update-toast ready-toast" id="ready-toast" role="status" aria-live="polite">
   <span>
     <span id="ready-toast-text">✓ التطبيق جاهز للعمل بدون إنترنت</span>
@@ -7762,7 +7772,7 @@ function onSideNavSearchInput(value){
   else renderJuzSideNav(value);
 }
 
-function searchAyahs(query){
+function searchAyahs(query, includeApprox){
   const qNorm = normalizeArabicText(query).trim();
   if(!qNorm) return { results: [], truncated: false };
   const qLoose = qNorm.replace(/[اء ]/g, '');
@@ -7805,11 +7815,17 @@ function searchAyahs(query){
     while(end < entry.text.length && DIACRITICS_RE.test(entry.text[end])) end++;
     buckets[level].push({ surahId: entry.surahId, surahName: entry.surahName, ayahId: entry.ayahId, text: entry.text, start, end });
   }
-  // الأدق أولًا (ثم ترتيب المصحف داخل كل مستوى)
-  let results = buckets[0].concat(buckets[1], buckets[2]);
+  // الأدق أولًا (ثم ترتيب المصحف داخل كل مستوى).
+  // النتائج التقريبية (المتساهلة في الألف) تُضاف تلقائيًا فقط لو لا توجد نتائج دقيقة (مثل: السموات، الرحمن)
+  // أو كانت قليلة مقارنة بالدقيقة. أما لو طغت على الدقيقة (مثل: الربا ← الرب) فتُخفى ويُعرض زر لإظهارها.
+  const precise = buckets[0].length + buckets[1].length;
+  let results = buckets[0].concat(buckets[1]);
+  let approxHidden = 0;
+  if(includeApprox || precise === 0 || buckets[2].length <= precise) results = results.concat(buckets[2]);
+  else approxHidden = buckets[2].length;
   let truncated = false;
   if(results.length > MAX_AYAH_RESULTS){ results = results.slice(0, MAX_AYAH_RESULTS); truncated = true; }
-  return { results, truncated };
+  return { results, truncated, approxHidden };
 }
 
 /* ---------- وضع اختبار الحفظ: إخفاء نص الآية وإظهار أول كلمة فقط ---------- */
@@ -7862,14 +7878,19 @@ function buildAyahSnippet(r){
   return prefix + before + '<mark>' + match + '</mark>' + after + suffix;
 }
 
-function renderAyahSearchResults(query, dropdownId){
+let lastAyahSearch = null;
+function showApproxAyahResults(){
+  if(lastAyahSearch) renderAyahSearchResults(lastAyahSearch.query, lastAyahSearch.dropdownId, true);
+}
+function renderAyahSearchResults(query, dropdownId, includeApprox){
   dropdownId = dropdownId || 'ayah-search-dropdown';
   if(!AYAH_INDEX.length) buildAyahSearchIndex();
   const dropdown = document.getElementById(dropdownId);
   const q = (query || '').trim();
   if(!q){ dropdown.style.display = 'none'; dropdown.innerHTML = ''; return; }
 
-  const { results, truncated } = searchAyahs(q);
+  lastAyahSearch = { query: q, dropdownId };
+  const { results, truncated, approxHidden } = searchAyahs(q, includeApprox);
 
   if(results.length === 0){
     dropdown.innerHTML = `<div class="ayah-search-empty">${t('no_ayah_match')}</div>`;
@@ -7882,7 +7903,8 @@ function renderAyahSearchResults(query, dropdownId){
       <div class="ayah-search-meta">${t('surah_word')} ${r.surahName} — ${t('ayah_word')} ${r.ayahId}</div>
       <div class="ayah-search-snippet">${buildAyahSnippet(r)}</div>
     </div>
-  `).join('') + (truncated ? `<div class="ayah-search-more">${t('top_results_prefix')} ${MAX_AYAH_RESULTS} ${t('results_word')} — ${t('refine_search_suffix')}</div>` : '');
+  `).join('') + (truncated ? `<div class="ayah-search-more">${t('top_results_prefix')} ${MAX_AYAH_RESULTS} ${t('results_word')} — ${t('refine_search_suffix')}</div>` : '')
+    + (approxHidden ? `<div class="ayah-search-more ayah-search-approx" role="button" tabindex="0" onclick="event.stopPropagation(); showApproxAyahResults()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();showApproxAyahResults();}">${offT(`إظهار ${approxHidden} نتيجة تقريبية أيضًا`, `Also show ${approxHidden} approximate matches`)}</div>` : '');
 
   dropdown.style.display = 'block';
 }
@@ -9258,6 +9280,8 @@ const I18N_STRINGS = {
     shortcut_theme: 'تبديل الوضع الداكن/الفاتح (داخل السورة)',
     shortcut_tafsir: 'إظهار/إخفاء التفسير المضمّن (داخل السورة)',
     shortcut_play_pause: 'تشغيل/إيقاف تلاوة الآية (داخل السورة)',
+    shortcut_listen: 'تشغيل/إيقاف الاستماع المتواصل للسورة (داخل السورة)',
+    shortcut_repeat: 'تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)',
     shortcut_bookmark: 'إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)',
     shortcut_cards_mode: 'وضع العرض: آيات منفصلة (بطاقات)',
     shortcut_continuous_mode: 'وضع العرض: آيات متتالية (كالمصحف)',
@@ -9549,6 +9573,8 @@ const I18N_STRINGS = {
     shortcut_theme: 'Toggle dark/light mode (while reading)',
     shortcut_tafsir: 'Show/hide inline tafsir (while reading)',
     shortcut_play_pause: 'Play/pause ayah recitation (while reading)',
+    shortcut_listen: 'Start/pause continuous listening to the surah (while reading)',
+    shortcut_repeat: 'Start/stop ayah repeat using the repeat settings, or the current ayah if the range is unchanged (while reading)',
     shortcut_bookmark: 'Add/remove bookmark for current ayah (while reading)',
     shortcut_cards_mode: 'Display mode: separate ayah cards',
     shortcut_continuous_mode: 'Display mode: continuous (mushaf-style)',
@@ -9941,6 +9967,65 @@ function attachSwipeNavigation(){
   }, { passive: true });
 }
 
+
+/* ---------- اختصارات لوحة المفاتيح: الاستماع المتواصل والتكرار ---------- */
+let shortcutToastTimer = null;
+function showShortcutToast(text){
+  const el = document.getElementById('shortcut-toast');
+  if(!el) return;
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(shortcutToastTimer);
+  shortcutToastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+function toggleListenShortcut(){
+  if(listenState.active && !listenState.paused){
+    pauseFullSurahListen();
+    showShortcutToast(offT('⏸ أُوقف الاستماع مؤقتًا — اضغط P للمتابعة', '⏸ Listening paused — press P to resume'));
+    return;
+  }
+  const resuming = listenState.active && listenState.paused;
+  startFullSurahListen();
+  const surah = QURAN.find(x => x.id === currentSurahId);
+  const name = surah ? surah.name : '';
+  showShortcutToast(resuming
+    ? offT('▶ تمت متابعة الاستماع', '▶ Listening resumed')
+    : offT(`▶ بدأ الاستماع لسورة ${name}`, `▶ Listening to surah ${name}`));
+}
+function toggleRepeatShortcut(){
+  if(repeatState.active){
+    stopAyahRepeat();
+    showShortcutToast(offT('⏹ توقّف التكرار', '⏹ Repeat stopped'));
+    return;
+  }
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  if(reciter.type === 'surah'){
+    showShortcutToast(t('repeat_unsupported_reciter'));
+    return;
+  }
+  // لو نطاق التكرار على وضعه الافتراضي (كل آيات السورة المعروضة) نكرّر الآية الحالية التي يقف عندها المستخدم،
+  // أما لو ضبط المستخدم نطاقًا بنفسه فنحترمه
+  const fromInput = document.getElementById('repeat-from');
+  const toInput = document.getElementById('repeat-to');
+  if(fromInput && toInput && currentMode === 'surah' && lastActiveAyahCardId &&
+     (parseInt(fromInput.value, 10) || 1) === 1 && (parseInt(toInput.value, 10) || 1) === currentVerseList.length){
+    const m = String(lastActiveAyahCardId).match(/ayah-(\d+)-(\d+)$/);
+    if(m && parseInt(m[1], 10) === currentSurahId){
+      const ayahNum = parseInt(m[2], 10);
+      const idx = currentVerseList.findIndex(v => v.id === ayahNum) + 1 || ayahNum;
+      fromInput.value = idx;
+      toInput.value = idx;
+    }
+  }
+  startAyahRepeat();
+  if(repeatState.active){
+    const range = repeatState.fromIndex === repeatState.toIndex ? `${repeatState.fromIndex}` : `${repeatState.fromIndex}–${repeatState.toIndex}`;
+    showShortcutToast(offT(`↻ تكرار الآية ${range} (${repeatState.timesEach} مرات لكل آية)`, `↻ Repeating ayah ${range} (${repeatState.timesEach}× each)`));
+  } else {
+    showShortcutToast(t('no_ayat_to_repeat'));
+  }
+}
+
 function attachDisplayModeShortcuts(){
   document.addEventListener('keydown', function(e){
     if(e.ctrlKey || e.metaKey || e.altKey) return;
@@ -10027,8 +10112,8 @@ function attachDisplayModeShortcuts(){
       return;
     }
 
-    // اختصار "r" للانتقال السريع لآخر نقطة قراءة محفوظة
-    if(e.key === 'r' || e.key === 'R'){
+    // اختصار "G" / "ل" للانتقال السريع لآخر نقطة قراءة محفوظة (كان R، وانتقل ليصير R للتكرار)
+    if(e.code === 'KeyG' || e.key === 'g' || e.key === 'G' || e.key === 'ل'){
       const saved = getSavedPosition();
       if(saved){
         e.preventDefault();
@@ -10048,6 +10133,19 @@ function attachDisplayModeShortcuts(){
     }
 
     if(document.getElementById('read-view').style.display === 'none') return;
+
+    // اختصار "P" / "ح": تشغيل/إيقاف الاستماع المتواصل للسورة (Play)
+    if(e.code === 'KeyP' || e.key === 'p' || e.key === 'P' || e.key === 'ح'){
+      e.preventDefault();
+      toggleListenShortcut();
+      return;
+    }
+    // اختصار "R" / "ق": تشغيل/إيقاف تكرار الآيات (Repeat)
+    if(e.code === 'KeyR' || e.key === 'r' || e.key === 'R' || e.key === 'ق'){
+      e.preventDefault();
+      toggleRepeatShortcut();
+      return;
+    }
 
     if(e.key === '+' || e.key === '=' || e.key === 'Add'){
       e.preventDefault();
@@ -10366,7 +10464,7 @@ if('serviceWorker' in navigator){
             <tr><td><kbd>,</kbd></td><td data-i18n="shortcut_settings">فتح/إغلاق الإعدادات</td></tr>
             <tr><td><kbd>Esc</kbd></td><td data-i18n="shortcut_escape">إغلاق أي نافذة مفتوحة (الإعدادات، الاختصارات، التفسير)</td></tr>
             <tr><td><kbd>/</kbd></td><td data-i18n="shortcut_search">التركيز على مربع البحث في نص الآيات</td></tr>
-            <tr><td><kbd>R</kbd></td><td data-i18n="shortcut_resume">الانتقال لآخر نقطة قراءة محفوظة</td></tr>
+            <tr><td><kbd>G</kbd> / <kbd>ل</kbd></td><td data-i18n="shortcut_resume">الانتقال لآخر نقطة قراءة محفوظة</td></tr>
             <tr><td><kbd>U</kbd> / <kbd>ع</kbd></td><td data-i18n="shortcut_lang_ar">التبديل للغة العربية</td></tr>
             <tr><td><kbd>E</kbd> / <kbd>ث</kbd></td><td data-i18n="shortcut_lang_en">التبديل للغة الإنجليزية</td></tr>
             <tr><td><kbd>+</kbd></td><td data-i18n="shortcut_font_up">تكبير خط النص (داخل السورة)</td></tr>
@@ -10374,6 +10472,8 @@ if('serviceWorker' in navigator){
             <tr><td><kbd>D</kbd></td><td data-i18n="shortcut_theme">تبديل الوضع الداكن/الفاتح (داخل السورة)</td></tr>
             <tr><td><kbd>T</kbd></td><td data-i18n="shortcut_tafsir">إظهار/إخفاء التفسير المضمّن (داخل السورة)</td></tr>
             <tr><td><kbd>Space</kbd></td><td data-i18n="shortcut_play_pause">تشغيل/إيقاف تلاوة الآية (داخل السورة)</td></tr>
+            <tr><td><kbd>P</kbd> / <kbd>ح</kbd></td><td data-i18n="shortcut_listen">تشغيل/إيقاف الاستماع المتواصل للسورة (داخل السورة)</td></tr>
+            <tr><td><kbd>R</kbd> / <kbd>ق</kbd></td><td data-i18n="shortcut_repeat">تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)</td></tr>
             <tr><td><kbd>B</kbd></td><td data-i18n="shortcut_bookmark">إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)</td></tr>
             <tr><td><kbd>S</kbd></td><td data-i18n="shortcut_cards_mode">وضع العرض: آيات منفصلة (بطاقات)</td></tr>
             <tr><td><kbd>C</kbd></td><td data-i18n="shortcut_continuous_mode">وضع العرض: آيات متتالية (كالمصحف)</td></tr>
