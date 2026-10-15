@@ -1320,6 +1320,22 @@
   .share-pv-num{ color:var(--accent-soft); font-size:15px; white-space:nowrap; }
   .share-range-note{ min-height:20px; font-size:12.5px; line-height:1.7; color:var(--text-muted); margin-bottom:8px; }
   .share-range-note.err{ color:#e0707a; }
+  .share-design-group{ margin:6px 0 4px; }
+  .share-design-title{ display:block; font-size:12.5px; color:var(--text-muted); margin-bottom:6px; }
+  .share-design-opts{ display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; }
+  .share-design-opt{
+    display:flex; flex-direction:column; align-items:stretch; gap:5px; padding:5px; border-radius:12px;
+    border:2px solid var(--border); background:transparent; color:var(--text); font-family:inherit; cursor:pointer;
+  }
+  .share-design-opt:hover{ border-color:var(--accent-soft); }
+  .share-design-opt.selected{ border-color:var(--accent); background:var(--accent-bg); }
+  .share-design-name{ font-size:11.5px; font-weight:700; text-align:center; line-height:1.4; }
+  .share-design-swatch{ display:block; height:52px; border-radius:8px; }
+  .sw-mushaf{ background:linear-gradient(135deg,#173b33,#1b453b); box-shadow:inset 0 0 0 2px rgba(212,175,90,.75), inset 0 0 0 5px rgba(212,175,90,.18); }
+  .sw-parchment{ background:linear-gradient(135deg,#f6ecd3,#e2cc9c); box-shadow:inset 0 0 0 2px rgba(150,108,38,.85), inset 0 0 0 5px rgba(150,108,38,.2); }
+  .sw-night{ background:radial-gradient(circle at 50% 50%, #09112b 0 28%, transparent 29%), repeating-conic-gradient(from 22.5deg at 50% 50%, #17234f 0 22.5deg, #0d1638 22.5deg 45deg); box-shadow:inset 0 0 0 2px rgba(224,190,106,.75); }
+  .sw-plain{ background:linear-gradient(135deg,#0f2d29,#173e37); box-shadow:inset 0 0 0 1px rgba(212,175,90,.5); }
+  @media (max-width:420px){ .share-design-opts{ grid-template-columns:repeat(2, 1fr); } }
   .share-range-actions{ display:flex; gap:8px; margin-top:12px; }
   .share-range-actions .primary{ flex:1; }
   .shortcut-toast{
@@ -3552,51 +3568,85 @@ function renderReadingAyahCard(idPrefix, surahId, ayahId, surahName, text){
 }
 
 /* ---------- مشاركة آية كصورة (Canvas → مشاركة عبر Web Share API أو تنزيل PNG) ---------- */
-// يرسم سطر آية، ولو فيه علامات نهاية آية ﴿١٤﴾ يرسمها بخط عادي مستقل بدل خط المصحف:
-// بعض خطوط المصحف (مثل خط المدينة) تحوّل الأرقام العربية إلى زخرفة بيضاوية خاصة بها وقد تعكس ترتيبها
-function drawAyahLine(ctx, line, cx, y, quranFont, markerFont, baseColor){
-  const parts = line.split(/(\uFD3F[^\uFD3E]*\uFD3E)/).filter(p => p !== '');
-  const isMarker = p => p.charCodeAt(0) === 0xFD3F && p.charCodeAt(p.length - 1) === 0xFD3E;
-  if(!parts.some(isMarker)){ ctx.font = quranFont; ctx.fillText(line, cx, y); return; }
-  const widths = parts.map(p => { ctx.font = isMarker(p) ? markerFont : quranFont; return ctx.measureText(p).width; });
-  const total = widths.reduce((a, b) => a + b, 0);
-  const prevAlign = ctx.textAlign;
-  ctx.textAlign = 'right';
-  let x = cx + total / 2; // نص عربي: نبدأ من الحافة اليمنى للسطر
-  parts.forEach((p, i) => {
-    const marker = isMarker(p);
-    ctx.font = marker ? markerFont : quranFont;
-    ctx.fillStyle = marker ? '#d4af5a' : baseColor;
-    ctx.fillText(p, x, y);
-    x -= widths[i];
-  });
-  ctx.textAlign = prevAlign;
-  ctx.fillStyle = baseColor;
+// ---------- تصاميم خلفية صورة المشاركة (مرسومة برمجيًا بدون ملفات صور خارجية فتعمل أوفلاين) ----------
+const SHARE_DESIGNS = ['mushaf', 'parchment', 'night', 'plain'];
+// ألوان النصوص لكل تصميم
+const SHARE_THEMES = {
+  mushaf:    { ayah: '#f3e9d2', marker: '#d4af5a', label: '#d4af5a', sep: 'rgba(212,175,90,0.6)', sep2: 'rgba(212,175,90,0.35)', body: 'rgba(243,233,210,0.92)', foot: 'rgba(243,233,210,0.55)' },
+  parchment: { ayah: '#2a2016', marker: '#8f6a1c', label: '#8f6a1c', sep: 'rgba(143,106,28,0.65)', sep2: 'rgba(143,106,28,0.4)',  body: 'rgba(52,40,28,0.96)',  foot: 'rgba(70,52,30,0.62)' },
+  night:     { ayah: '#f4efe0', marker: '#e0be6a', label: '#e0be6a', sep: 'rgba(224,190,106,0.6)', sep2: 'rgba(224,190,106,0.35)', body: 'rgba(236,236,245,0.93)', foot: 'rgba(236,236,245,0.55)' },
+  plain:     { ayah: '#f3e9d2', marker: '#d4af5a', label: '#d4af5a', sep: 'rgba(212,175,90,0.6)', sep2: 'rgba(212,175,90,0.35)', body: 'rgba(243,233,210,0.92)', foot: 'rgba(243,233,210,0.55)' }
+};
+function getShareImageDesign(){
+  try{
+    const saved = localStorage.getItem('shareImageDesign');
+    if(saved && SHARE_DESIGNS.includes(saved)) return saved;
+    if(localStorage.getItem('shareImageMushafBg') === '0') return 'plain'; // ترحيل الإعداد القديم
+  } catch(e){}
+  return 'mushaf';
 }
-
-
-// ---------- خلفية صورة المشاركة: صفحة مصحف مرسومة برمجيًا (بدون ملفات صور خارجية فتعمل أوفلاين) ----------
-function isShareImageMushafBgEnabled(){
-  try{ return localStorage.getItem('shareImageMushafBg') !== '0'; } catch(e){ return true; }
+function setShareImageDesign(d){
+  try{ localStorage.setItem('shareImageDesign', SHARE_DESIGNS.includes(d) ? d : 'mushaf'); } catch(e){}
 }
-function setShareImageMushafBg(on){
-  try{ localStorage.setItem('shareImageMushafBg', on ? '1' : '0'); } catch(e){}
+function makeSeededRandom(seed){
+  return (function(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })(seed || 7);
 }
-function drawMushafBackground(ctx, W, H, seed){
-  // مولّد أرقام عشوائية ثابت بالبذرة، فتبقى الصورة نفسها لنفس الآية
-  const rnd = (function(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; })(seed || 7);
-  const GOLD = '212,175,90';
-  const roundRect = (x, y, w, h, r) => {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+function canvasRoundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
+}
+function canvasDiamond(ctx, cx, cy, r){
+  ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath();
+}
+// إطار ذهبي مزدوج + زخارف الزوايا + كرتوش أعلى الصفحة وخط زخرفي أسفلها
+function drawOrnamentalFrame(ctx, W, H, gold){
+  ctx.strokeStyle = `rgba(${gold},0.75)`; ctx.lineWidth = 3; ctx.strokeRect(62, 62, W - 124, H - 124);
+  ctx.strokeStyle = `rgba(${gold},0.35)`; ctx.lineWidth = 1.2; ctx.strokeRect(76, 76, W - 152, H - 152);
+  const corner = (cx, cy, sx, sy) => {
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy);
+    ctx.strokeStyle = `rgba(${gold},0.7)`; ctx.fillStyle = `rgba(${gold},0.65)`; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+    for(let k = 0; k < 8; k++){
+      const a = k * Math.PI / 4;
+      ctx.beginPath(); ctx.ellipse(Math.cos(a) * 24, Math.sin(a) * 24, 7, 3.2, a, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.beginPath(); ctx.arc(0, 0, 44, 0, Math.PI / 2); ctx.lineWidth = 1.2; ctx.strokeStyle = `rgba(${gold},0.45)`; ctx.stroke();
+    ctx.restore();
   };
+  corner(76, 76, 1, 1); corner(W - 76, 76, -1, 1); corner(76, H - 76, 1, -1); corner(W - 76, H - 76, -1, -1);
+  ctx.strokeStyle = `rgba(${gold},0.55)`; ctx.fillStyle = `rgba(${gold},0.55)`; ctx.lineWidth = 1.6;
+  canvasRoundRect(ctx, 190, 100, W - 380, 40, 20); ctx.stroke();
+  for(let x = 240; x <= W - 240; x += 34){ canvasDiamond(ctx, x, 120, 4.2); ctx.fill(); }
+  canvasDiamond(ctx, W / 2, 120, 9); ctx.stroke();
+  ctx.strokeStyle = `rgba(${gold},0.4)`;
+  ctx.beginPath(); ctx.moveTo(210, H - 112); ctx.lineTo(W / 2 - 22, H - 112); ctx.moveTo(W / 2 + 22, H - 112); ctx.lineTo(W - 210, H - 112); ctx.stroke();
+  ctx.fillStyle = `rgba(${gold},0.55)`; canvasDiamond(ctx, W / 2, H - 112, 7); ctx.fill();
+}
+// ألوان صفحة المصحف (الداكنة = الافتراضية، والفاتحة = ورق)
+const MUSHAF_PALETTES = {
+  dark: {
+    tableA: '#0a201d', tableB: '#10302a', pageA: '#173b33', pageB: '#1b453b', pageC: '#122f27',
+    spine: 'rgba(0,0,0,0.42)', edgeHi: 'rgba(255,240,200,0.07)', gold: '212,175,90', lineRGB: '212,175,90', lineA: 0.040,
+    glowIn: 'rgba(255,238,190,0.07)', glowOut: 'rgba(0,0,0,0.45)', noiseA: 'rgba(255,240,205,0.035)', noiseB: 'rgba(0,0,0,0.05)'
+  },
+  light: {
+    tableA: '#1b120a', tableB: '#2a1b0e', pageA: '#eddcb8', pageB: '#f6ecd3', pageC: '#e2cc9c',
+    spine: 'rgba(96,58,20,0.40)', edgeHi: 'rgba(255,255,255,0.40)', gold: '150,108,38', lineRGB: '110,78,30', lineA: 0.050,
+    glowIn: 'rgba(255,250,232,0.40)', glowOut: 'rgba(120,80,30,0.32)', noiseA: 'rgba(255,255,255,0.20)', noiseB: 'rgba(110,75,30,0.07)'
+  }
+};
+function drawMushafBackground(ctx, W, H, seed, pal){
+  pal = pal || MUSHAF_PALETTES.dark;
+  const rnd = makeSeededRandom(seed);
+  const GOLD = pal.gold;
 
   // 1) خلفية الطاولة
   const base = ctx.createLinearGradient(0, 0, W, H);
-  base.addColorStop(0, '#0a201d'); base.addColorStop(1, '#10302a');
+  base.addColorStop(0, pal.tableA); base.addColorStop(1, pal.tableB);
   ctx.fillStyle = base; ctx.fillRect(0, 0, W, H);
 
   // 2) حافة أوراق المصحف المتراصة على اليسار (كعب المصحف على اليمين)
@@ -3604,23 +3654,23 @@ function drawMushafBackground(ctx, W, H, seed){
   for(let i = 7; i >= 1; i--){
     ctx.strokeStyle = `rgba(${GOLD},${0.10 + (8 - i) * 0.035})`;
     ctx.lineWidth = 1.4;
-    roundRect(px - i * 2.6, py + i * 1.6, pw, ph - i * 3.2, 24);
+    canvasRoundRect(ctx, px - i * 2.6, py + i * 1.6, pw, ph - i * 3.2, 24);
     ctx.stroke();
   }
 
   // 3) جسم الصفحة
   const page = ctx.createLinearGradient(px, 0, px + pw, 0);
-  page.addColorStop(0, '#173b33'); page.addColorStop(0.55, '#1b453b'); page.addColorStop(1, '#122f27');
-  ctx.fillStyle = page; roundRect(px, py, pw, ph, 24); ctx.fill();
+  page.addColorStop(0, pal.pageA); page.addColorStop(0.55, pal.pageB); page.addColorStop(1, pal.pageC);
+  ctx.fillStyle = page; canvasRoundRect(ctx, px, py, pw, ph, 24); ctx.fill();
   ctx.save();
-  roundRect(px, py, pw, ph, 24); ctx.clip();
+  canvasRoundRect(ctx, px, py, pw, ph, 24); ctx.clip();
 
   // ظل كعب المصحف على اليمين وإضاءة خفيفة على الحافة اليسرى
-  const spine = ctx.createLinearGradient(px + pw - 190, 0, px + pw, 0);
-  spine.addColorStop(0, 'rgba(0,0,0,0)'); spine.addColorStop(1, 'rgba(0,0,0,0.42)');
-  ctx.fillStyle = spine; ctx.fillRect(px + pw - 190, py, 190, ph);
+  const spineG = ctx.createLinearGradient(px + pw - 190, 0, px + pw, 0);
+  spineG.addColorStop(0, 'rgba(0,0,0,0)'); spineG.addColorStop(1, pal.spine);
+  ctx.fillStyle = spineG; ctx.fillRect(px + pw - 190, py, 190, ph);
   const edge = ctx.createLinearGradient(px, 0, px + 80, 0);
-  edge.addColorStop(0, 'rgba(255,240,200,0.07)'); edge.addColorStop(1, 'rgba(255,240,200,0)');
+  edge.addColorStop(0, pal.edgeHi); edge.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = edge; ctx.fillRect(px, py, 80, ph);
 
   // 4) أسطر مصحف خافتة: كلمات متخيّلة بأطوال مختلفة (خلفية فقط، لا تُقرأ)
@@ -3633,57 +3683,113 @@ function drawMushafBackground(ctx, W, H, seed){
     while(x > stopAt + 30){
       const w = 38 + rnd() * 130;
       const w2 = Math.min(w, x - stopAt);
-      ctx.strokeStyle = `rgba(${GOLD},${0.040 + rnd() * 0.028})`;
+      ctx.strokeStyle = `rgba(${pal.lineRGB},${pal.lineA + rnd() * 0.028})`;
       ctx.lineWidth = 9 + rnd() * 4;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - w2, y); ctx.stroke();
-      if(rnd() > 0.72){ // نقطة/علامة تشكيل صغيرة فوق الكلمة
+      if(rnd() > 0.72){
         ctx.beginPath(); ctx.arc(x - w2 * rnd(), y - 15, 2.2, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(${GOLD},0.07)`; ctx.fill();
+        ctx.fillStyle = `rgba(${pal.lineRGB},0.07)`; ctx.fill();
       }
       x -= w2 + 16 + rnd() * 12;
     }
   }
 
-  // 5) إضاءة هادئة وسط الصفحة (تحسّن وضوح النص) وتعتيم الأطراف
+  // 5) إضاءة هادئة وسط الصفحة وتعتيم الأطراف
   const glow = ctx.createRadialGradient(W / 2, H / 2, 40, W / 2, H / 2, Math.max(W, H) * 0.75);
-  glow.addColorStop(0, 'rgba(255,238,190,0.07)'); glow.addColorStop(0.55, 'rgba(0,0,0,0)'); glow.addColorStop(1, 'rgba(0,0,0,0.45)');
+  glow.addColorStop(0, pal.glowIn); glow.addColorStop(0.55, 'rgba(0,0,0,0)'); glow.addColorStop(1, pal.glowOut);
   ctx.fillStyle = glow; ctx.fillRect(px, py, pw, ph);
 
   // 6) ملمس الورق
   for(let i = 0; i < 2600; i++){
-    ctx.fillStyle = rnd() > 0.5 ? 'rgba(255,240,205,0.035)' : 'rgba(0,0,0,0.05)';
+    ctx.fillStyle = rnd() > 0.5 ? pal.noiseA : pal.noiseB;
     ctx.fillRect(px + rnd() * pw, py + rnd() * ph, 1.4, 1.4);
   }
   ctx.restore();
 
-  // 7) إطار المصحف الذهبي المزدوج
-  ctx.strokeStyle = `rgba(${GOLD},0.75)`; ctx.lineWidth = 3; ctx.strokeRect(62, 62, W - 124, H - 124);
-  ctx.strokeStyle = `rgba(${GOLD},0.35)`; ctx.lineWidth = 1.2; ctx.strokeRect(76, 76, W - 152, H - 152);
+  drawOrnamentalFrame(ctx, W, H, GOLD);
+}
+// تصميم ليلي: نجوم هندسية إسلامية على أزرق داكن (الزخرفة أوضح عند الأطراف وهادئة خلف النص)
+function drawGeometricBackground(ctx, W, H, seed){
+  const rnd = makeSeededRandom(seed);
+  const GOLD = '224,190,106';
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#09112b'); bg.addColorStop(1, '#17234f');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
 
-  // 8) زخارف الزوايا: وردة صغيرة وأقواس
-  const corner = (cx, cy, sx, sy) => {
-    ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy);
-    ctx.strokeStyle = `rgba(${GOLD},0.7)`; ctx.fillStyle = `rgba(${GOLD},0.65)`; ctx.lineWidth = 1.6;
-    ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI * 2); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
-    for(let k = 0; k < 8; k++){
-      const a = k * Math.PI / 4;
-      ctx.beginPath(); ctx.ellipse(Math.cos(a) * 24, Math.sin(a) * 24, 7, 3.2, a, 0, Math.PI * 2); ctx.stroke();
+  const cell = 150, R = 56;
+  ctx.lineJoin = 'round';
+  const star = (cx, cy, r, rot) => {
+    for(let k = 0; k < 2; k++){
+      ctx.beginPath();
+      for(let i = 0; i < 4; i++){
+        const a = rot + k * Math.PI / 4 + i * Math.PI / 2;
+        const x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+        if(i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.closePath(); ctx.stroke();
     }
-    ctx.beginPath(); ctx.arc(0, 0, 44, 0, Math.PI / 2); ctx.lineWidth = 1.2; ctx.strokeStyle = `rgba(${GOLD},0.45)`; ctx.stroke();
-    ctx.restore();
   };
-  corner(76, 76, 1, 1); corner(W - 76, 76, -1, 1); corner(76, H - 76, 1, -1); corner(W - 76, H - 76, -1, -1);
+  for(let row = -1; row * cell < H + cell; row++){
+    for(let col = -1; col * cell < W + cell; col++){
+      const cx = col * cell + cell / 2, cy = row * cell + cell / 2;
+      ctx.strokeStyle = `rgba(${GOLD},0.30)`; ctx.lineWidth = 1.8;
+      star(cx, cy, R, Math.PI / 8);
+      ctx.strokeStyle = `rgba(${GOLD},0.18)`; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.arc(cx, cy, R * 0.52, 0, Math.PI * 2); ctx.stroke();
+      // خطوط وصل ومعيّنات صغيرة عند ملتقى الخلايا
+      ctx.strokeStyle = `rgba(${GOLD},0.16)`;
+      ctx.beginPath(); ctx.moveTo(cx + R, cy); ctx.lineTo(cx + cell - R, cy); ctx.moveTo(cx, cy + R); ctx.lineTo(cx, cy + cell - R); ctx.stroke();
+      canvasDiamond(ctx, cx + cell / 2, cy + cell / 2, 9); ctx.stroke();
+    }
+  }
+  // تخفيف الزخرفة وسط الصورة كي يبقى النص واضحًا
+  const fade = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.12, W / 2, H / 2, Math.max(W, H) * 0.62);
+  fade.addColorStop(0, 'rgba(10,17,43,0.90)'); fade.addColorStop(0.5, 'rgba(10,17,43,0.58)'); fade.addColorStop(1, 'rgba(10,17,43,0.04)');
+  ctx.fillStyle = fade; ctx.fillRect(0, 0, W, H);
+  // تعتيم الأطراف + نجوم صغيرة متناثرة
+  const vig = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.45, W / 2, H / 2, Math.max(W, H) * 0.85);
+  vig.addColorStop(0, 'rgba(0,0,0,0)'); vig.addColorStop(1, 'rgba(0,0,0,0.5)');
+  ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
+  for(let i = 0; i < 70; i++){
+    ctx.fillStyle = `rgba(255,244,214,${0.08 + rnd() * 0.18})`;
+    ctx.beginPath(); ctx.arc(rnd() * W, rnd() * H, 0.8 + rnd() * 1.4, 0, Math.PI * 2); ctx.fill();
+  }
+  drawOrnamentalFrame(ctx, W, H, GOLD);
+}
+function drawPlainBackground(ctx, W, H){
+  const grad = ctx.createLinearGradient(0, 0, W, H);
+  grad.addColorStop(0, '#0f2d29'); grad.addColorStop(1, '#173e37');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(212,175,90,0.55)'; ctx.lineWidth = 2; ctx.strokeRect(48, 48, W - 96, H - 96);
+  ctx.strokeStyle = 'rgba(212,175,90,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(60, 60, W - 120, H - 120);
+}
+function drawShareBackground(design, ctx, W, H, seed){
+  if(design === 'parchment') drawMushafBackground(ctx, W, H, seed, MUSHAF_PALETTES.light);
+  else if(design === 'night') drawGeometricBackground(ctx, W, H, seed);
+  else if(design === 'plain') drawPlainBackground(ctx, W, H);
+  else drawMushafBackground(ctx, W, H, seed, MUSHAF_PALETTES.dark);
+}
 
-  // 9) شريط زخرفي أعلى الصفحة (كرتوش) وخط زخرفي أسفلها
-  const diamond = (cx, cy, r) => { ctx.beginPath(); ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy); ctx.closePath(); };
-  ctx.strokeStyle = `rgba(${GOLD},0.55)`; ctx.fillStyle = `rgba(${GOLD},0.55)`; ctx.lineWidth = 1.6;
-  roundRect(190, 100, W - 380, 40, 20); ctx.stroke();
-  for(let x = 240; x <= W - 240; x += 34){ diamond(x, 120, 4.2); ctx.fill(); }
-  diamond(W / 2, 120, 9); ctx.stroke();
-  ctx.strokeStyle = `rgba(${GOLD},0.4)`;
-  ctx.beginPath(); ctx.moveTo(210, H - 112); ctx.lineTo(W / 2 - 22, H - 112); ctx.moveTo(W / 2 + 22, H - 112); ctx.lineTo(W - 210, H - 112); ctx.stroke();
-  ctx.fillStyle = `rgba(${GOLD},0.55)`; diamond(W / 2, H - 112, 7); ctx.fill();
+// يرسم سطر آية، ولو فيه علامات نهاية آية ﴿١٤﴾ يرسمها بخط عادي مستقل بدل خط المصحف:
+// بعض خطوط المصحف (مثل خط المدينة) تحوّل الأرقام العربية إلى زخرفة بيضاوية خاصة بها وقد تعكس ترتيبها
+function drawAyahLine(ctx, line, cx, y, quranFont, markerFont, baseColor, markerColor){
+  const parts = line.split(/(\uFD3F[^\uFD3E]*\uFD3E)/).filter(p => p !== '');
+  const isMarker = p => p.charCodeAt(0) === 0xFD3F && p.charCodeAt(p.length - 1) === 0xFD3E;
+  if(!parts.some(isMarker)){ ctx.font = quranFont; ctx.fillText(line, cx, y); return; }
+  const widths = parts.map(p => { ctx.font = isMarker(p) ? markerFont : quranFont; return ctx.measureText(p).width; });
+  const total = widths.reduce((a, b) => a + b, 0);
+  const prevAlign = ctx.textAlign;
+  ctx.textAlign = 'right';
+  let x = cx + total / 2; // نص عربي: نبدأ من الحافة اليمنى للسطر
+  parts.forEach((p, i) => {
+    const marker = isMarker(p);
+    ctx.font = marker ? markerFont : quranFont;
+    ctx.fillStyle = marker ? (markerColor || '#d4af5a') : baseColor;
+    ctx.fillText(p, x, y);
+    x -= widths[i];
+  });
+  ctx.textAlign = prevAlign;
+  ctx.fillStyle = baseColor;
 }
 
 function wrapCanvasText(ctx, text, maxWidth){
@@ -3957,25 +4063,10 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
 
-  if(isShareImageMushafBgEnabled()){
-    // خلفية على هيئة صفحة مصحف
-    drawMushafBackground(ctx, W, H, surahId * 1000 + fromAyah);
-  } else {
-    // خلفية متدرجة ثابتة (بغض النظر عن ثيم التطبيق) عشان الصورة تبقى واضحة لأي حد يستقبلها
-    const grad = ctx.createLinearGradient(0, 0, W, H);
-    grad.addColorStop(0, '#0f2d29');
-    grad.addColorStop(1, '#173e37');
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, W, H);
-
-    // إطار زخرفي بسيط
-    ctx.strokeStyle = 'rgba(212,175,90,0.55)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(48, 48, W - 96, H - 96);
-    ctx.strokeStyle = 'rgba(212,175,90,0.25)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(60, 60, W - 120, H - 120);
-  }
+  // التصميم المختار (صفحة مصحف داكنة / ورق فاتح / هندسي ليلي / سادة) وألوان النص المناسبة له
+  const design = getShareImageDesign();
+  const theme = SHARE_THEMES[design] || SHARE_THEMES.mushaf;
+  drawShareBackground(design, ctx, W, H, surahId * 1000 + fromAyah);
 
   ctx.direction = 'rtl';
   ctx.textAlign = 'center';
@@ -3983,21 +4074,21 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
 
   // نص الآية
   ctx.font = `${fontSize}px "${quranFontName}"`;
-  ctx.fillStyle = '#f3e9d2';
+  ctx.fillStyle = theme.ayah;
   let y = used.length
     ? topY + lineHeight / 2
     : H / 2 - totalTextHeight / 2 + lineHeight / 2 - 30;
   const ayahFontCss = `${fontSize}px \"${quranFontName}\"`;
   const markerFontCss = `600 ${Math.round(fontSize * 0.6)}px \"Cairo\", \"Amiri Quran\", serif`;
   lines.forEach(line => {
-    drawAyahLine(ctx, line, W / 2, y, ayahFontCss, markerFontCss, '#f3e9d2');
+    drawAyahLine(ctx, line, W / 2, y, ayahFontCss, markerFontCss, theme.ayah, theme.marker);
     y += lineHeight;
   });
   ctx.font = ayahFontCss;
 
   // فاصل زخرفي صغير
   const sepY = y + labelGapTop;
-  ctx.strokeStyle = 'rgba(212,175,90,0.6)';
+  ctx.strokeStyle = theme.sep;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.moveTo(W / 2 - 70, sepY);
@@ -4006,7 +4097,7 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
 
   // اسم السورة ورقم الآية
   ctx.font = `600 30px "Cairo"`;
-  ctx.fillStyle = '#d4af5a';
+  ctx.fillStyle = theme.label;
   ctx.fillText(refLabel, W / 2, sepY + labelOffset);
 
   // بلوكات التفسير/الترجمة
@@ -4014,7 +4105,7 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
     let cy = sepY + labelOffset + 48;
     used.forEach(b => {
       // فاصل صغير قبل كل مصدر
-      ctx.strokeStyle = 'rgba(212,175,90,0.35)';
+      ctx.strokeStyle = theme.sep2;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(W / 2 - 40, cy + BLOCK_GAP / 2);
@@ -4025,14 +4116,14 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
       // اسم المصدر
       ctx.direction = b.headRtl ? 'rtl' : 'ltr';
       ctx.font = `600 26px "Cairo", "Segoe UI", system-ui, sans-serif`;
-      ctx.fillStyle = '#d4af5a';
+      ctx.fillStyle = theme.label;
       ctx.fillText(b.label, W / 2, cy + HEADING_H / 2);
       cy += HEADING_H;
 
       // نص المصدر
       ctx.direction = b.rtl ? 'rtl' : 'ltr';
       ctx.font = b.font;
-      ctx.fillStyle = 'rgba(243,233,210,0.92)';
+      ctx.fillStyle = theme.body;
       b.lines.forEach(line => {
         ctx.fillText(line, W / 2, cy + b.lh / 2);
         cy += b.lh;
@@ -4044,7 +4135,7 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
 
   // بصمة التطبيق أسفل الصورة
   ctx.font = `400 20px "Cairo"`;
-  ctx.fillStyle = 'rgba(243,233,210,0.55)';
+  ctx.fillStyle = theme.foot;
   ctx.fillText((document.title.split('|')[0] || 'القرآن الكريم').trim(), W / 2, H - 90);
 
   canvas.toBlob(async (blob) => {
@@ -5264,7 +5355,12 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   set('share-range-prev-btn', offT('+ الآية السابقة', '+ Previous ayah'));
   set('share-range-next-btn', offT('+ الآية التالية', '+ Next ayah'));
   set('share-range-tafsir-label', offT('تضمين التفسير/الترجمة المختار', 'Include the selected tafsir/translation'));
-  set('share-range-mushaf-label', offT('خلفية على هيئة صفحة مصحف', 'Mushaf page background'));
+  set('share-range-design-label', offT('تصميم الصورة', 'Image design'));
+  const designNames = { mushaf: offT('صفحة مصحف', 'Mushaf page'), parchment: offT('ورق فاتح', 'Light paper'), night: offT('هندسي ليلي', 'Night geometric'), plain: offT('سادة', 'Plain') };
+  document.querySelectorAll('.share-design-opt').forEach(b => {
+    const n = b.querySelector('.share-design-name');
+    if(n) n.textContent = designNames[b.dataset.design] || b.dataset.design;
+  });
   set('share-range-go', offT('إنشاء الصورة ومشاركتها', 'Create & share image'));
   set('share-range-cancel', offT('إلغاء', 'Cancel'));
   const opts = Array.from({ length: surah.total_verses }, (_, i) => `<option value="${i + 1}">${i + 1}</option>`).join('');
@@ -5272,13 +5368,21 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   document.getElementById('share-range-to').innerHTML = opts;
   const tafsirChk = document.getElementById('share-range-tafsir');
   if(tafsirChk) tafsirChk.checked = isShareImageTafsirEnabled();
-  const mushafChk = document.getElementById('share-range-mushaf');
-  if(mushafChk) mushafChk.checked = isShareImageMushafBgEnabled();
+  selectShareDesign(getShareImageDesign());
   document.getElementById('share-range-overlay').classList.add('open');
   renderShareRange();
   requestAnimationFrame(() => {
     const go = document.getElementById('share-range-go');
     if(go) go.focus();
+  });
+}
+let shareRangeDesign = 'mushaf';
+function selectShareDesign(d){
+  shareRangeDesign = SHARE_DESIGNS.includes(d) ? d : 'mushaf';
+  document.querySelectorAll('.share-design-opt').forEach(b => {
+    const on = b.dataset.design === shareRangeDesign;
+    b.classList.toggle('selected', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
   });
 }
 function closeShareRangeDialog(){
@@ -5361,8 +5465,7 @@ function confirmShareRange(){
     const settingsChk = document.getElementById('share-image-tafsir-toggle');
     if(settingsChk) settingsChk.checked = chk.checked;
   }
-  const mushafChk = document.getElementById('share-range-mushaf');
-  if(mushafChk) setShareImageMushafBg(mushafChk.checked);
+  setShareImageDesign(shareRangeDesign);
   const { surahId, surahName, from, to } = c;
   closeShareRangeDialog();
   generateAyahImage(surahId, from, to, surahName);
@@ -10901,10 +11004,15 @@ if('serviceWorker' in navigator){
         <input type="checkbox" id="share-range-tafsir">
         <span id="share-range-tafsir-label">تضمين التفسير/الترجمة المختار</span>
       </label>
-      <label class="test-mode-toggle-row">
-        <input type="checkbox" id="share-range-mushaf">
-        <span id="share-range-mushaf-label">خلفية على هيئة صفحة مصحف</span>
-      </label>
+      <div class="share-design-group" role="radiogroup" aria-labelledby="share-range-design-label">
+        <span class="share-design-title" id="share-range-design-label">تصميم الصورة</span>
+        <div class="share-design-opts">
+          <button type="button" role="radio" aria-checked="false" class="share-design-opt" data-design="mushaf" onclick="selectShareDesign('mushaf')"><span class="share-design-swatch sw-mushaf"></span><span class="share-design-name">صفحة مصحف</span></button>
+          <button type="button" role="radio" aria-checked="false" class="share-design-opt" data-design="parchment" onclick="selectShareDesign('parchment')"><span class="share-design-swatch sw-parchment"></span><span class="share-design-name">ورق فاتح</span></button>
+          <button type="button" role="radio" aria-checked="false" class="share-design-opt" data-design="night" onclick="selectShareDesign('night')"><span class="share-design-swatch sw-night"></span><span class="share-design-name">هندسي ليلي</span></button>
+          <button type="button" role="radio" aria-checked="false" class="share-design-opt" data-design="plain" onclick="selectShareDesign('plain')"><span class="share-design-swatch sw-plain"></span><span class="share-design-name">سادة</span></button>
+        </div>
+      </div>
       <div class="share-range-actions">
         <button type="button" class="offline-dl-btn primary" id="share-range-go" onclick="confirmShareRange()">إنشاء الصورة ومشاركتها</button>
         <button type="button" class="offline-dl-btn" id="share-range-cancel" onclick="closeShareRangeDialog()">إلغاء</button>
