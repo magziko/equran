@@ -3783,6 +3783,13 @@ function drawPlainBackground(ctx, W, H){
   ctx.strokeStyle = 'rgba(212,175,90,0.25)'; ctx.lineWidth = 1; ctx.strokeRect(60, 60, W - 120, H - 120);
 }
 
+function isShareImageIstiadhaEnabled(){
+  try{ return localStorage.getItem('shareImageIstiadha') === '1'; } catch(e){ return false; }
+}
+function setShareImageIstiadha(on){
+  try{ localStorage.setItem('shareImageIstiadha', on ? '1' : '0'); } catch(e){}
+}
+const ISTIADHA_TEXT = 'أَعُوذُ بِٱللَّهِ مِنَ ٱلشَّيۡطَٰنِ ٱلرَّجِيمِ';
 function getShareImagePhoto(){
   try{
     const saved = localStorage.getItem('shareImagePhoto');
@@ -4105,7 +4112,9 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
   const HEADING_H = 58;          // ارتفاع سطر اسم المصدر
   const BLOCK_PAD_BOTTOM = 14;
   const BOTTOM_RESERVE = 150;    // مساحة بصمة التطبيق أسفل الصورة
-  const topY = 150;              // بداية نص الآية لما يكون فيه تفسير (بدل التوسيط الرأسي)
+  const includeIstiadha = isShareImageIstiadhaEnabled();
+  const ISTIADHA_H = includeIstiadha ? 88 : 0; // مساحة سطر الاستعاذة أعلى الآية (اختياري)
+  const topY = 150 + ISTIADHA_H; // بداية نص الآية لما يكون فيه تفسير (بدل التوسيط الرأسي)
   const labelGapTop = 18, labelOffset = 52;
   // y بعد آخر سطر من الآية = topY + الأسطر + نص سطر؛ وبعدها الفاصل واسم السورة ثم بداية أول مصدر
   const extrasStartY = topY + totalTextHeight + lineHeight / 2 + labelGapTop + labelOffset + 48;
@@ -4174,7 +4183,15 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
   ctx.fillStyle = theme.ayah;
   let y = used.length
     ? topY + lineHeight / 2
-    : H / 2 - totalTextHeight / 2 + lineHeight / 2 - 30;
+    : H / 2 - totalTextHeight / 2 + lineHeight / 2 - 30 + ISTIADHA_H / 2;
+  if(includeIstiadha){
+    // سطر الاستعاذة فوق أول سطر من الآية مباشرة
+    ctx.font = `42px \"${quranFontName}\"`;
+    ctx.fillStyle = theme.label;
+    ctx.fillText(ISTIADHA_TEXT, W / 2, y - lineHeight / 2 - ISTIADHA_H / 2);
+    ctx.fillStyle = theme.ayah;
+    ctx.font = `${fontSize}px \"${quranFontName}\"`;
+  }
   const ayahFontCss = `${fontSize}px \"${quranFontName}\"`;
   const markerFontCss = `600 ${Math.round(fontSize * 0.6)}px \"Cairo\", \"Amiri Quran\", serif`;
   lines.forEach(line => {
@@ -5454,6 +5471,7 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   set('share-range-next-btn', offT('+ الآية التالية', '+ Next ayah'));
   set('share-range-tafsir-label', offT('تضمين التفسير/الترجمة المختار', 'Include the selected tafsir/translation'));
   set('share-range-design-label', offT('تصميم الصورة', 'Image design'));
+  set('share-range-istiadha-label', offT('إضافة الاستعاذة في أعلى الصورة', 'Add the isti\'adha at the top of the image'));
   const designNames = { mushaf: offT('صفحة مصحف', 'Mushaf page'), parchment: offT('ورق فاتح', 'Light paper'), night: offT('هندسي ليلي', 'Night geometric'), photo: offT('صورة', 'Photo'), plain: offT('سادة', 'Plain') };
   set('share-photo-note', offT('تحتاج الصورة إلى اتصال بالإنترنت أول مرة، ثم تُخزَّن للمرات القادمة.', 'The photo needs an internet connection the first time, then it is cached.'));
   document.querySelectorAll('.share-design-opt').forEach(b => {
@@ -5467,6 +5485,8 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   document.getElementById('share-range-to').innerHTML = opts;
   const tafsirChk = document.getElementById('share-range-tafsir');
   if(tafsirChk) tafsirChk.checked = isShareImageTafsirEnabled();
+  const istChk = document.getElementById('share-range-istiadha');
+  if(istChk) istChk.checked = isShareImageIstiadhaEnabled();
   shareRangePhoto = getShareImagePhoto();
   selectShareDesign(getShareImageDesign());
   document.getElementById('share-range-overlay').classList.add('open');
@@ -5603,6 +5623,8 @@ function confirmShareRange(){
     const settingsChk = document.getElementById('share-image-tafsir-toggle');
     if(settingsChk) settingsChk.checked = chk.checked;
   }
+  const istChk = document.getElementById('share-range-istiadha');
+  if(istChk) setShareImageIstiadha(istChk.checked);
   setShareImageDesign(shareRangeDesign);
   if(shareRangeDesign === 'photo') setShareImagePhoto(shareRangePhoto);
   const { surahId, surahName, from, to } = c;
@@ -11142,6 +11164,10 @@ if('serviceWorker' in navigator){
       <label class="test-mode-toggle-row">
         <input type="checkbox" id="share-range-tafsir">
         <span id="share-range-tafsir-label">تضمين التفسير/الترجمة المختار</span>
+      </label>
+      <label class="test-mode-toggle-row">
+        <input type="checkbox" id="share-range-istiadha">
+        <span id="share-range-istiadha-label">إضافة الاستعاذة في أعلى الصورة</span>
       </label>
       <div class="share-design-group" role="radiogroup" aria-labelledby="share-range-design-label">
         <span class="share-design-title" id="share-range-design-label">تصميم الصورة</span>
