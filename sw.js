@@ -18,6 +18,10 @@ const CACHE_NAME = CACHE_PREFIX + 'cache-v6';
 // (وإلا كان المستخدم سيفقد كل ما حمّله مع كل تحديث للتطبيق).
 const TAFSIR_CACHE = 'quran-tafsir-offline-v1';
 
+// كاش صور خلفيات مشاركة الآية (من مجلد islamic في مستودع Radio).
+// الصور ثابتة وكبيرة، فتُخزَّن مرة واحدة وتُقرأ من الكاش دون إعادة تحميل، ولا تُحذف عند تغيير الإصدار.
+const PHOTO_CACHE = 'quran-share-photos-v1';
+
 // الأساسي: لازم يتخزن، ولو فشل تخزينه يفشل الـ install كله
 // فتفضل النسخة القديمة الشغالة ولا تتحذف.
 const CORE_SHELL = [
@@ -98,6 +102,17 @@ function isTafsirRequest(url) {
   return false;
 }
 
+// هل الطلب لصورة خلفية من مجلد islamic في مستودع magziko/Radio؟
+function isPhotoRequest(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'magziko.github.io') return u.pathname.startsWith('/Radio/islamic/');
+    if (u.hostname === 'cdn.jsdelivr.net') return u.pathname.startsWith('/gh/magziko/Radio@') && u.pathname.includes('/islamic/');
+    if (u.hostname === 'raw.githubusercontent.com') return u.pathname.startsWith('/magziko/Radio/') && u.pathname.includes('/islamic/');
+  } catch (e) { /* تجاهل */ }
+  return false;
+}
+
 // ── الجلب: الكاش أولًا (يشتغل فورًا أوفلاين) + تحديث في الخلفية ──
 self.addEventListener('fetch', (event) => {
   const req = event.request;
@@ -112,15 +127,20 @@ self.addEventListener('fetch', (event) => {
 
   // التفسير والترجمات: من كاش الأوفلاين أولًا (محتواها ثابت)، وإلا من الشبكة مع تخزينها
   if (isTafsirRequest(req.url)) {
-    event.respondWith(handleTafsirFetch(event, req));
+    event.respondWith(handleCacheFirst(event, req, TAFSIR_CACHE));
+    return;
+  }
+  // صور خلفيات المشاركة: نفس الأسلوب (من الكاش أولًا بدون إعادة تحميل)
+  if (isPhotoRequest(req.url)) {
+    event.respondWith(handleCacheFirst(event, req, PHOTO_CACHE));
     return;
   }
 
   event.respondWith(handleFetch(event, req));
 });
 
-async function handleTafsirFetch(event, req) {
-  const cache = await caches.open(TAFSIR_CACHE);
+async function handleCacheFirst(event, req, cacheName) {
+  const cache = await caches.open(cacheName);
   const hit = await cache.match(req, { ignoreVary: true });
   if (hit) return hit;
   try {
