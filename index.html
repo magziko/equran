@@ -3543,7 +3543,7 @@ function renderReadingAyahCard(idPrefix, surahId, ayahId, surahName, text){
     <div class="ayah-card${fav ? ' is-saved' : ''}" id="${cardId}" data-ayah="${ayahId}" data-surah="${surahId}" tabindex="0" role="button" aria-label="${escapeHtml(ariaLabel)}" onclick="playAyahAudio(${surahId}, ${ayahId}, '${cardId}')" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault(); this.click();}" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(text)}</div>
       <div class="ayah-meta">
-        <div class="ayah-num-badge">
+        <div class="ayah-num-badge" role="button" tabindex="0" title="${escapeHtml(offT('تشغيل من هذه الآية حتى نهاية السورة والسور التالية', 'Play from this ayah to the end of the surah and onward'))}" aria-label="${escapeHtml(offT('تشغيل من الآية', 'Play from ayah') + ' ' + ayahId + ' ' + offT('حتى نهاية السورة', 'to the end of the surah'))}" onclick="event.stopPropagation(); playFromAyahNumber(${surahId}, ${ayahId}, '${cardId}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();playFromAyahNumber(${surahId}, ${ayahId}, '${cardId}');}">
           <span class="ayah-num-badge__num">${ayahId}</span>
           <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
@@ -7265,6 +7265,74 @@ function startFullSurahListen(){
     listenState.suppressAutoStop = false;
   }
   playListenSurah(startId);
+}
+
+/* ---------- الضغط على رقم الآية: تشغيل من هذه الآية ثم إكمال السورة والسور التالية ----------
+   بينما الضغط على نص الآية نفسه يشغّل الآية وحدها كما كان */
+async function playFromAyahNumber(surahId, ayahId, cardId){
+  // الاستماع المتواصل مبني على سورة مفتوحة في وضع السورة؛ في بقية الأوضاع نبقي السلوك القديم (الآية وحدها)
+  if(currentMode !== 'surah' || currentSurahId !== surahId){
+    playAyahAudio(surahId, ayahId, cardId);
+    return;
+  }
+  const surah = QURAN.find(x => x.id === surahId);
+  if(!surah) return;
+  const idx = surah.verses.findIndex(v => v.id === ayahId);
+  if(idx < 0) return;
+
+  // الضغط على رقم الآية الجاري تشغيلها يوقف التشغيل (مثل الآية المنفردة)
+  if(ayahAudioPlayingCardId === cardId && ayahAudioPlayer && !ayahAudioPlayer.paused){
+    if(listenState.active) stopFullSurahListen();
+    else { ayahAudioPlayer.pause(); clearTimedSegmentWatcher(); stopAyahAudioUI(); }
+    return;
+  }
+
+  if(repeatState.active) stopAyahRepeat();
+  if(listenState.active) stopFullSurahListen();
+  lastActiveAyahCardId = cardId;
+  ensureAyahAudioPlayer();
+  stopAyahAudioUI();
+
+  listenState.active = true;
+  listenState.paused = false;
+  const startBtn = document.getElementById('listen-start-btn');
+  const stopBtn = document.getElementById('listen-stop-btn');
+  if(startBtn) startBtn.style.display = 'none';
+  if(stopBtn) stopBtn.style.display = '';
+  updateRepeatStatus(tf('listening_full_surah', { surah: surah.name }));
+
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  if(reciter.type === 'timed'){
+    // ملف واحد للسورة مع توقيت الآيات: نقفز لبداية هذه الآية ونكمل حتى نهاية السورة
+    listenState.sequenceMode = false;
+    clearTimedSegmentWatcher();
+    clearListenTimingWatcher();
+    const timing = await getAyahTiming(reciter.readId, surahId, ayahId);
+    if(!listenState.active) return; // أوقفه المستخدم أثناء انتظار التوقيت
+    const audioUrl = `${reciter.folder}${String(surahId).padStart(3, '0')}.mp3`;
+    const seekTo = timing ? timing.start_time / 1000 : 0;
+    const startPlayback = () => {
+      ayahAudioPlayer.currentTime = seekTo;
+      ayahAudioPlayer.play().catch(() => {
+        console.warn('تعذر تشغيل الصوت.');
+        stopFullSurahListen();
+      });
+    };
+    if(ayahAudioPlayer.src !== audioUrl){
+      ayahAudioPlayer.src = audioUrl;
+      ayahAudioPlayer.addEventListener('loadedmetadata', startPlayback, { once: true });
+    } else startPlayback();
+    updateMediaSession(surahId, ayahId);
+    startListenTimingWatcher(surahId, reciter.readId);
+  } else if(reciter.type === 'surah'){
+    // ملف السورة كاملة بدون توقيت للآيات: لا يمكن البدء من منتصفها، فتُشغَّل من أولها (كما كان عند الضغط على أي آية)
+    playListenSurah(surahId);
+  } else {
+    // ملف لكل آية: نبدأ التتابع من هذه الآية
+    listenState.sequenceMode = true;
+    listenState.verseIndex = idx;
+    playListenAyahStep();
+  }
 }
 
 function stopFullSurahListen(){
