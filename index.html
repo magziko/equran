@@ -3790,6 +3790,20 @@ function setShareImageIstiadha(on){
   try{ localStorage.setItem('shareImageIstiadha', on ? '1' : '0'); } catch(e){}
 }
 const ISTIADHA_TEXT = 'أَعُوذُ بِٱللَّهِ مِنَ ٱلشَّيۡطَٰنِ ٱلرَّجِيمِ';
+// البسملة تُضاف لأول السورة (عدا التوبة). والفاتحة لا تحتاجها لأن البسملة هي آيتها الأولى فتتكرر
+function shareBasmalaApplicable(surahId, fromAyah){
+  return fromAyah === 1 && surahId !== 9 && surahId !== 1;
+}
+function isShareImageBasmalaEnabled(){
+  try{ return localStorage.getItem('shareImageBasmala') !== '0'; } catch(e){ return true; }
+}
+function setShareImageBasmala(on){
+  try{ localStorage.setItem('shareImageBasmala', on ? '1' : '0'); } catch(e){}
+}
+function getBasmalaText(){
+  const fatiha = (typeof QURAN !== 'undefined') && QURAN.find(x => x.id === 1);
+  return (fatiha && fatiha.verses[0] && fatiha.verses[0].text) || 'بِسۡمِ ٱللَّهِ ٱلرَّحۡمَٰنِ ٱلرَّحِيمِ';
+}
 function getShareImagePhoto(){
   try{
     const saved = localStorage.getItem('shareImagePhoto');
@@ -4112,9 +4126,13 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
   const HEADING_H = 58;          // ارتفاع سطر اسم المصدر
   const BLOCK_PAD_BOTTOM = 14;
   const BOTTOM_RESERVE = 150;    // مساحة بصمة التطبيق أسفل الصورة
-  const includeIstiadha = isShareImageIstiadhaEnabled();
-  const ISTIADHA_H = includeIstiadha ? 88 : 0; // مساحة سطر الاستعاذة أعلى الآية (اختياري)
-  const topY = 150 + ISTIADHA_H; // بداية نص الآية لما يكون فيه تفسير (بدل التوسيط الرأسي)
+  // أسطر اختيارية أعلى الآية: الاستعاذة ثم البسملة (لو تبدأ الصورة من أول السورة عدا التوبة)
+  const headerLines = [];
+  if(isShareImageIstiadhaEnabled()) headerLines.push({ text: ISTIADHA_TEXT, color: 'label' });
+  if(isShareImageBasmalaEnabled() && shareBasmalaApplicable(surahId, fromAyah)) headerLines.push({ text: getBasmalaText(), color: 'ayah' });
+  const HEADER_LINE_H = 88;
+  const HEADER_H = headerLines.length * HEADER_LINE_H;
+  const topY = 150 + HEADER_H; // بداية نص الآية لما يكون فيه تفسير (بدل التوسيط الرأسي)
   const labelGapTop = 18, labelOffset = 52;
   // y بعد آخر سطر من الآية = topY + الأسطر + نص سطر؛ وبعدها الفاصل واسم السورة ثم بداية أول مصدر
   const extrasStartY = topY + totalTextHeight + lineHeight / 2 + labelGapTop + labelOffset + 48;
@@ -4183,12 +4201,15 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
   ctx.fillStyle = theme.ayah;
   let y = used.length
     ? topY + lineHeight / 2
-    : H / 2 - totalTextHeight / 2 + lineHeight / 2 - 30 + ISTIADHA_H / 2;
-  if(includeIstiadha){
-    // سطر الاستعاذة فوق أول سطر من الآية مباشرة
+    : H / 2 - totalTextHeight / 2 + lineHeight / 2 - 30 + HEADER_H / 2;
+  if(headerLines.length){
+    // الأسطر العلوية فوق أول سطر من الآية مباشرة
     ctx.font = `42px \"${quranFontName}\"`;
-    ctx.fillStyle = theme.label;
-    ctx.fillText(ISTIADHA_TEXT, W / 2, y - lineHeight / 2 - ISTIADHA_H / 2);
+    const firstTop = y - lineHeight / 2 - HEADER_H;
+    headerLines.forEach((hl, i) => {
+      ctx.fillStyle = hl.color === 'label' ? theme.label : theme.ayah;
+      ctx.fillText(hl.text, W / 2, firstTop + HEADER_LINE_H * (i + 0.5));
+    });
     ctx.fillStyle = theme.ayah;
     ctx.font = `${fontSize}px \"${quranFontName}\"`;
   }
@@ -5472,6 +5493,7 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   set('share-range-tafsir-label', offT('تضمين التفسير/الترجمة المختار', 'Include the selected tafsir/translation'));
   set('share-range-design-label', offT('تصميم الصورة', 'Image design'));
   set('share-range-istiadha-label', offT('إضافة الاستعاذة في أعلى الصورة', 'Add the isti\'adha at the top of the image'));
+  set('share-range-basmala-label', offT('إضافة البسملة (تظهر عند بدء السورة)', 'Add the basmala (shown at the start of a surah)'));
   const designNames = { mushaf: offT('صفحة مصحف', 'Mushaf page'), parchment: offT('ورق فاتح', 'Light paper'), night: offT('هندسي ليلي', 'Night geometric'), photo: offT('صورة', 'Photo'), plain: offT('سادة', 'Plain') };
   set('share-photo-note', offT('تحتاج الصورة إلى اتصال بالإنترنت أول مرة، ثم تُخزَّن للمرات القادمة.', 'The photo needs an internet connection the first time, then it is cached.'));
   document.querySelectorAll('.share-design-opt').forEach(b => {
@@ -5487,6 +5509,8 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   if(tafsirChk) tafsirChk.checked = isShareImageTafsirEnabled();
   const istChk = document.getElementById('share-range-istiadha');
   if(istChk) istChk.checked = isShareImageIstiadhaEnabled();
+  const basChk = document.getElementById('share-range-basmala');
+  if(basChk) basChk.checked = isShareImageBasmalaEnabled();
   shareRangePhoto = getShareImagePhoto();
   selectShareDesign(getShareImageDesign());
   document.getElementById('share-range-overlay').classList.add('open');
@@ -5590,6 +5614,8 @@ function renderShareRange(){
     note.className = 'share-range-note';
     note.textContent = '';
   }
+  const basRow = document.getElementById('share-range-basmala-row');
+  if(basRow) basRow.style.display = shareBasmalaApplicable(c.surahId, c.from) ? '' : 'none';
   const span = c.to - c.from + 1;
   document.getElementById('share-range-prev-btn').disabled = c.from <= 1 || span >= SHARE_RANGE_MAX_AYAT;
   document.getElementById('share-range-next-btn').disabled = c.to >= c.total || span >= SHARE_RANGE_MAX_AYAT;
@@ -5625,6 +5651,9 @@ function confirmShareRange(){
   }
   const istChk = document.getElementById('share-range-istiadha');
   if(istChk) setShareImageIstiadha(istChk.checked);
+  const basRow = document.getElementById('share-range-basmala-row');
+  const basChk = document.getElementById('share-range-basmala');
+  if(basChk && basRow && basRow.style.display !== 'none') setShareImageBasmala(basChk.checked); // نحفظ اختيارك فقط لو الخيار ظاهر
   setShareImageDesign(shareRangeDesign);
   if(shareRangeDesign === 'photo') setShareImagePhoto(shareRangePhoto);
   const { surahId, surahName, from, to } = c;
@@ -11168,6 +11197,10 @@ if('serviceWorker' in navigator){
       <label class="test-mode-toggle-row">
         <input type="checkbox" id="share-range-istiadha">
         <span id="share-range-istiadha-label">إضافة الاستعاذة في أعلى الصورة</span>
+      </label>
+      <label class="test-mode-toggle-row" id="share-range-basmala-row" style="display:none;">
+        <input type="checkbox" id="share-range-basmala">
+        <span id="share-range-basmala-label">إضافة البسملة (تظهر عند بدء السورة)</span>
       </label>
       <div class="share-design-group" role="radiogroup" aria-labelledby="share-range-design-label">
         <span class="share-design-title" id="share-range-design-label">تصميم الصورة</span>
