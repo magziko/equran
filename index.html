@@ -1349,6 +1349,10 @@
   .volume-pill.show{ opacity:1; transform:translate(-50%, 0); pointer-events:auto; }
   .volume-pill .volume-mute-btn{ width:32px; height:32px; }
   .volume-pill .volume-percent{ min-width:38px; }
+  .sleep-row{ display:flex; align-items:center; gap:10px; width:100%; }
+  .sleep-row select{ flex:1; min-width:0; }
+  .sleep-remaining{ min-width:56px; text-align:center; font-weight:700; font-size:13px; color:var(--accent-soft); font-variant-numeric:tabular-nums; }
+  .sleep-chip{ flex-shrink:0; font-size:12px; font-weight:700; color:var(--accent-soft); white-space:nowrap; font-variant-numeric:tabular-nums; }
   .volume-pill-close{
     flex-shrink:0; width:26px; height:26px; border-radius:50%; border:none; background:transparent; color:var(--text-muted);
     font-size:20px; line-height:1; cursor:pointer; padding:0;
@@ -2127,6 +2131,7 @@
   <button type="button" class="volume-mute-btn" id="volume-mute-pill" onclick="toggleAudioMute()" aria-label="كتم الصوت" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path class="vol-wave vol-wave-1" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="vol-wave vol-wave-2" d="M18.5 5.5a9 9 0 0 1 0 13"/><g class="vol-x"><line x1="16" y1="9" x2="22" y2="15"/><line x1="22" y1="9" x2="16" y2="15"/></g></svg></button>
   <input type="range" min="0" max="100" step="1" value="100" id="volume-range-pill" class="volume-range" aria-label="مستوى الصوت" oninput="changeAudioVolume(this.value)">
   <span class="volume-percent" id="volume-percent-pill">100%</span>
+  <span class="sleep-chip" id="sleep-chip" style="display:none;"></span>
   <button type="button" class="volume-pill-close" onclick="hideVolumePill()" aria-label="إخفاء شريط الصوت" title="إخفاء">×</button>
 </div>
 <div class="shortcut-toast" id="shortcut-toast" role="status" aria-live="polite"></div>
@@ -5899,6 +5904,7 @@ function openSettingsModal(){
   if(note) note.style.display = hasActiveReading ? 'none' : 'block';
   document.getElementById('settings-overlay').classList.add('open');
   try{ refreshOfflineTafsirStatus(); } catch(e){}
+  try{ updateSleepTimerUI(); updateVolumeUI(); } catch(e){}
   requestAnimationFrame(() => {
     const modal = document.querySelector('#settings-overlay .settings-modal');
     const first = getFocusableElements(modal)[0];
@@ -7034,7 +7040,7 @@ const AUDIO_VOLUME_SUPPORTED = (function(){
 function applyAudioVolume(){
   if(!ayahAudioPlayer) return;
   try{
-    ayahAudioPlayer.volume = audioVolume;
+    ayahAudioPlayer.volume = audioVolume * sleepFadeFactor; // معامل التلاشي = 1 إلا في آخر ثوانٍ من مؤقت النوم
     ayahAudioPlayer.muted = audioMuted || audioVolume === 0;
   } catch(e){}
 }
@@ -7131,6 +7137,88 @@ function setupVolumePillInteraction(){
 }
 window.addEventListener('DOMContentLoaded', function(){ updateVolumeUI(); setupVolumePillInteraction(); });
 
+/* ---------- مؤقت النوم: يوقف التشغيل بعد مدة أو عند نهاية السورة، مع خفض تدريجي للصوت في آخر 20 ثانية ---------- */
+let sleepTimer = { mode: null, preset: 'off', deadline: 0 }; // mode: 'minutes' | 'surah' | null
+let sleepFadeFactor = 1;
+const SLEEP_FADE_MS = 20000;
+const SLEEP_PRESETS = ['off', '15', '30', '60', 'surah'];
+function sleepRemainingMs(){ return sleepTimer.mode === 'minutes' ? Math.max(0, sleepTimer.deadline - Date.now()) : 0; }
+function formatClock(ms){
+  const t = Math.ceil(ms / 1000);
+  return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+}
+function isAudioActivelyPlaying(){
+  return !!(ayahAudioPlayer && !ayahAudioPlayer.paused) || listenState.active || repeatState.active;
+}
+function setSleepTimer(value, silent){
+  sleepFadeFactor = 1;
+  applyAudioVolume();
+  let msg;
+  if(value === 'surah'){
+    sleepTimer = { mode: 'surah', preset: 'surah', deadline: 0 };
+    msg = offT('😴 سيتوقف الاستماع عند نهاية السورة الحالية', '😴 Listening will stop at the end of the current surah');
+  } else if(value && value !== 'off' && !isNaN(parseInt(value, 10))){
+    const min = parseInt(value, 10);
+    sleepTimer = { mode: 'minutes', preset: String(min), deadline: Date.now() + min * 60000 };
+    msg = offT(`😴 سيتوقف التشغيل بعد ${min} دقيقة`, `😴 Playback will stop in ${min} minutes`);
+  } else {
+    sleepTimer = { mode: null, preset: 'off', deadline: 0 };
+    msg = offT('أُلغي مؤقت النوم', 'Sleep timer cancelled');
+  }
+  updateSleepTimerUI();
+  if(!silent) showShortcutToast(msg);
+}
+function setSleepTimerFromUI(value){ setSleepTimer(value, false); }
+function cycleSleepTimer(){
+  const i = SLEEP_PRESETS.indexOf(sleepTimer.preset);
+  setSleepTimer(SLEEP_PRESETS[(i + 1) % SLEEP_PRESETS.length], false);
+}
+function triggerSleepStop(){
+  const wasPlaying = isAudioActivelyPlaying();
+  sleepTimer = { mode: null, preset: 'off', deadline: 0 };
+  if(repeatState.active) stopAyahRepeat();
+  if(listenState.active) stopFullSurahListen();
+  else if(ayahAudioPlayer){ ayahAudioPlayer.pause(); clearTimedSegmentWatcher(); stopAyahAudioUI(); }
+  sleepFadeFactor = 1;
+  applyAudioVolume(); // نعيد الصوت لمستواه كي لا تبدأ الجلسة التالية بصوت منخفض
+  updateSleepTimerUI();
+  if(wasPlaying) showShortcutToast(offT('😴 توقّف التشغيل بحسب مؤقت النوم — تصبح على خير', '😴 Playback stopped by the sleep timer — good night'));
+}
+function checkSleepTimer(){
+  if(sleepTimer.mode !== 'minutes') return;
+  const rem = sleepRemainingMs();
+  if(rem <= 0){ triggerSleepStop(); return; }
+  const factor = rem < SLEEP_FADE_MS ? rem / SLEEP_FADE_MS : 1;
+  if(Math.abs(factor - sleepFadeFactor) > 0.02){ sleepFadeFactor = factor; applyAudioVolume(); }
+  updateSleepTimerUI();
+}
+function updateSleepTimerUI(){
+  const sel = document.getElementById('sleep-select');
+  const names = {
+    off: offT('بدون', 'Off'), '15': offT('بعد 15 دقيقة', 'In 15 minutes'), '30': offT('بعد 30 دقيقة', 'In 30 minutes'),
+    '45': offT('بعد 45 دقيقة', 'In 45 minutes'), '60': offT('بعد 60 دقيقة', 'In 60 minutes'), '90': offT('بعد 90 دقيقة', 'In 90 minutes'),
+    surah: offT('عند نهاية السورة الحالية', 'At the end of the current surah')
+  };
+  if(sel){
+    Array.from(sel.options).forEach(o => { if(names[o.value]) o.textContent = names[o.value]; });
+    if(sel.value !== sleepTimer.preset && Array.from(sel.options).some(o => o.value === sleepTimer.preset)) sel.value = sleepTimer.preset;
+    // لو الاختصار اختار قيمة غير موجودة في القائمة نتركها كما هي
+  }
+  const label = document.getElementById('sleep-label'); if(label) label.textContent = offT('مؤقت النوم', 'Sleep timer');
+  const note = document.getElementById('sleep-note');
+  if(note) note.textContent = offT('يوقف التلاوة تلقائيًا مع خفض تدريجي للصوت في آخر 20 ثانية. تغيير مدة المؤقت أو إلغاؤه يعيد الصوت لمستواه.', 'Stops recitation automatically, fading the volume out over the last 20 seconds.');
+  let remaining = '', chip = '';
+  if(sleepTimer.mode === 'minutes'){ remaining = formatClock(sleepRemainingMs()); chip = '😴 ' + remaining; }
+  else if(sleepTimer.mode === 'surah'){ remaining = offT('نهاية السورة', 'Surah end'); chip = '😴 ' + offT('نهاية السورة', 'Surah end'); }
+  const rem = document.getElementById('sleep-remaining'); if(rem) rem.textContent = remaining;
+  const chipEl = document.getElementById('sleep-chip');
+  if(chipEl){ chipEl.textContent = chip; chipEl.style.display = chip ? '' : 'none'; }
+}
+setInterval(checkSleepTimer, 1000);
+document.addEventListener('visibilitychange', checkSleepTimer);
+window.addEventListener('DOMContentLoaded', function(){ updateSleepTimerUI(); });
+
+
 function ensureAyahAudioPlayer(){
   if(ayahAudioPlayer) return;
   ayahAudioPlayer = new Audio();
@@ -7141,6 +7229,7 @@ function ensureAyahAudioPlayer(){
   ayahAudioPlayer.addEventListener('ended', onAyahAudioEnded);
   ayahAudioPlayer.addEventListener('play', () => { setMediaPlaybackState('playing'); onAudioPlayForVolumePill(); });
   ayahAudioPlayer.addEventListener('pause', () => { setMediaPlaybackState('paused'); });
+  ayahAudioPlayer.addEventListener('timeupdate', checkSleepTimer); // يعمل حتى لو أبطأ المتصفح المؤقتات في الخلفية
   ayahAudioPlayer.addEventListener('ended', () => {
     if(!listenState.active && !repeatState.active) setMediaPlaybackState('paused');
   });
@@ -7665,6 +7754,8 @@ function handleListenAdvance(){
 // الانتقال تلقائيًا للسورة التالية، أو إنهاء الجلسة إذا كانت آخر سورة (الناس)
 function advanceListenToNextSurah(){
   if(!listenState.active) return;
+  // مؤقت النوم بوضع "عند نهاية السورة": نتوقف هنا بدل الانتقال للسورة التالية
+  if(sleepTimer.mode === 'surah'){ triggerSleepStop(); return; }
   const next = QURAN.find(s => s.id === currentSurahId + 1);
   if(!next){
     updateRepeatStatus(t('completed_full_quran_listen'));
@@ -10057,6 +10148,7 @@ const I18N_STRINGS = {
     kbd_long_press: 'ضغطة طويلة',
     gesture_long_num: 'على رقم الآية: تكرار السورة كاملة بإعدادات التكرار',
     gesture_long_text: 'على نص الآية: تكرار هذه الآية وحدها',
+    shortcut_sleep: 'مؤقت النوم: يتنقل بين 15 / 30 / 60 دقيقة / نهاية السورة / إلغاء (داخل السورة)',
     shortcut_mute: 'كتم الصوت / إلغاء الكتم (داخل السورة)',
     shortcut_volume: 'رفع / خفض مستوى الصوت (داخل السورة)',
     shortcut_share_image: 'مشاركة الآية الحالية كصورة (داخل السورة)',
@@ -10361,6 +10453,7 @@ const I18N_STRINGS = {
     kbd_long_press: 'Long press',
     gesture_long_num: 'On the ayah number: repeat the whole surah using the repeat settings',
     gesture_long_text: 'On the ayah text: repeat just this ayah',
+    shortcut_sleep: 'Sleep timer: cycles 15 / 30 / 60 min / end of surah / off (while reading)',
     shortcut_mute: 'Mute / unmute (while reading)',
     shortcut_volume: 'Volume up / down (while reading)',
     shortcut_share_image: 'Share the current ayah as an image (while reading)',
@@ -11001,6 +11094,12 @@ function attachDisplayModeShortcuts(){
     const blockingOverlay = ['note-overlay', 'share-range-overlay', 'shortcuts-overlay', 'settings-overlay', 'exit-confirm-overlay']
       .some(id => { const el = document.getElementById(id); return el && el.classList.contains('open'); });
 
+    // اختصار "Z" / "ئ": مؤقت النوم (يتنقل بين: 15 ← 30 ← 60 دقيقة ← نهاية السورة ← إلغاء)
+    if(!blockingOverlay && (e.code === 'KeyZ' || e.key === 'z' || e.key === 'Z' || e.key === 'ئ')){
+      e.preventDefault();
+      cycleSleepTimer();
+      return;
+    }
     // اختصار "M" / "ة": كتم الصوت وإلغاء الكتم. و Shift+↑ / Shift+↓: رفع/خفض الصوت 10%
     if(!blockingOverlay && (e.code === 'KeyM' || e.key === 'm' || e.key === 'M' || e.key === 'ة')){
       e.preventDefault();
@@ -11245,6 +11344,22 @@ if('serviceWorker' in navigator){
           </div>
           <div class="volume-note" id="volume-note" style="display:none;"></div>
         </div>
+        <div class="control-group" id="sleep-group">
+          <span class="label" id="sleep-label">مؤقت النوم</span>
+          <div class="sleep-row">
+            <select id="sleep-select" class="font-select" onchange="setSleepTimerFromUI(this.value)" aria-labelledby="sleep-label">
+              <option value="off">بدون</option>
+              <option value="15">بعد 15 دقيقة</option>
+              <option value="30">بعد 30 دقيقة</option>
+              <option value="45">بعد 45 دقيقة</option>
+              <option value="60">بعد 60 دقيقة</option>
+              <option value="90">بعد 90 دقيقة</option>
+              <option value="surah">عند نهاية السورة الحالية</option>
+            </select>
+            <span class="sleep-remaining" id="sleep-remaining" aria-live="off"></span>
+          </div>
+          <div class="volume-note" id="sleep-note"></div>
+        </div>
         <div class="control-group">
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="oled-mode-toggle" onchange="toggleOledMode(this.checked)">
@@ -11389,6 +11504,7 @@ if('serviceWorker' in navigator){
             <tr><td><kbd>P</kbd> / <kbd>ح</kbd></td><td data-i18n="shortcut_listen">تشغيل/إيقاف الاستماع المتواصل للسورة (داخل السورة)</td></tr>
             <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td data-i18n="shortcut_ayah_step">الآية السابقة / التالية في التلاوة (داخل السورة)</td></tr>
             <tr><td><kbd>J</kbd> / <kbd>ت</kbd></td><td data-i18n="shortcut_tafsir_open">فتح تفسير الآية الحالية (داخل السورة)</td></tr>
+            <tr><td><kbd>Z</kbd> / <kbd>ئ</kbd></td><td data-i18n="shortcut_sleep">مؤقت النوم: يتنقل بين 15 / 30 / 60 دقيقة / نهاية السورة / إلغاء (داخل السورة)</td></tr>
             <tr><td><kbd>M</kbd> / <kbd>ة</kbd></td><td data-i18n="shortcut_mute">كتم الصوت / إلغاء الكتم (داخل السورة)</td></tr>
             <tr><td><kbd>Shift</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd></td><td data-i18n="shortcut_volume">رفع / خفض مستوى الصوت (داخل السورة)</td></tr>
             <tr><td><kbd>I</kbd> / <kbd>ه</kbd></td><td data-i18n="shortcut_share_image">مشاركة الآية الحالية كصورة (داخل السورة)</td></tr>
