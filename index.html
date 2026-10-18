@@ -1320,6 +1320,10 @@
   .share-pv-num{ color:var(--accent-soft); font-size:15px; white-space:nowrap; }
   .share-range-note{ min-height:20px; font-size:12.5px; line-height:1.7; color:var(--text-muted); margin-bottom:8px; }
   .share-range-note.err{ color:#e0707a; }
+  .ayah-card .ayah-num-badge{ -webkit-touch-callout:none; touch-action:manipulation; }
+  @media (pointer:coarse){
+    .ayah-card .ayah-text, .ayah-card .ayah-num-badge{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+  }
   .share-design-group{ margin:6px 0 4px; }
   .share-design-title{ display:block; font-size:12.5px; color:var(--text-muted); margin-bottom:6px; }
   .share-design-opts{ display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; }
@@ -3543,7 +3547,7 @@ function renderReadingAyahCard(idPrefix, surahId, ayahId, surahName, text){
     <div class="ayah-card${fav ? ' is-saved' : ''}" id="${cardId}" data-ayah="${ayahId}" data-surah="${surahId}" tabindex="0" role="button" aria-label="${escapeHtml(ariaLabel)}" onclick="playAyahAudio(${surahId}, ${ayahId}, '${cardId}')" onkeydown="if((event.key==='Enter'||event.key===' ')&&event.target===this){event.preventDefault(); this.click();}" title="${t('tap_to_listen')} ${getReciterName()}">
       <div class="ayah-text" style="font-size:${fontSize}px;" onclick="event.stopPropagation(); toggleAyahReveal(this)">${renderAyahTextSpans(text)}</div>
       <div class="ayah-meta">
-        <div class="ayah-num-badge" role="button" tabindex="0" title="${escapeHtml(offT('تشغيل من هذه الآية حتى نهاية السورة والسور التالية', 'Play from this ayah to the end of the surah and onward'))}" aria-label="${escapeHtml(offT('تشغيل من الآية', 'Play from ayah') + ' ' + ayahId + ' ' + offT('حتى نهاية السورة', 'to the end of the surah'))}" onclick="event.stopPropagation(); playFromAyahNumber(${surahId}, ${ayahId}, '${cardId}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();playFromAyahNumber(${surahId}, ${ayahId}, '${cardId}');}">
+        <div class="ayah-num-badge" role="button" tabindex="0" title="${escapeHtml(offT('اضغط: تشغيل من هذه الآية حتى نهاية السورة والسور التالية — اضغط مطوّلًا: تكرار السورة كاملة', 'Tap: play from this ayah onward — Long-press: repeat the whole surah'))}" aria-label="${escapeHtml(offT('تشغيل من الآية', 'Play from ayah') + ' ' + ayahId + ' ' + offT('حتى نهاية السورة', 'to the end of the surah'))}" onclick="event.stopPropagation(); playFromAyahNumber(${surahId}, ${ayahId}, '${cardId}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();playFromAyahNumber(${surahId}, ${ayahId}, '${cardId}');}">
           <span class="ayah-num-badge__num">${ayahId}</span>
           <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
@@ -7335,6 +7339,80 @@ async function playFromAyahNumber(surahId, ayahId, cardId){
   }
 }
 
+
+/* ---------- الضغط المطوّل على بطاقة الآية ----------
+   • مطوّلًا على رقم الآية: تشغيل بنظام التكرار للسورة كاملة (بإعدادات التكرار: عدد التكرار لكل آية وللمقطع)
+   • مطوّلًا على نص الآية: تكرار هذه الآية وحدها (بنفس إعدادات عدد التكرار) */
+// يشغّل نظام التكرار على نطاق معيّن دون أن يغيّر نطاق "من/إلى" المضبوط في لوحة التكرار
+function startRepeatForRange(from, to){
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  if(reciter.type === 'surah'){
+    showShortcutToast(t('repeat_unsupported_reciter'));
+    return false;
+  }
+  if(!currentVerseList.length){ showShortcutToast(t('no_ayat_to_repeat')); return false; }
+  const fromInput = document.getElementById('repeat-from');
+  const toInput = document.getElementById('repeat-to');
+  const prevFrom = fromInput ? fromInput.value : null;
+  const prevTo = toInput ? toInput.value : null;
+  if(repeatState.active) stopAyahRepeat();
+  if(fromInput) fromInput.value = from;
+  if(toInput) toInput.value = to;
+  startAyahRepeat();
+  if(fromInput && prevFrom !== null) fromInput.value = prevFrom;
+  if(toInput && prevTo !== null) toInput.value = prevTo;
+  return repeatState.active;
+}
+function repeatWholeSurahFromGesture(){
+  if(startRepeatForRange(1, currentVerseList.length)){
+    showShortcutToast(offT(`↻ تكرار السورة كاملة — كل آية ${repeatState.timesEach} مرات`, `↻ Repeating the whole surah — each ayah ${repeatState.timesEach}×`));
+  }
+}
+function repeatSingleAyahFromGesture(surahId, ayahId){
+  const idx = currentVerseList.findIndex(v => v.surahId === surahId && v.ayahId === ayahId) + 1;
+  if(idx < 1){ playAyahAudio(surahId, ayahId, getAyahCardId(surahId, ayahId)); return; }
+  if(startRepeatForRange(idx, idx)){
+    showShortcutToast(offT(`↻ تكرار الآية ${ayahId} — ${repeatState.timesEach} مرات`, `↻ Repeating ayah ${ayahId} — ${repeatState.timesEach}×`));
+  }
+}
+(function setupAyahLongPress(){
+  const LONG_MS = 550, MOVE_PX = 10;
+  const SEL = '.ayah-card .ayah-num-badge, .ayah-card .ayah-text';
+  let timer = null, startX = 0, startY = 0, firedAt = 0;
+  const clear = () => { clearTimeout(timer); timer = null; };
+  document.addEventListener('pointerdown', function(e){
+    if(e.button > 0) return; // زر الماوس الأيسر أو اللمس فقط
+    const el = e.target && e.target.closest ? e.target.closest(SEL) : null;
+    if(!el) return;
+    const card = el.closest('.ayah-card');
+    // بطاقات القراءة فقط (ليست المفضلة ولا الملاحظات)
+    if(!card || !/^(ayah|jayah|hayah|rayah)-\d+-\d+$/.test(card.id)) return;
+    startX = e.clientX; startY = e.clientY;
+    clear();
+    timer = setTimeout(function(){
+      timer = null;
+      firedAt = Date.now();
+      try{ if(navigator.vibrate) navigator.vibrate(18); } catch(err){}
+      const surahId = Number(card.dataset.surah), ayahId = Number(card.dataset.ayah);
+      if(el.classList.contains('ayah-num-badge')) repeatWholeSurahFromGesture();
+      else repeatSingleAyahFromGesture(surahId, ayahId);
+    }, LONG_MS);
+  }, true);
+  document.addEventListener('pointermove', function(e){
+    if(timer && (Math.abs(e.clientX - startX) > MOVE_PX || Math.abs(e.clientY - startY) > MOVE_PX)) clear();
+  }, true);
+  ['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, clear, true));
+  // نمنع النقرة التي تلي الضغط المطوّل (وإلا ستشغّل الآية أو تقلب إظهار النص بعد التكرار مباشرة)
+  document.addEventListener('click', function(e){
+    if(Date.now() - firedAt < 900 && e.target.closest && e.target.closest(SEL)){
+      e.stopPropagation(); e.preventDefault(); firedAt = 0;
+    }
+  }, true);
+  document.addEventListener('contextmenu', function(e){
+    if(Date.now() - firedAt < 900 && e.target.closest && e.target.closest(SEL)) e.preventDefault();
+  }, true);
+})();
+
 function stopFullSurahListen(){
   listenState.active = false;
   listenState.paused = false;
@@ -9824,6 +9902,9 @@ const I18N_STRINGS = {
     shortcut_ayah_step: 'الآية السابقة / التالية في التلاوة (داخل السورة)',
     shortcut_tafsir_open: 'فتح تفسير الآية الحالية (داخل السورة)',
     shortcut_help: 'فتح/إغلاق قائمة الاختصارات',
+    kbd_long_press: 'ضغطة طويلة',
+    gesture_long_num: 'على رقم الآية: تكرار السورة كاملة بإعدادات التكرار',
+    gesture_long_text: 'على نص الآية: تكرار هذه الآية وحدها',
     shortcut_share_image: 'مشاركة الآية الحالية كصورة (داخل السورة)',
     shortcut_note: 'إضافة/تعديل ملاحظة للآية الحالية (داخل السورة)',
     shortcut_edges: 'الانتقال لأول آية / آخر آية (داخل السورة)',
@@ -10123,6 +10204,9 @@ const I18N_STRINGS = {
     shortcut_ayah_step: 'Previous / next ayah in the recitation (while reading)',
     shortcut_tafsir_open: 'Open tafsir of the current ayah (while reading)',
     shortcut_help: 'Open/close the shortcuts list',
+    kbd_long_press: 'Long press',
+    gesture_long_num: 'On the ayah number: repeat the whole surah using the repeat settings',
+    gesture_long_text: 'On the ayah text: repeat just this ayah',
     shortcut_share_image: 'Share the current ayah as an image (while reading)',
     shortcut_note: 'Add/edit a note for the current ayah (while reading)',
     shortcut_edges: 'Jump to the first / last ayah (while reading)',
@@ -11129,6 +11213,8 @@ if('serviceWorker' in navigator){
             <tr><td><kbd>I</kbd> / <kbd>ه</kbd></td><td data-i18n="shortcut_share_image">مشاركة الآية الحالية كصورة (داخل السورة)</td></tr>
             <tr><td><kbd>N</kbd> / <kbd>ى</kbd></td><td data-i18n="shortcut_note">إضافة/تعديل ملاحظة للآية الحالية (داخل السورة)</td></tr>
             <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td data-i18n="shortcut_edges">الانتقال لأول آية / آخر آية (داخل السورة)</td></tr>
+            <tr><td><kbd data-i18n="kbd_long_press">ضغطة طويلة</kbd></td><td data-i18n="gesture_long_num">على رقم الآية: تكرار السورة كاملة بإعدادات التكرار</td></tr>
+            <tr><td><kbd data-i18n="kbd_long_press">ضغطة طويلة</kbd></td><td data-i18n="gesture_long_text">على نص الآية: تكرار هذه الآية وحدها</td></tr>
             <tr><td><kbd>?</kbd></td><td data-i18n="shortcut_help">فتح/إغلاق قائمة الاختصارات</td></tr>
             <tr><td><kbd>R</kbd> / <kbd>ق</kbd></td><td data-i18n="shortcut_repeat">تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)</td></tr>
             <tr><td><kbd>B</kbd></td><td data-i18n="shortcut_bookmark">إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)</td></tr>
