@@ -463,6 +463,73 @@
   }
   .continue-card .cc-dismiss svg{ width:15px; height:15px; }
 
+  .continue-card .cc-more{
+    background:transparent; border:1px solid var(--border); color:var(--accent);
+    font-weight:700; font-size:13px; padding:8px 12px; border-radius:9px; white-space:nowrap;
+  }
+  .continue-card .cc-more:hover{ border-color:var(--accent); }
+
+  /* ---------- Reading trail (قائمة مواضع القراءة المتعددة) ---------- */
+  .trail-fab{
+    position:fixed; bottom:84px; left:0; z-index:998;
+    width:46px; height:46px; border-radius:50%;
+    background:var(--bg-elev); color:var(--accent); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; cursor:pointer;
+    box-shadow:0 6px 18px rgba(0,0,0,.28);
+    opacity:0; visibility:hidden; transform:translateY(10px);
+    transition:opacity .2s ease, transform .2s ease, visibility .2s ease;
+  }
+  .trail-fab.visible{ opacity:1; visibility:visible; transform:translateY(0); }
+  .trail-fab:hover{ border-color:var(--accent); }
+  .trail-fab svg{ width:21px; height:21px; }
+  @media (max-width:600px){
+    .trail-fab{ bottom:70px; width:42px; height:42px; }
+  }
+  .trail-overlay{
+    position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,.5);
+    display:none; align-items:flex-end; justify-content:center;
+  }
+  .trail-overlay.open{ display:flex; }
+  .trail-sheet{
+    width:min(520px,100%); max-height:72vh; display:flex; flex-direction:column;
+    background:var(--bg-elev); border:1px solid var(--border);
+    border-radius:18px 18px 0 0; box-shadow:0 -10px 40px rgba(0,0,0,.35);
+    font-family:'Cairo', sans-serif; color:var(--text);
+  }
+  @media (min-width:700px){
+    .trail-overlay{ align-items:center; }
+    .trail-sheet{ border-radius:18px; max-height:70vh; }
+  }
+  .trail-head{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:14px 18px; border-bottom:1px solid var(--border);
+  }
+  .trail-title{ font-size:16px; font-weight:800; }
+  .trail-head-actions{ display:flex; align-items:center; gap:8px; }
+  .trail-clear, .trail-close{
+    background:transparent; border:1px solid var(--border); color:var(--text-muted);
+    border-radius:9px; font-family:inherit; font-size:12.5px; font-weight:700; cursor:pointer;
+  }
+  .trail-clear{ padding:6px 12px; }
+  .trail-close{ width:32px; height:32px; display:flex; align-items:center; justify-content:center; }
+  .trail-close svg{ width:15px; height:15px; }
+  .trail-list{ overflow-y:auto; padding:10px 12px 16px; display:flex; flex-direction:column; gap:8px; }
+  .trail-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    padding:12px 14px; border:1px solid var(--border); border-radius:12px;
+    background:var(--surface); cursor:pointer;
+  }
+  .trail-item:hover, .trail-item:focus-visible{ border-color:var(--accent); outline:none; }
+  .trail-item__title{ font-size:15px; font-weight:800; }
+  .trail-item__meta{ font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .trail-item__del{
+    background:transparent; border:none; color:var(--text-muted); cursor:pointer;
+    width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .trail-item__del:hover{ color:#e5484d; background:var(--surface-2); }
+  .trail-item__del svg{ width:15px; height:15px; }
+  .trail-empty{ text-align:center; color:var(--text-muted); padding:28px 10px; font-size:14px; }
+
   /* ---------- Ayah of the day card ---------- */
   .aod-card{
     background:linear-gradient(135deg, var(--accent-bg), transparent);
@@ -2174,6 +2241,25 @@
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>
 </button>
 
+<button class="trail-fab" id="trail-fab" onclick="openTrailSheet()" title="مواضع القراءة السابقة" aria-label="مواضع القراءة السابقة">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
+</button>
+
+<div class="trail-overlay" id="trail-overlay" onclick="if(event.target===this) closeTrailSheet()">
+  <div class="trail-sheet" role="dialog" aria-modal="true" aria-labelledby="trail-title">
+    <div class="trail-head">
+      <div class="trail-title" id="trail-title"></div>
+      <div class="trail-head-actions">
+        <button type="button" class="trail-clear" id="trail-clear" onclick="clearTrail()"></button>
+        <button type="button" class="trail-close" id="trail-close" onclick="closeTrailSheet()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="trail-list" id="trail-list"></div>
+  </div>
+</div>
+
 <a class="radio-fab" id="radio-fab" href="https://magziko.github.io/Radio/" target="_blank" rel="noopener" title="استمع للإذاعة القرآنية المباشرة" aria-label="استمع للإذاعة القرآنية المباشرة" data-i18n-title="listen_live_radio">
   <span class="radio-fab__pulse"></span>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
@@ -2602,7 +2688,7 @@ function lockAndSaveTargetPosition(surahId, ayahId, surahName, unlockDelay){
   if(ayahOfDayBrowsing) return;
   if(navPositionLockTimer){ clearTimeout(navPositionLockTimer); navPositionLockTimer = null; }
   navPositionLocked = true;
-  setSavedPosition(surahId, ayahId, surahName);
+  setSavedPosition(surahId, ayahId, surahName, true);
   navPositionLockTimer = setTimeout(() => { navPositionLocked = false; }, unlockDelay || 900);
 }
 
@@ -2989,15 +3075,162 @@ function getSavedPosition(){
   }catch(e){ return null; }
 }
 
-function setSavedPosition(surahId, ayahId, surahName){
+function setSavedPosition(surahId, ayahId, surahName, isJump){
   try{
     localStorage.setItem('quran-position', JSON.stringify({ surahId, ayahId, surahName, ts: Date.now() }));
   }catch(e){}
+  recordTrailPosition(surahId, ayahId, surahName, !!isJump);
 }
 
 function clearSavedPosition(){
   try{ localStorage.removeItem('quran-position'); }catch(e){}
 }
+
+/* ---------- Reading trail: عدة مواضع "متابعة القراءة" ----------
+   بدل موضع واحد يتكتب فوقه كل ما تتنقل/تبحث، بنحتفظ بقائمة مواضع (آخر 12، بحد أقصى 3 لكل سورة).
+   - "جلسة القراءة" الحالية بتحدّث سطرها في القائمة أثناء التمرير (trailOwnedId).
+   - أي تنقّل جديد (فتح سورة/جزء/حزب/صفحة) بيقفل الجلسة السابقة وبيبدأ سطر جديد أول ما تقرأ فعلًا،
+     فالموضع القديم يفضل محفوظ في القائمة.
+   - القفز المقصود لآية (بحث/رابط/اختيار من القائمة) بيضيف سطر جديد ومش بيمسح الموضع السابق. */
+const TRAIL_KEY = 'quran-position-trail';
+const TRAIL_MAX = 12;
+const TRAIL_PER_SURAH_MAX = 3;
+let trailOwnedId = null;
+
+function newTrailId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function trailEsc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function trailSessionReset(){ trailOwnedId = null; }
+
+function getTrail(){
+  try{
+    const raw = localStorage.getItem(TRAIL_KEY);
+    let list = raw ? JSON.parse(raw) : null;
+    if(!Array.isArray(list)){
+      list = [];
+      const old = getSavedPosition();
+      if(old && old.surahId && old.ayahId){
+        list.push({ id: newTrailId(), surahId: old.surahId, ayahId: old.ayahId, surahName: old.surahName || '', ts: old.ts || Date.now() });
+      }
+    }
+    return list
+      .filter(e => e && typeof e.surahId === 'number' && typeof e.ayahId === 'number' && typeof e.id === 'string')
+      .sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  }catch(e){ return []; }
+}
+
+function saveTrail(list){
+  try{ localStorage.setItem(TRAIL_KEY, JSON.stringify(list)); }catch(e){}
+}
+
+function recordTrailPosition(surahId, ayahId, surahName, isJump){
+  try{
+    surahId = parseInt(surahId); ayahId = parseInt(ayahId);
+    if(!surahId || !ayahId) return;
+    const list = getTrail();
+    const now = Date.now();
+    const owned = trailOwnedId ? list.find(e => e.id === trailOwnedId) : null;
+    if(owned && !isJump){
+      owned.surahId = surahId; owned.ayahId = ayahId; owned.surahName = surahName; owned.ts = now;
+    } else {
+      const same = list.find(e => e.surahId === surahId && e.ayahId === ayahId);
+      if(same){
+        same.ts = now; same.surahName = surahName; trailOwnedId = same.id;
+      } else {
+        if(!isJump && ayahId <= 1) return; // مجرد فتح السورة من أولها: لسه ما قرأتش، نسيب المواضع القديمة زي ما هي
+        const entry = { id: newTrailId(), surahId, ayahId, surahName, ts: now };
+        list.push(entry);
+        trailOwnedId = entry.id;
+      }
+    }
+    list.sort((a, b) => b.ts - a.ts);
+    const perSurah = {}, out = [];
+    for(const e of list){
+      perSurah[e.surahId] = (perSurah[e.surahId] || 0) + 1;
+      if(perSurah[e.surahId] <= TRAIL_PER_SURAH_MAX) out.push(e);
+    }
+    saveTrail(out.slice(0, TRAIL_MAX));
+  }catch(e){}
+}
+
+// أحدث موضع للمتابعة (من القائمة، وإلا من الموضع الواحد القديم)
+function getResumePosition(){
+  const top = getTrail()[0];
+  return top || getSavedPosition();
+}
+
+function trailAgo(ts){
+  const m = Math.max(0, Math.round((Date.now() - (ts || 0)) / 60000));
+  if(m < 1) return offT('الآن', 'just now');
+  if(m < 60) return offT(`منذ ${m} د`, `${m}m ago`);
+  const h = Math.round(m / 60);
+  if(h < 24) return offT(`منذ ${h} ساعة`, `${h}h ago`);
+  const d = Math.round(h / 24);
+  return offT(`منذ ${d} يوم`, `${d}d ago`);
+}
+
+function renderTrailSheet(){
+  const box = document.getElementById('trail-list');
+  if(!box) return;
+  const list = getTrail();
+  const title = document.getElementById('trail-title');
+  const clearBtn = document.getElementById('trail-clear');
+  const closeBtn = document.getElementById('trail-close');
+  if(title) title.textContent = t('trail_title');
+  if(clearBtn){ clearBtn.textContent = t('trail_clear'); clearBtn.style.display = list.length ? '' : 'none'; }
+  if(closeBtn) closeBtn.setAttribute('aria-label', t('dismiss'));
+  if(!list.length){ box.innerHTML = `<div class="trail-empty">${t('trail_empty')}</div>`; return; }
+  box.innerHTML = list.map((e, i) => `
+    <div class="trail-item" role="button" tabindex="0" onclick="openTrailPosition('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){ event.preventDefault(); openTrailPosition('${e.id}'); }">
+      <div class="trail-item__main">
+        <div class="trail-item__title">${t('surah_word')} ${trailEsc(e.surahName)} — ${t('ayah_word')} ${e.ayahId}</div>
+        <div class="trail-item__meta">${i === 0 ? t('trail_latest') + ' · ' : ''}${trailAgo(e.ts)}</div>
+      </div>
+      <button type="button" class="trail-item__del" onclick="event.stopPropagation(); removeTrailPosition('${e.id}')" title="${t('trail_remove')}" aria-label="${t('trail_remove')}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </div>`).join('');
+}
+
+function openTrailSheet(){
+  const ov = document.getElementById('trail-overlay');
+  if(!ov) return;
+  renderTrailSheet();
+  ov.classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeTrailSheet(){
+  const ov = document.getElementById('trail-overlay');
+  if(ov) ov.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function openTrailPosition(id){
+  const e = getTrail().find(x => x.id === id);
+  closeTrailSheet();
+  if(e) openSurah(e.surahId, e.ayahId);
+}
+
+function removeTrailPosition(id){
+  saveTrail(getTrail().filter(x => x.id !== id));
+  renderTrailSheet();
+  renderContinueBanner();
+}
+
+function clearTrail(){
+  saveTrail([]);
+  clearSavedPosition();
+  renderTrailSheet();
+  renderContinueBanner();
+  closeTrailSheet();
+}
+
+document.addEventListener('keydown', ev => {
+  if(ev.key === 'Escape'){
+    const ov = document.getElementById('trail-overlay');
+    if(ov && ov.classList.contains('open')) closeTrailSheet();
+  }
+});
 
 /* ---------- Favorites (multiple saved ayat) ---------- */
 function getBookmarks(){
@@ -4362,7 +4595,8 @@ function exportUserData(){
     version: 1,
     favorites: getBookmarks(),
     notes: getNotesMap(),
-    khatmaPlans: getKhatmaPlans()
+    khatmaPlans: getKhatmaPlans(),
+    readingTrail: getTrail()
   };
   try{
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -4411,6 +4645,18 @@ function importUserData(file){
         }
       });
       saveBookmarksList(current);
+    }
+
+    // دمج مواضع القراءة المتعددة
+    if(Array.isArray(data.readingTrail)){
+      const cur = getTrail();
+      data.readingTrail.forEach(e => {
+        if(e && typeof e.surahId === 'number' && typeof e.ayahId === 'number' && !cur.some(c => c.surahId === e.surahId && c.ayahId === e.ayahId)){
+          cur.push({ id: newTrailId(), surahId: e.surahId, ayahId: e.ayahId, surahName: String(e.surahName || ''), ts: e.ts || Date.now() });
+        }
+      });
+      cur.sort((a, b) => b.ts - a.ts);
+      saveTrail(cur.slice(0, TRAIL_MAX));
     }
 
     // دمج الملاحظات (النسخة المستوردة تكتب فوق نفس الآية إن وُجدت)
@@ -7770,7 +8016,7 @@ function advanceListenToNextSurah(){
 
 function renderContinueBanner(){
   const banner = document.getElementById('continue-banner');
-  const saved = getSavedPosition();
+  const saved = getResumePosition();
   if(!saved){ banner.style.display = 'none'; banner.innerHTML = ''; return; }
   banner.style.display = 'block';
   banner.innerHTML = `
@@ -7786,6 +8032,7 @@ function renderContinueBanner(){
       </div>
       <div class="cc-actions">
         <button class="cc-go" onclick="openSurah(${saved.surahId}, ${saved.ayahId})">${t('continue_from_here')}</button>
+        ${getTrail().length > 1 ? `<button class="cc-more" onclick="openTrailSheet()">${t('trail_btn')} (${getTrail().length})</button>` : ''}
         <button class="cc-dismiss" onclick="dismissContinueBanner()" title="${t('dismiss')}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
@@ -7795,7 +8042,15 @@ function renderContinueBanner(){
 }
 
 function dismissContinueBanner(){
-  clearSavedPosition();
+  // حذف هذا الموضع فقط؛ لو فيه مواضع أقدم بتظهر بدله
+  const list = getTrail();
+  if(list.length){ list.shift(); saveTrail(list); }
+  const nx = list[0];
+  if(nx){
+    try{ localStorage.setItem('quran-position', JSON.stringify({ surahId: nx.surahId, ayahId: nx.ayahId, surahName: nx.surahName, ts: nx.ts })); }catch(e){}
+  } else {
+    clearSavedPosition();
+  }
   renderContinueBanner();
 }
 
@@ -7954,6 +8209,8 @@ function updateReadingProgress(){
   const inReadView = (readView.style.display === 'block');
   if(radioFab) radioFab.style.display = inReadView ? 'none' : '';
   if(autoBtn) autoBtn.classList.toggle('visible', inReadView);
+  const trailFab = document.getElementById('trail-fab');
+  if(trailFab) trailFab.classList.toggle('visible', inReadView);
 
   if(!inReadView){
     stopAutoScroll();
@@ -9269,6 +9526,7 @@ function showList(){
 }
 
 function openSurah(id, scrollToAyah){
+  if(!listenState.suppressAutoStop) trailSessionReset();
   const surah = QURAN.find(s => s.id === id);
   if(!surah) return;
 
@@ -9395,6 +9653,7 @@ function openSurah(id, scrollToAyah){
 }
 
 function openJuz(juzNum, scrollToSurahAyah){
+  trailSessionReset();
   const verses = getJuzVerses(juzNum);
   if(!verses.length) return;
 
@@ -9485,6 +9744,7 @@ function openJuz(juzNum, scrollToSurahAyah){
 }
 
 function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
+  trailSessionReset();
   const verses = getHizbVerses(hizbNum);
   if(!verses.length) return;
   ayahOfDayBrowsing = false;
@@ -9582,6 +9842,7 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
 }
 
 function openRub(hizbNum, quarter, scrollToSurahAyah){
+  trailSessionReset();
   const verses = getRubVerses(hizbNum, quarter);
   if(!verses.length) return;
   ayahOfDayBrowsing = false;
@@ -9725,6 +9986,7 @@ function renderMushafLine(line){
 }
 
 async function openMushafPage(pageNum){
+  trailSessionReset();
   pageNum = parseInt(pageNum, 10);
   if(isNaN(pageNum) || pageNum < 1 || pageNum > MUSHAF_PAGE_COUNT) return;
 
@@ -10168,6 +10430,12 @@ const I18N_STRINGS = {
     surah_word: 'سورة',
     ayah_word: 'الآية',
     continue_from_here: 'أكمل من هنا',
+    trail_title: 'مواضع القراءة السابقة',
+    trail_btn: 'مواضع أخرى',
+    trail_latest: 'آخر موضع',
+    trail_clear: 'مسح الكل',
+    trail_empty: 'لا توجد مواضع محفوظة بعد. ابدأ القراءة وسيتم حفظ مواضعك تلقائيًا.',
+    trail_remove: 'حذف هذا الموضع',
     ayah_of_day_label: 'آية اليوم',
     ayah_of_day_refresh: 'آية عشوائية أخرى',
     ayah_of_day_read_here: 'اقرأ من هنا',
@@ -10473,6 +10741,12 @@ const I18N_STRINGS = {
     surah_word: 'Surah',
     ayah_word: 'Ayah',
     continue_from_here: 'Continue from here',
+    trail_title: 'Previous reading positions',
+    trail_btn: 'More positions',
+    trail_latest: 'Latest',
+    trail_clear: 'Clear all',
+    trail_empty: 'No saved positions yet. Start reading and your positions will be saved automatically.',
+    trail_remove: 'Remove this position',
     ayah_of_day_label: 'Ayah of the Day',
     ayah_of_day_refresh: 'Another random ayah',
     ayah_of_day_read_here: 'Read from here',
@@ -10659,6 +10933,7 @@ function refreshDynamicContent(){
     onSideNavSearchInput(sideSearch.value);
   }
   if(typeof renderContinueBanner === 'function') renderContinueBanner();
+  if(typeof renderTrailSheet === 'function') renderTrailSheet();
   if(typeof renderAyahOfDayCard === 'function') renderAyahOfDayCard();
   if(typeof updateAutoScrollSpeedLabel === 'function') updateAutoScrollSpeedLabel();
   if(typeof renderTafsirMultiselectPanels === 'function') renderTafsirMultiselectPanels();
@@ -11070,7 +11345,7 @@ function attachDisplayModeShortcuts(){
 
     // اختصار "G" / "ل" للانتقال السريع لآخر نقطة قراءة محفوظة (كان R، وانتقل ليصير R للتكرار)
     if(e.code === 'KeyG' || e.key === 'g' || e.key === 'G' || e.key === 'ل'){
-      const saved = getSavedPosition();
+      const saved = getResumePosition();
       if(saved){
         e.preventDefault();
         openSurah(saved.surahId, saved.ayahId);
