@@ -475,8 +475,8 @@
 
   /* ---------- Reading trail (قائمة مواضع القراءة المتعددة) ---------- */
   .trail-fab{
-    position:fixed; bottom:84px; left:0; z-index:998;
-    width:46px; height:46px; border-radius:50%;
+    position:fixed; bottom:26px; left:22px; z-index:998;
+    width:42px; height:42px; border-radius:50%;
     background:var(--bg-elev); color:var(--accent); border:1px solid var(--border);
     display:flex; align-items:center; justify-content:center; cursor:pointer;
     box-shadow:0 6px 18px rgba(0,0,0,.28);
@@ -485,9 +485,10 @@
   }
   .trail-fab.visible{ opacity:1; visibility:visible; transform:translateY(0); }
   .trail-fab:hover{ border-color:var(--accent); }
-  .trail-fab svg{ width:21px; height:21px; }
+  .trail-fab svg{ width:19px; height:19px; }
   @media (max-width:600px){
-    .trail-fab{ bottom:70px; width:42px; height:42px; }
+    .trail-fab{ bottom:18px; left:16px; width:36px; height:36px; }
+    .trail-fab svg{ width:17px; height:17px; }
   }
   .trail-overlay{
     position:fixed; inset:0; z-index:1200; background:rgba(0,0,0,.5);
@@ -2214,6 +2215,29 @@
     .auto-scroll-btn svg{ width:15px; height:15px; }
     .auto-scroll-speed{ width:18px; height:18px; font-size:9.5px; top:-5px; left:-5px; }
   }
+
+  /* ---------- نافذة الإعدادات: مقاسات أكبر للكمبيوتر والتابلت ---------- */
+  @media (min-width:768px){
+    #settings-overlay{ padding:24px; }
+    #settings-overlay .settings-modal{
+      max-width:min(900px, 94vw); max-height:90vh; padding:26px 30px; border-radius:20px;
+    }
+    #settings-overlay .settings-modal-title{ font-size:18px; }
+    #settings-overlay .settings-modal-header{ margin-bottom:18px; padding-bottom:14px; }
+    #settings-overlay .settings-modal-close{ width:36px; height:36px; }
+    #settings-overlay .settings-modal-close svg{ width:16px; height:16px; }
+    #settings-overlay .controls-body{
+      grid-template-columns:repeat(2, minmax(0, 1fr)); gap:18px 28px; padding:0; border-top:none;
+    }
+    #settings-overlay .control-group .label{ font-size:13.5px; }
+    #settings-overlay .test-mode-toggle-row{ font-size:14px; }
+    #settings-overlay .offline-dl-group,
+    #settings-overlay #data-backup-group{ grid-column:1 / -1; }
+  }
+  @media (min-width:1200px){
+    #settings-overlay .settings-modal{ max-width:min(1180px, 92vw); padding:30px 36px; }
+    #settings-overlay .controls-body{ grid-template-columns:repeat(3, minmax(0, 1fr)); gap:20px 32px; }
+  }
 </style>
 </head>
 <body>
@@ -2978,6 +3002,8 @@ async function init(){
   if(wbwToggle) wbwToggle.checked = isWbwHighlightEnabled();
   const oledToggle = document.getElementById('oled-mode-toggle');
   if(oledToggle) oledToggle.checked = getOledEnabled();
+  const trailFabToggle = document.getElementById('trail-fab-toggle');
+  if(trailFabToggle) trailFabToggle.checked = isTrailFabEnabled();
   updateRepeatAvailability();
   document.getElementById('test-mode-toggle').checked = testModeActive;
   document.documentElement.setAttribute('data-test-mode', testModeActive ? 'on' : 'off');
@@ -7186,6 +7212,17 @@ let wbwLastIdx = -1;
 function isWbwHighlightEnabled(){
   try{ return localStorage.getItem('wbwHighlightEnabled') === '1'; } catch(e){ return false; }
 }
+function isTrailFabEnabled(){
+  try{ return localStorage.getItem('trailFabEnabled') !== '0'; } catch(e){ return true; }
+}
+function toggleTrailFab(enabled){
+  try{ localStorage.setItem('trailFabEnabled', enabled ? '1' : '0'); } catch(e){ /* تجاهل أخطاء التخزين */ }
+  const toggle = document.getElementById('trail-fab-toggle');
+  if(toggle) toggle.checked = enabled;
+  const rv = document.getElementById('read-view');
+  const trailFab = document.getElementById('trail-fab');
+  if(trailFab) trailFab.classList.toggle('visible', !!(enabled && rv && rv.style.display === 'block'));
+}
 function toggleWbwHighlight(enabled){
   try{ localStorage.setItem('wbwHighlightEnabled', enabled ? '1' : '0'); } catch(e){ /* تجاهل أخطاء التخزين */ }
   const toggle = document.getElementById('wbw-highlight-toggle');
@@ -8357,7 +8394,7 @@ function updateReadingProgress(){
   if(radioFab) radioFab.style.display = inReadView ? 'none' : '';
   if(autoBtn) autoBtn.classList.toggle('visible', inReadView);
   const trailFab = document.getElementById('trail-fab');
-  if(trailFab) trailFab.classList.toggle('visible', inReadView);
+  if(trailFab) trailFab.classList.toggle('visible', inReadView && isTrailFabEnabled());
 
   if(!inReadView){
     stopAutoScroll();
@@ -10491,6 +10528,7 @@ const I18N_STRINGS = {
     speed_2: '2×',
     wbw_highlight_label: 'تظليل الكلمة أثناء التلاوة (تقديري)',
     oled_mode_label: 'وضع أسود حقيقي (AMOLED) للوضع الداكن — لتوفير البطارية',
+    trail_fab_label: 'إظهار زر مواضع القراءة السابقة داخل السورة',
     repeat_section_label: 'تكرار الآيات للحفظ',
     repeat_from: 'من آية',
     repeat_to: 'إلى آية',
@@ -10809,6 +10847,7 @@ const I18N_STRINGS = {
     speed_2: '2×',
     wbw_highlight_label: 'Highlight the word being recited (estimated)',
     oled_mode_label: 'True black (AMOLED) for dark mode — saves battery',
+    trail_fab_label: 'Show the previous reading positions button inside a surah',
     repeat_section_label: 'Verse repetition for memorization',
     repeat_from: 'From ayah',
     repeat_to: 'To ayah',
@@ -11801,6 +11840,13 @@ if('serviceWorker' in navigator){
             <input type="checkbox" id="oled-mode-toggle" onchange="toggleOledMode(this.checked)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             <span data-i18n="oled_mode_label">وضع أسود حقيقي (AMOLED) للوضع الداكن — لتوفير البطارية</span>
+          </label>
+        </div>
+        <div class="control-group">
+          <label class="test-mode-toggle-row">
+            <input type="checkbox" id="trail-fab-toggle" onchange="toggleTrailFab(this.checked)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
+            <span data-i18n="trail_fab_label">إظهار زر مواضع القراءة السابقة داخل السورة</span>
           </label>
         </div>
         <div class="control-group">
