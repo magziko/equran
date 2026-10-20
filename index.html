@@ -452,7 +452,9 @@
   .continue-card .cc-icon svg{ width:19px; height:19px; }
   .continue-card .cc-text .cc-label{ font-size:12.5px; color:var(--text-muted); font-weight:600; margin-bottom:2px; }
   .continue-card .cc-text .cc-title{ font-size:15.5px; font-weight:800; }
-  .continue-card .cc-actions{ display:flex; align-items:center; gap:8px; }
+  .continue-card .cc-actions{ display:flex; flex-direction:column; align-items:stretch; gap:8px; }
+  .continue-card .cc-row{ display:flex; align-items:center; gap:8px; }
+  .continue-card .cc-row .cc-go{ flex:1; }
   .continue-card .cc-go{
     background:var(--accent); color:#fff; border:none; font-weight:700; font-size:13.5px;
     padding:9px 18px; border-radius:9px; min-width:110px; text-align:center;
@@ -464,10 +466,12 @@
   .continue-card .cc-dismiss svg{ width:15px; height:15px; }
 
   .continue-card .cc-more{
-    background:transparent; border:1px solid var(--border); color:var(--accent);
-    font-weight:700; font-size:13px; padding:8px 12px; border-radius:9px; white-space:nowrap;
+    background:var(--accent); color:#fff; border:none;
+    font-weight:700; font-size:13.5px; padding:9px 18px; border-radius:9px; min-width:110px;
+    text-align:center; white-space:nowrap;
+    margin-inline-end:42px; /* نفس عرض زر أكمل من هنا (عرض زر × 34 + المسافة 8) */
   }
-  .continue-card .cc-more:hover{ border-color:var(--accent); }
+  .continue-card .cc-more:hover{ filter:brightness(1.08); }
 
   /* ---------- Reading trail (قائمة مواضع القراءة المتعددة) ---------- */
   .trail-fab{
@@ -8172,11 +8176,13 @@ function renderContinueBanner(){
         </div>
       </div>
       <div class="cc-actions">
-        <button class="cc-go" onclick="openSurah(${saved.surahId}, ${saved.ayahId})">${t('continue_from_here')}</button>
         ${getTrail().length > 1 ? `<button class="cc-more" onclick="openTrailSheet()">${t('trail_btn')} (${getTrail().length})</button>` : ''}
-        <button class="cc-dismiss" onclick="dismissContinueBanner()" title="${t('dismiss')}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
+        <div class="cc-row">
+          <button class="cc-go" onclick="openSurah(${saved.surahId}, ${saved.ayahId})">${t('continue_from_here')}</button>
+          <button class="cc-dismiss" onclick="dismissContinueBanner()" title="${t('dismiss')}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   `;
