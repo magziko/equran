@@ -475,7 +475,7 @@
 
   /* ---------- Reading trail (قائمة مواضع القراءة المتعددة) ---------- */
   .trail-fab{
-    position:fixed; bottom:26px; left:22px; z-index:998;
+    position:fixed; bottom:calc(26px + env(safe-area-inset-bottom, 0px)); left:56px; z-index:998;
     width:42px; height:42px; border-radius:50%;
     background:var(--bg-elev); color:var(--accent); border:1px solid var(--border);
     display:flex; align-items:center; justify-content:center; cursor:pointer;
@@ -487,7 +487,7 @@
   .trail-fab:hover{ border-color:var(--accent); }
   .trail-fab svg{ width:19px; height:19px; }
   @media (max-width:600px){
-    .trail-fab{ bottom:18px; left:16px; width:36px; height:36px; }
+    .trail-fab{ bottom:calc(18px + env(safe-area-inset-bottom, 0px)); left:50px; width:36px; height:36px; }
     .trail-fab svg{ width:17px; height:17px; }
   }
   .trail-overlay{
@@ -2018,7 +2018,7 @@
 
   /* ---------- Scroll to top button ---------- */
   .scroll-top-btn{
-    position:fixed; bottom:26px; left:0; z-index:998;
+    position:fixed; bottom:calc(26px + env(safe-area-inset-bottom, 0px)); left:0; z-index:998;
     width:46px; height:46px; border-radius:50%;
     background:var(--accent); color:#fff; border:none;
     display:flex; align-items:center; justify-content:center;
@@ -2031,7 +2031,7 @@
   .scroll-top-btn svg{ width:19px; height:19px; }
 
   @media (max-width:600px){
-    .scroll-top-btn{ bottom:18px; width:42px; height:42px; }
+    .scroll-top-btn{ bottom:calc(18px + env(safe-area-inset-bottom, 0px)); width:42px; height:42px; }
   }
 
   /* ---------- Floating scroll-position badge (surah/juz/hizb name while scrolling) ---------- */
@@ -2131,7 +2131,7 @@
 
   /* ---------- Radio floating action button ---------- */
   .radio-fab{
-    position:fixed; bottom:26px; right:22px; z-index:997;
+    position:fixed; bottom:calc(26px + env(safe-area-inset-bottom, 0px)); right:22px; z-index:997;
     width:52px; height:52px; border-radius:50%;
     background:var(--accent); color:#fff;
     display:flex; align-items:center; justify-content:center;
@@ -2151,13 +2151,13 @@
     100%{ transform:scale(1.35); opacity:0; }
   }
   @media (max-width:600px){
-    .radio-fab{ bottom:18px; right:16px; width:46px; height:46px; }
+    .radio-fab{ bottom:calc(18px + env(safe-area-inset-bottom, 0px)); right:16px; width:46px; height:46px; }
     .radio-fab svg{ width:20px; height:20px; }
   }
 
   /* ---------- Auto-scroll (hands-free reading) button ---------- */
   .auto-scroll-group{
-    position:fixed; bottom:26px; right:22px; z-index:997;
+    position:fixed; bottom:calc(26px + env(safe-area-inset-bottom, 0px)); right:22px; z-index:997;
     width:42px; height:42px;
     pointer-events:none;
   }
@@ -2210,7 +2210,7 @@
     }
   }
   @media (max-width:600px){
-    .auto-scroll-group{ bottom:18px; right:16px; width:36px; height:36px; }
+    .auto-scroll-group{ bottom:calc(18px + env(safe-area-inset-bottom, 0px)); right:16px; width:36px; height:36px; }
     .auto-scroll-btn{ width:36px; height:36px; }
     .auto-scroll-btn svg{ width:15px; height:15px; }
     .auto-scroll-speed{ width:18px; height:18px; font-size:9.5px; top:-5px; left:-5px; }
@@ -3032,6 +3032,8 @@ async function init(){
   document.getElementById('playback-speed-select').value = playbackSpeed;
   const wbwToggle = document.getElementById('wbw-highlight-toggle');
   if(wbwToggle) wbwToggle.checked = isWbwHighlightEnabled();
+  const keepAwakeToggle = document.getElementById('keep-awake-toggle');
+  if(keepAwakeToggle) keepAwakeToggle.checked = isKeepAwakeRecitationEnabled();
   const oledToggle = document.getElementById('oled-mode-toggle');
   if(oledToggle) oledToggle.checked = getOledEnabled();
   const trailFabToggle = document.getElementById('trail-fab-toggle');
@@ -7447,6 +7449,24 @@ function setMediaPlaybackState(state){
   if(!('mediaSession' in navigator)) return;
   try{ navigator.mediaSession.playbackState = state; } catch(e){}
 }
+// شريط التقدّم على شاشة القفل (مدة الآية الحالية وموضع التشغيل)
+let mediaPositionLastUpdate = 0;
+function updateMediaPositionState(force){
+  if(!('mediaSession' in navigator) || typeof navigator.mediaSession.setPositionState !== 'function') return;
+  if(!ayahAudioPlayer) return;
+  const now = Date.now();
+  if(!force && now - mediaPositionLastUpdate < 1000) return;
+  mediaPositionLastUpdate = now;
+  const d = ayahAudioPlayer.duration;
+  if(!isFinite(d) || d <= 0) return;
+  try{
+    navigator.mediaSession.setPositionState({
+      duration: d,
+      playbackRate: ayahAudioPlayer.playbackRate || 1,
+      position: Math.min(Math.max(ayahAudioPlayer.currentTime || 0, 0), d)
+    });
+  } catch(e){ /* قيم غير صالحة مؤقتًا */ }
+}
 // السابق/التالي من شاشة القفل: حسب وضع التشغيل الحالي
 function mediaSessionStep(dir){
   if(repeatState.active) return; // وضع التكرار للحفظ له إيقاعه الخاص
@@ -7497,6 +7517,11 @@ function setupMediaSession(){
   });
   set('nexttrack', () => mediaSessionStep(1));
   set('previoustrack', () => mediaSessionStep(-1));
+  set('seekto', (details) => {
+    if(!ayahAudioPlayer || !details || typeof details.seekTime !== 'number') return;
+    try{ ayahAudioPlayer.currentTime = details.seekTime; } catch(e){}
+    updateMediaPositionState(true);
+  });
 }
 
 
@@ -7706,6 +7731,9 @@ function ensureAyahAudioPlayer(){
   ayahAudioPlayer.addEventListener('ended', () => {
     if(!listenState.active && !repeatState.active) setMediaPlaybackState('paused');
   });
+  ['play', 'pause', 'ended', 'emptied'].forEach(ev => ayahAudioPlayer.addEventListener(ev, syncWakeLock));
+  ['loadedmetadata', 'durationchange', 'play', 'pause', 'ratechange', 'seeked'].forEach(ev => ayahAudioPlayer.addEventListener(ev, () => updateMediaPositionState(true)));
+  ayahAudioPlayer.addEventListener('timeupdate', () => updateMediaPositionState(false));
   setupMediaSession();
   ayahAudioPlayer.addEventListener('error', () => {
     console.warn('تعذر تحميل تلاوة هذه الآية.');
@@ -8479,15 +8507,53 @@ if(isNaN(autoScrollSpeedIndex) || autoScrollSpeedIndex < 0 || autoScrollSpeedInd
   autoScrollSpeedIndex = 1;
 }
 let wakeLockRef = null;
+let wakeLockPending = false;
 let autoScrollPausedByUser = false;
 
+// إبقاء الشاشة مضاءة أثناء التلاوة داخل السورة (اختياري من الإعدادات، مفعّل افتراضيًا)
+function isKeepAwakeRecitationEnabled(){
+  try{ return localStorage.getItem('keepAwakeRecitation') !== '0'; } catch(e){ return true; }
+}
+function toggleKeepAwakeRecitation(enabled){
+  try{ localStorage.setItem('keepAwakeRecitation', enabled ? '1' : '0'); } catch(e){ /* تجاهل أخطاء التخزين */ }
+  const toggle = document.getElementById('keep-awake-toggle');
+  if(toggle) toggle.checked = enabled;
+  syncWakeLock();
+}
+function isRecitationPlayingNow(){
+  const rv = document.getElementById('read-view');
+  if(!rv || rv.style.display !== 'block') return false;
+  const playing = !!(ayahAudioPlayer && !ayahAudioPlayer.paused && !ayahAudioPlayer.ended);
+  const listening = (typeof listenState !== 'undefined' && listenState.active && !listenState.paused);
+  const repeating = (typeof repeatState !== 'undefined' && repeatState.active);
+  return playing || listening || repeating;
+}
+function shouldHoldWakeLock(){
+  return !!autoScrollActive || (isKeepAwakeRecitationEnabled() && isRecitationPlayingNow());
+}
+function syncWakeLock(){
+  if(shouldHoldWakeLock()){
+    if(!wakeLockRef) requestWakeLockForAutoScroll();
+  } else {
+    releaseWakeLock();
+  }
+}
+
 async function requestWakeLockForAutoScroll(){
+  if(wakeLockRef || wakeLockPending) return;
+  wakeLockPending = true;
   try{
     if('wakeLock' in navigator){
-      wakeLockRef = await navigator.wakeLock.request('screen');
-      wakeLockRef.addEventListener('release', () => { wakeLockRef = null; });
+      const lock = await navigator.wakeLock.request('screen');
+      if(!shouldHoldWakeLock()){
+        try{ lock.release(); }catch(e){}
+      } else {
+        wakeLockRef = lock;
+        lock.addEventListener('release', () => { if(wakeLockRef === lock) wakeLockRef = null; });
+      }
     }
   }catch(e){ wakeLockRef = null; }
+  finally{ wakeLockPending = false; }
 }
 
 function releaseWakeLock(){
@@ -8499,7 +8565,7 @@ function releaseWakeLock(){
 
 // إعادة طلب قفل الإيقاظ عند رجوع علامة التبويب لتكون مرئية (المتصفحات تفقده تلقائيًا عند التبديل بينها)
 document.addEventListener('visibilitychange', () => {
-  if(autoScrollActive && document.visibilityState === 'visible' && !wakeLockRef){
+  if(document.visibilityState === 'visible' && !wakeLockRef && shouldHoldWakeLock()){
     requestWakeLockForAutoScroll();
   }
 });
@@ -8578,7 +8644,7 @@ function stopAutoScroll(){
   autoScrollActive = false;
   autoScrollAccumulator = 0;
   if(autoScrollRafId){ cancelAnimationFrame(autoScrollRafId); autoScrollRafId = null; }
-  releaseWakeLock();
+  syncWakeLock();
 
   window.removeEventListener('wheel', pauseAutoScrollOnManualInput);
   window.removeEventListener('touchstart', pauseAutoScrollOnManualInput);
@@ -10574,6 +10640,7 @@ const I18N_STRINGS = {
     wbw_highlight_label: 'تظليل الكلمة أثناء التلاوة (تقديري)',
     oled_mode_label: 'وضع أسود حقيقي (AMOLED) للوضع الداكن — لتوفير البطارية',
     trail_fab_label: 'إظهار زر مواضع القراءة السابقة داخل السورة',
+    keep_awake_label: 'إبقاء الشاشة مضاءة أثناء التلاوة داخل السورة',
     settings_tab_reading: 'القراءة والعرض',
     settings_tab_audio: 'الصوت والتلاوة',
     settings_tab_tafsir: 'التفسير والترجمة',
@@ -10897,6 +10964,7 @@ const I18N_STRINGS = {
     wbw_highlight_label: 'Highlight the word being recited (estimated)',
     oled_mode_label: 'True black (AMOLED) for dark mode — saves battery',
     trail_fab_label: 'Show the previous reading positions button inside a surah',
+    keep_awake_label: 'Keep the screen on while reciting inside a surah',
     settings_tab_reading: 'Reading & display',
     settings_tab_audio: 'Audio & recitation',
     settings_tab_tafsir: 'Tafsir & translation',
@@ -11914,6 +11982,13 @@ if('serviceWorker' in navigator){
             <input type="checkbox" id="wbw-highlight-toggle" onchange="toggleWbwHighlight(this.checked)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             <span data-i18n="wbw_highlight_label">تظليل الكلمة أثناء التلاوة (تقديري)</span>
+          </label>
+        </div>
+        <div data-tab="audio" class="control-group">
+          <label class="test-mode-toggle-row">
+            <input type="checkbox" id="keep-awake-toggle" onchange="toggleKeepAwakeRecitation(this.checked)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+            <span data-i18n="keep_awake_label">إبقاء الشاشة مضاءة أثناء التلاوة داخل السورة</span>
           </label>
         </div>
         <div data-tab="tafsir" class="control-group control-group-tafsir" id="control-group-tafsir">
