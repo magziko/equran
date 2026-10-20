@@ -2238,6 +2238,38 @@
     #settings-overlay .settings-modal{ max-width:min(1180px, 92vw); padding:30px 36px; }
     #settings-overlay .controls-body{ grid-template-columns:repeat(3, minmax(0, 1fr)); gap:20px 32px; }
   }
+
+  /* ---------- نافذة الإعدادات: التابات ---------- */
+  .settings-tabs{
+    display:flex; gap:6px; margin-bottom:16px; padding-bottom:0;
+    border-bottom:1px solid var(--border); overflow-x:auto; scrollbar-width:none;
+  }
+  .settings-tabs::-webkit-scrollbar{ display:none; }
+  .settings-tab{
+    flex:1 1 auto; white-space:nowrap; cursor:pointer;
+    background:transparent; border:none; border-bottom:3px solid transparent; margin-bottom:-1px;
+    padding:10px 14px; font:inherit; font-size:13.5px; font-weight:700; color:var(--text-muted);
+    transition:color .15s ease, border-color .15s ease, background .15s ease;
+    border-radius:10px 10px 0 0;
+  }
+  .settings-tab:hover{ color:var(--accent-soft); background:var(--surface); }
+  .settings-tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  #settings-overlay .controls-body[data-active-tab="reading"] > [data-tab]:not([data-tab="reading"]),
+  #settings-overlay .controls-body[data-active-tab="audio"] > [data-tab]:not([data-tab="audio"]),
+  #settings-overlay .controls-body[data-active-tab="tafsir"] > [data-tab]:not([data-tab="tafsir"]),
+  #settings-overlay .controls-body[data-active-tab="more"] > [data-tab]:not([data-tab="more"]){ display:none !important; }
+  @media (min-width:768px){
+    #settings-overlay .settings-modal{ min-height:min(620px, 90vh); }
+    .settings-tab{ font-size:15px; padding:12px 20px; }
+  }
+
+  @media (max-width:767px){
+    .settings-tabs{ gap:2px; overflow-x:visible; }
+    .settings-tab{
+      flex:1 1 0; min-width:0; white-space:normal; text-align:center; line-height:1.35;
+      padding:9px 3px; font-size:12px; display:flex; align-items:center; justify-content:center;
+    }
+  }
 </style>
 </head>
 <body>
@@ -5723,10 +5755,10 @@ function fillOfflineSurahSelect(){
   const keep = sel.value || 'current';
   const isEn = lang === 'en';
   let html = `<option value="current">${isEn ? 'Currently open surah' : 'السورة المفتوحة حاليًا'}</option>`;
+  html += `<option value="all">${isEn ? 'The whole Quran (large download)' : 'القرآن كله (حجم كبير)'}</option>`;
   QURAN_DATA.forEach(x => {
     html += `<option value="${x.id}">${x.id}. ${isEn ? (x.transliteration || x.name) : x.name}</option>`;
   });
-  html += `<option value="all">${isEn ? 'The whole Quran (large download)' : 'القرآن كله (حجم كبير)'}</option>`;
   sel.innerHTML = html;
   sel.dataset.lang = lang;
   sel.value = keep;
@@ -6321,6 +6353,7 @@ function openSettingsModal(){
   if(note) note.style.display = hasActiveReading ? 'none' : 'block';
   document.getElementById('settings-overlay').classList.add('open');
   try{ refreshOfflineTafsirStatus(); } catch(e){}
+  try{ renderTafsirMultiselectPanels(); } catch(e){}
   try{ updateSleepTimerUI(); updateVolumeUI(); } catch(e){}
   requestAnimationFrame(() => {
     const modal = document.querySelector('#settings-overlay .settings-modal');
@@ -6331,6 +6364,18 @@ function openSettingsModal(){
 
 function closeSettingsModal(){
   document.getElementById('settings-overlay').classList.remove('open');
+}
+
+function setSettingsTab(name){
+  const body = document.querySelector('#settings-overlay .controls-body');
+  if(body) body.setAttribute('data-active-tab', name);
+  document.querySelectorAll('#settings-tabs .settings-tab').forEach(btn => {
+    const on = btn.getAttribute('data-tab-btn') === name;
+    btn.classList.toggle('active', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+  const modal = document.querySelector('#settings-overlay .settings-modal');
+  if(modal) modal.scrollTop = 0;
 }
 
 function openShortcutsModal(){
@@ -10529,6 +10574,10 @@ const I18N_STRINGS = {
     wbw_highlight_label: 'تظليل الكلمة أثناء التلاوة (تقديري)',
     oled_mode_label: 'وضع أسود حقيقي (AMOLED) للوضع الداكن — لتوفير البطارية',
     trail_fab_label: 'إظهار زر مواضع القراءة السابقة داخل السورة',
+    settings_tab_reading: 'القراءة والعرض',
+    settings_tab_audio: 'الصوت والتلاوة',
+    settings_tab_tafsir: 'التفسير والترجمة',
+    settings_tab_more: 'البيانات وأخرى',
     repeat_section_label: 'تكرار الآيات للحفظ',
     repeat_from: 'من آية',
     repeat_to: 'إلى آية',
@@ -10848,6 +10897,10 @@ const I18N_STRINGS = {
     wbw_highlight_label: 'Highlight the word being recited (estimated)',
     oled_mode_label: 'True black (AMOLED) for dark mode — saves battery',
     trail_fab_label: 'Show the previous reading positions button inside a surah',
+    settings_tab_reading: 'Reading & display',
+    settings_tab_audio: 'Audio & recitation',
+    settings_tab_tafsir: 'Tafsir & translation',
+    settings_tab_more: 'Data & more',
     repeat_section_label: 'Verse repetition for memorization',
     repeat_from: 'From ayah',
     repeat_to: 'To ayah',
@@ -11284,6 +11337,7 @@ window.addEventListener('DOMContentLoaded', function(){
   try{ attachTafsirSwipe(); } catch(e){}
   try{ attachTafsirSearchInput(); } catch(e){}
   try{ refreshOfflineTafsirStatus(); } catch(e){}
+  try{ renderTafsirMultiselectPanels(); } catch(e){}
   try{ applyLanguage(document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar'); }catch(e){}
   try{ renderTafsirCollapseAllButtons(); }catch(e){}
 });
@@ -11725,15 +11779,21 @@ if('serviceWorker' in navigator){
         </button>
       </div>
       <div class="settings-modal-note" id="settings-modal-note" style="display:none;" data-i18n="settings_no_surah_note">التكرار والاستماع المتواصل متاحين وأنت داخل سورة. باقي الإعدادات بتتطبق فورًا وتفضل محفوظة.</div>
-      <div class="controls-body">
-        <div class="control-group">
+      <div class="settings-tabs" id="settings-tabs" role="tablist">
+        <button type="button" class="settings-tab active" role="tab" aria-selected="true" data-tab-btn="reading" onclick="setSettingsTab('reading')"><span data-i18n="settings_tab_reading">القراءة والعرض</span></button>
+        <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab-btn="audio" onclick="setSettingsTab('audio')"><span data-i18n="settings_tab_audio">الصوت والتلاوة</span></button>
+        <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab-btn="tafsir" onclick="setSettingsTab('tafsir')"><span data-i18n="settings_tab_tafsir">التفسير والترجمة</span></button>
+        <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab-btn="more" onclick="setSettingsTab('more')"><span data-i18n="settings_tab_more">البيانات وأخرى</span></button>
+      </div>
+      <div class="controls-body" data-active-tab="reading">
+        <div data-tab="reading" class="control-group">
           <span class="label" data-i18n="display_mode_label">طريقة العرض</span>
           <div class="display-mode-toggle">
             <button id="mode-btn-cards" class="mode-btn" onclick="setDisplayMode('cards')" data-i18n="mode_cards">آيات منفصلة</button>
             <button id="mode-btn-continuous" class="mode-btn" onclick="setDisplayMode('continuous')" data-i18n="mode_continuous">آيات متتالية (كالمصحف)</button>
           </div>
         </div>
-        <div class="page-jump-control-row" id="page-jump-control-row" style="display:none;">
+        <div data-tab="reading" class="page-jump-control-row" id="page-jump-control-row" style="display:none;">
           <div class="page-jump-panel">
             <span class="label" data-i18n="page_jump_panel_label">اذهب إلى صفحة من صفحات المصحف (١ - ٦٠٤)، بنفس تقسيم أسطر مصحف المدينة</span>
             <div class="page-jump-row">
@@ -11743,7 +11803,7 @@ if('serviceWorker' in navigator){
             </div>
           </div>
         </div>
-        <div class="control-group">
+        <div data-tab="reading" class="control-group">
           <span class="label" data-i18n="font_size_label">حجم الخط</span>
           <div class="font-controls">
             <button onclick="changeFont(-1)">−</button>
@@ -11756,7 +11816,7 @@ if('serviceWorker' in navigator){
             </button>
           </div>
         </div>
-        <div class="control-group">
+        <div data-tab="reading" class="control-group">
           <span class="label" data-i18n="font_type_label">نوع الخط</span>
           <select id="font-family-select" class="font-select" onchange="changeFontFamily(this.value)">
             <option value="amiri-quran" data-i18n="font_amiri_quran">الخط العثماني (Amiri Quran)</option>
@@ -11764,7 +11824,7 @@ if('serviceWorker' in navigator){
             <option value="uthman-naskh" data-i18n="font_uthman_naskh">النسخي العثماني (عثمان طه)</option>
           </select>
         </div>
-        <div class="control-group">
+        <div data-tab="audio" class="control-group">
           <span class="label" data-i18n="reciter_label">القارئ</span>
           <select id="reciter-select" class="font-select" onchange="changeReciter(this.value)">
             <option value="mustafa_ismail" data-i18n="reciter_mustafa_ismail">الشيخ مصطفى إسماعيل (مرتل)</option>
@@ -11798,7 +11858,7 @@ if('serviceWorker' in navigator){
             <option value="islam_sobhy" data-i18n="reciter_islam_sobhy">الشيخ إسلام صبحي (مصحف مرتل)</option>
           </select>
         </div>
-        <div class="control-group">
+        <div data-tab="audio" class="control-group">
           <span class="label" data-i18n="playback_speed_label">سرعة التلاوة</span>
           <select id="playback-speed-select" class="font-select" onchange="changePlaybackSpeed(this.value)">
             <option value="0.5" data-i18n="speed_0_5">0.5×</option>
@@ -11810,7 +11870,7 @@ if('serviceWorker' in navigator){
             <option value="2" data-i18n="speed_2">2×</option>
           </select>
         </div>
-        <div class="control-group" id="volume-group">
+        <div data-tab="audio" class="control-group" id="volume-group">
           <span class="label" id="volume-label">مستوى الصوت</span>
           <div class="volume-row">
             <button type="button" class="volume-mute-btn" id="volume-mute-settings" onclick="toggleAudioMute()" aria-label="كتم الصوت" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path class="vol-wave vol-wave-1" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="vol-wave vol-wave-2" d="M18.5 5.5a9 9 0 0 1 0 13"/><g class="vol-x"><line x1="16" y1="9" x2="22" y2="15"/><line x1="22" y1="9" x2="16" y2="15"/></g></svg></button>
@@ -11819,7 +11879,7 @@ if('serviceWorker' in navigator){
           </div>
           <div class="volume-note" id="volume-note" style="display:none;"></div>
         </div>
-        <div class="control-group" id="sleep-group">
+        <div data-tab="audio" class="control-group" id="sleep-group">
           <span class="label" id="sleep-label">مؤقت النوم</span>
           <div class="sleep-row">
             <select id="sleep-select" class="font-select" onchange="setSleepTimerFromUI(this.value)" aria-labelledby="sleep-label">
@@ -11835,28 +11895,28 @@ if('serviceWorker' in navigator){
           </div>
           <div class="volume-note" id="sleep-note"></div>
         </div>
-        <div class="control-group">
+        <div data-tab="reading" class="control-group">
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="oled-mode-toggle" onchange="toggleOledMode(this.checked)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
             <span data-i18n="oled_mode_label">وضع أسود حقيقي (AMOLED) للوضع الداكن — لتوفير البطارية</span>
           </label>
         </div>
-        <div class="control-group">
+        <div data-tab="reading" class="control-group">
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="trail-fab-toggle" onchange="toggleTrailFab(this.checked)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg>
             <span data-i18n="trail_fab_label">إظهار زر مواضع القراءة السابقة داخل السورة</span>
           </label>
         </div>
-        <div class="control-group">
+        <div data-tab="audio" class="control-group">
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="wbw-highlight-toggle" onchange="toggleWbwHighlight(this.checked)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             <span data-i18n="wbw_highlight_label">تظليل الكلمة أثناء التلاوة (تقديري)</span>
           </label>
         </div>
-        <div class="control-group control-group-tafsir" id="control-group-tafsir">
+        <div data-tab="tafsir" class="control-group control-group-tafsir" id="control-group-tafsir">
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="inline-tafsir-toggle" onchange="toggleInlineTafsir(this.checked)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -11872,7 +11932,7 @@ if('serviceWorker' in navigator){
             </div>
           </div>
         </div>
-        <div class="control-group offline-dl-group" id="control-group-offline-tafsir">
+        <div data-tab="tafsir" class="control-group offline-dl-group" id="control-group-offline-tafsir">
           <span class="label" id="offline-dl-title">التحميل للأوفلاين (التفسير والترجمات)</span>
           <div class="offline-dl-row">
             <select id="offline-surah-select" class="font-select" onchange="refreshOfflineTafsirStatus()" aria-labelledby="offline-dl-title"></select>
@@ -11885,14 +11945,14 @@ if('serviceWorker' in navigator){
           <div class="offline-dl-info small" id="offline-dl-storage"></div>
           <button type="button" id="offline-dl-clear" class="offline-dl-btn danger" onclick="clearOfflineTafsir()">حذف التفسير المحمّل</button>
         </div>
-        <div class="control-group">
+        <div data-tab="tafsir" class="control-group">
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="share-image-tafsir-toggle" onchange="toggleShareImageTafsir(this.checked)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             <span data-i18n="share_image_tafsir_label">تضمين التفسير/الترجمة المختار في صورة الآية عند المشاركة</span>
           </label>
         </div>
-        <div class="control-group repeat-group" id="repeat-group">
+        <div data-tab="audio" class="control-group repeat-group" id="repeat-group">
           <span class="label" data-i18n="repeat_section_label">تكرار الآيات للحفظ</span>
           <div class="repeat-fields">
             <label><span data-i18n="repeat_from">من آية</span>
@@ -11933,7 +11993,7 @@ if('serviceWorker' in navigator){
             <span class="repeat-status" id="repeat-status"></span>
           </div>
         </div>
-        <div class="control-group" id="data-backup-group">
+        <div data-tab="more" class="control-group" id="data-backup-group">
           <span class="label" data-i18n="data_backup_label">نسخ احتياطي للبيانات (المفضلة، الملاحظات، خطط الختم)</span>
           <div class="repeat-actions">
             <button class="repeat-btn" onclick="exportUserData()">
@@ -11948,7 +12008,7 @@ if('serviceWorker' in navigator){
           </div>
           <div class="settings-modal-note" id="data-backup-status" style="display:none;"></div>
         </div>
-        <div class="control-group" id="shortcuts-group">
+        <div data-tab="more" class="control-group" id="shortcuts-group">
           <span class="label" data-i18n="shortcuts_label">اختصارات لوحة المفاتيح</span>
           <div class="repeat-actions">
             <button class="repeat-btn" onclick="openShortcutsModal()">
