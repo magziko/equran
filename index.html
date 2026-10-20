@@ -528,6 +528,26 @@
   }
   .trail-item__del:hover{ color:#e5484d; background:var(--surface-2); }
   .trail-item__del svg{ width:15px; height:15px; }
+  .trail-plan{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    padding:10px 18px; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-muted); font-weight:700;
+  }
+  .trail-plan select{
+    flex:1; min-width:150px; background:var(--surface); color:var(--text); border:1px solid var(--border);
+    border-radius:9px; padding:6px 8px; font-family:inherit; font-size:13px;
+  }
+  .trail-item.pinned{ border-color:var(--accent); background:var(--accent-bg); }
+  .trail-item__actions{ display:flex; align-items:center; gap:2px; flex-shrink:0; }
+  .trail-item__pin{
+    background:transparent; border:none; color:var(--text-muted); cursor:pointer;
+    width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+  }
+  .trail-item__pin:hover, .trail-item__pin.on{ color:var(--accent); background:var(--surface-2); }
+  .trail-item__pin svg{ width:15px; height:15px; }
+  .trail-item__log{
+    margin-top:8px; background:var(--accent); color:#fff; border:none; border-radius:8px;
+    font-family:inherit; font-size:12px; font-weight:700; padding:5px 10px; cursor:pointer;
+  }
   .trail-empty{ text-align:center; color:var(--text-muted); padding:28px 10px; font-size:14px; }
 
   /* ---------- Ayah of the day card ---------- */
@@ -2256,6 +2276,7 @@
         </button>
       </div>
     </div>
+    <div class="trail-plan" id="trail-plan-row" style="display:none"></div>
     <div class="trail-list" id="trail-list"></div>
   </div>
 </div>
@@ -3128,7 +3149,8 @@ function recordTrailPosition(surahId, ayahId, surahName, isJump){
     if(!surahId || !ayahId) return;
     const list = getTrail();
     const now = Date.now();
-    const owned = trailOwnedId ? list.find(e => e.id === trailOwnedId) : null;
+    let owned = trailOwnedId ? list.find(e => e.id === trailOwnedId) : null;
+    if(owned && owned.pinned) owned = null; // الموضع المثبّت ثابت: القراءة بعده بتكوّن موضع جديد
     if(owned && !isJump){
       owned.surahId = surahId; owned.ayahId = ayahId; owned.surahName = surahName; owned.ts = now;
     } else {
@@ -3143,12 +3165,16 @@ function recordTrailPosition(surahId, ayahId, surahName, isJump){
       }
     }
     list.sort((a, b) => b.ts - a.ts);
-    const perSurah = {}, out = [];
+    // المثبّتة بتفضل دايمًا؛ الحدود (3 لكل سورة و12 إجمالًا) على غير المثبّتة بس
+    const perSurah = {}, free = [];
     for(const e of list){
+      if(e.pinned) continue;
       perSurah[e.surahId] = (perSurah[e.surahId] || 0) + 1;
-      if(perSurah[e.surahId] <= TRAIL_PER_SURAH_MAX) out.push(e);
+      if(perSurah[e.surahId] <= TRAIL_PER_SURAH_MAX) free.push(e);
     }
-    saveTrail(out.slice(0, TRAIL_MAX));
+    const out = list.filter(e => e.pinned).concat(free.slice(0, TRAIL_MAX));
+    out.sort((a, b) => b.ts - a.ts);
+    saveTrail(out);
   }catch(e){}
 }
 
@@ -3168,6 +3194,81 @@ function trailAgo(ts){
   return offT(`منذ ${d} يوم`, `${d}d ago`);
 }
 
+/* ---------- ربط المواضع بالختمة: حساب مكان الموضع بوحدة الخطة (صفحة/جزء/حزب) ---------- */
+let _trailOrd = null;
+const TRAIL_MAX_PINS = 6;
+let trailPlanId = null;
+try{ trailPlanId = localStorage.getItem('quran-trail-plan') || null; }catch(e){}
+
+function trailOrd(surahId, ayahId){
+  if(!_trailOrd){
+    _trailOrd = {}; let acc = 0;
+    for(const s of QURAN){ _trailOrd[s.id] = acc; acc += (s.total_verses || (s.verses ? s.verses.length : 0)); }
+    _trailOrd.total = acc;
+  }
+  return (_trailOrd[surahId] || 0) + ayahId;
+}
+
+// كم وحدة (جزء/حزب/صفحة) انتهت قبل هذه الآية؟ (الجزء والحزب بجداول البداية الفعلية، والصفحة تقريبية من الجزء)
+function trailUnitsDone(unit, surahId, ayahId){
+  if(typeof QURAN === 'undefined' || !QURAN || !QURAN.length) return null;
+  const o = trailOrd(surahId, ayahId) - 1, all = _trailOrd.total;
+  if(unit === 'page'){
+    // تقريب للصفحة من الجزء (مصحف المدينة: الجزء الأول 21 صفحة، من 2 إلى 29 عشرون صفحة، والأخير 23)
+    const j = trailUnitsDone('juz', surahId, ayahId);
+    return j < 1 ? j * 21 : (j < 29 ? 21 + (j - 1) * 20 : 581 + (j - 29) * 23);
+  }
+  const table = unit === 'juz' ? JUZ_START : HIZB_START;
+  let i = 0;
+  for(let k = 0; k < table.length; k++){
+    if(trailOrd(table[k].surah, table[k].ayah) - 1 <= o) i = k; else break;
+  }
+  const start = trailOrd(table[i].surah, table[i].ayah) - 1;
+  const end = i + 1 < table.length ? trailOrd(table[i + 1].surah, table[i + 1].ayah) - 1 : all;
+  return i + (o - start) / Math.max(1, end - start);
+}
+
+function trailRoundUnits(unit, v){ return unit === 'page' ? Math.round(v) : Math.round(v * 10) / 10; }
+
+function trailGetPlan(){
+  const plans = getKhatmaPlans().filter(p => KHATMA_UNIT_TOTALS[p.unit]);
+  if(!plans.length) return { plans, plan: null };
+  if(trailPlanId === 'none') return { plans, plan: null };
+  const plan = plans.find(p => p.id === trailPlanId) || plans[0];
+  return { plans, plan };
+}
+
+function trailPlanChanged(v){
+  trailPlanId = v;
+  try{ localStorage.setItem('quran-trail-plan', v); }catch(e){}
+  renderTrailSheet();
+}
+
+function trailLogToPlan(id){
+  const e = getTrail().find(x => x.id === id);
+  const { plan } = trailGetPlan();
+  if(!e || !plan) return;
+  const u = trailUnitsDone(plan.unit, e.surahId, e.ayahId);
+  if(u == null) return;
+  const delta = trailRoundUnits(plan.unit, u) - plan.completed;
+  if(delta > 0) logKhatmaAmount(plan.id, Math.round(delta * 10) / 10);
+  renderTrailSheet();
+}
+
+function toggleTrailPin(id){
+  const list = getTrail();
+  const e = list.find(x => x.id === id);
+  if(!e) return;
+  if(!e.pinned && list.filter(x => x.pinned).length >= TRAIL_MAX_PINS){
+    alert(t('trail_pin_limit'));
+    return;
+  }
+  e.pinned = !e.pinned;
+  if(e.pinned && trailOwnedId === id) trailOwnedId = null; // نكمل القراءة في سطر جديد ونسيب المثبّت في مكانه
+  saveTrail(list);
+  renderTrailSheet();
+}
+
 function renderTrailSheet(){
   const box = document.getElementById('trail-list');
   if(!box) return;
@@ -3176,19 +3277,58 @@ function renderTrailSheet(){
   const clearBtn = document.getElementById('trail-clear');
   const closeBtn = document.getElementById('trail-close');
   if(title) title.textContent = t('trail_title');
-  if(clearBtn){ clearBtn.textContent = t('trail_clear'); clearBtn.style.display = list.length ? '' : 'none'; }
+  if(clearBtn){ clearBtn.textContent = t('trail_clear'); clearBtn.style.display = list.some(e => !e.pinned) ? '' : 'none'; }
   if(closeBtn) closeBtn.setAttribute('aria-label', t('dismiss'));
+
+  // اختيار الخطة المرتبطة
+  const planRow = document.getElementById('trail-plan-row');
+  const { plans, plan } = trailGetPlan();
+  if(planRow){
+    if(!plans.length){ planRow.style.display = 'none'; planRow.innerHTML = ''; }
+    else {
+      planRow.style.display = '';
+      planRow.innerHTML = `<label for="trail-plan-select">${t('trail_plan_label')}</label>
+        <select id="trail-plan-select" onchange="trailPlanChanged(this.value)">
+          ${plans.map((p, i) => `<option value="${trailEsc(p.id)}"${plan && plan.id === p.id ? ' selected' : ''}>${offT('ختمة', 'Khatma')} ${i + 1} — ${khatmaUnitLabel(p.unit)} (${trailRoundUnits(p.unit, p.completed)}/${KHATMA_UNIT_TOTALS[p.unit]})</option>`).join('')}
+          <option value="none"${trailPlanId === 'none' ? ' selected' : ''}>${t('trail_plan_none')}</option>
+        </select>`;
+    }
+  }
+
   if(!list.length){ box.innerHTML = `<div class="trail-empty">${t('trail_empty')}</div>`; return; }
-  box.innerHTML = list.map((e, i) => `
-    <div class="trail-item" role="button" tabindex="0" onclick="openTrailPosition('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){ event.preventDefault(); openTrailPosition('${e.id}'); }">
+  const ordered = list.filter(e => e.pinned).concat(list.filter(e => !e.pinned));
+  const latestId = list[0].id;
+  const pinSvg = f => `<svg viewBox="0 0 24 24" fill="${f ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 3h6l-1 7 3 3v2H7v-2l3-3z"/></svg>`;
+  box.innerHTML = ordered.map(e => {
+    const juzDone = trailUnitsDone('juz', e.surahId, e.ayahId);
+    const pct = juzDone == null ? null : Math.round(juzDone / KHATMA_UNIT_TOTALS.juz * 100);
+    const meta = [];
+    if(e.id === latestId) meta.push(t('trail_latest'));
+    meta.push(trailAgo(e.ts));
+    if(juzDone != null) meta.push(`${t('trail_juz')} ${Math.floor(juzDone) + 1} · ${pct}%`);
+    let logBtn = '';
+    if(plan){
+      const u = trailUnitsDone(plan.unit, e.surahId, e.ayahId);
+      if(u != null){
+        const delta = Math.round((trailRoundUnits(plan.unit, u) - plan.completed) * 10) / 10;
+        if(delta > 0) logBtn = `<button type="button" class="trail-item__log" onclick="event.stopPropagation(); trailLogToPlan('${e.id}')" title="${t('trail_log')}">${t('trail_log')} +${delta} ${khatmaUnitLabel(plan.unit)}</button>`;
+      }
+    }
+    return `
+    <div class="trail-item${e.pinned ? ' pinned' : ''}" role="button" tabindex="0" onclick="openTrailPosition('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){ event.preventDefault(); openTrailPosition('${e.id}'); }">
       <div class="trail-item__main">
         <div class="trail-item__title">${t('surah_word')} ${trailEsc(e.surahName)} — ${t('ayah_word')} ${e.ayahId}</div>
-        <div class="trail-item__meta">${i === 0 ? t('trail_latest') + ' · ' : ''}${trailAgo(e.ts)}</div>
+        <div class="trail-item__meta">${meta.join(' · ')}</div>
+        ${logBtn}
       </div>
-      <button type="button" class="trail-item__del" onclick="event.stopPropagation(); removeTrailPosition('${e.id}')" title="${t('trail_remove')}" aria-label="${t('trail_remove')}">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-      </button>
-    </div>`).join('');
+      <div class="trail-item__actions">
+        <button type="button" class="trail-item__pin${e.pinned ? ' on' : ''}" onclick="event.stopPropagation(); toggleTrailPin('${e.id}')" title="${e.pinned ? t('trail_unpin') : t('trail_pin')}" aria-label="${e.pinned ? t('trail_unpin') : t('trail_pin')}">${pinSvg(e.pinned)}</button>
+        <button type="button" class="trail-item__del" onclick="event.stopPropagation(); removeTrailPosition('${e.id}')" title="${t('trail_remove')}" aria-label="${t('trail_remove')}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function openTrailSheet(){
@@ -3218,8 +3358,9 @@ function removeTrailPosition(id){
 }
 
 function clearTrail(){
-  saveTrail([]);
-  clearSavedPosition();
+  const keep = getTrail().filter(e => e.pinned); // "مسح الكل" مش بيمسح المثبّتة
+  saveTrail(keep);
+  if(!keep.length) clearSavedPosition();
   renderTrailSheet();
   renderContinueBanner();
   closeTrailSheet();
@@ -4652,7 +4793,7 @@ function importUserData(file){
       const cur = getTrail();
       data.readingTrail.forEach(e => {
         if(e && typeof e.surahId === 'number' && typeof e.ayahId === 'number' && !cur.some(c => c.surahId === e.surahId && c.ayahId === e.ayahId)){
-          cur.push({ id: newTrailId(), surahId: e.surahId, ayahId: e.ayahId, surahName: String(e.surahName || ''), ts: e.ts || Date.now() });
+          cur.push({ id: newTrailId(), surahId: e.surahId, ayahId: e.ayahId, surahName: String(e.surahName || ''), ts: e.ts || Date.now(), pinned: !!e.pinned });
         }
       });
       cur.sort((a, b) => b.ts - a.ts);
@@ -10436,6 +10577,13 @@ const I18N_STRINGS = {
     trail_clear: 'مسح الكل',
     trail_empty: 'لا توجد مواضع محفوظة بعد. ابدأ القراءة وسيتم حفظ مواضعك تلقائيًا.',
     trail_remove: 'حذف هذا الموضع',
+    trail_pin: 'تثبيت الموضع',
+    trail_unpin: 'إلغاء التثبيت',
+    trail_pin_limit: 'وصلت للحد الأقصى من المواضع المثبّتة (6). ألغِ تثبيت موضع أولًا.',
+    trail_juz: 'الجزء',
+    trail_plan_label: 'ربط بالختمة',
+    trail_plan_none: 'بدون ربط',
+    trail_log: 'سجّل في الختمة',
     ayah_of_day_label: 'آية اليوم',
     ayah_of_day_refresh: 'آية عشوائية أخرى',
     ayah_of_day_read_here: 'اقرأ من هنا',
@@ -10747,6 +10895,13 @@ const I18N_STRINGS = {
     trail_clear: 'Clear all',
     trail_empty: 'No saved positions yet. Start reading and your positions will be saved automatically.',
     trail_remove: 'Remove this position',
+    trail_pin: 'Pin this position',
+    trail_unpin: 'Unpin',
+    trail_pin_limit: 'You have reached the pinned limit (6). Unpin one first.',
+    trail_juz: 'Juz',
+    trail_plan_label: 'Link to khatma',
+    trail_plan_none: 'No link',
+    trail_log: 'Log to khatma',
     ayah_of_day_label: 'Ayah of the Day',
     ayah_of_day_refresh: 'Another random ayah',
     ayah_of_day_read_here: 'Read from here',
