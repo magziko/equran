@@ -6484,6 +6484,7 @@ function attachModalFocusTrap(){
 }
 
 function openSettingsModal(){
+  try{ fillAudioOfflineSelect(); refreshAudioOfflineStatus(); } catch(e){}
   const hasActiveReading = currentMode === 'surah' && !!currentSurahId && currentVerseList.length > 0;
   const repeatGroup = document.getElementById('repeat-group');
   const note = document.getElementById('settings-modal-note');
@@ -7334,6 +7335,7 @@ function changeReciter(value){
   else if(ayahAudioPlayer && !ayahAudioPlayer.paused){ ayahAudioPlayer.pause(); clearTimedSegmentWatcher(); stopAyahAudioUI(); }
   updateAyahCardTitles();
   updateRepeatAvailability();
+  try{ refreshAudioOfflineStatus(); } catch(e){}
 }
 
 // يعطّل تكرار الآية الواحدة للقرّاء اللي مسجّلين بملف واحد للسورة كاملة (بدون توقيت لكل آية)،
@@ -10780,6 +10782,189 @@ function maybeShowBackupReminder(){
   }catch(e){}
 }
 
+/* ---------- تحميل التلاوة للاستماع بدون إنترنت ---------- */
+const AUDIO_OFFLINE_CACHE = 'quran-audio-offline-v1';
+let audioDlAbort = null;
+
+function audioDlSupported(){ return ('caches' in window) && !!window.fetch; }
+function audioDlEl(id){ return document.getElementById(id); }
+function audioDlSurahId(){
+  const sel = audioDlEl('audio-offline-surah-select');
+  if(!sel) return null;
+  if(sel.value === 'current') return (typeof currentSurahId !== 'undefined' && currentSurahId) ? Number(currentSurahId) : null;
+  return Number(sel.value) || null;
+}
+function audioDlUrls(surahId, reciter){
+  const data = QURAN_DATA.find(x => x.id === surahId);
+  if(!data) return [];
+  const surahPart = String(surahId).padStart(3, '0');
+  if(reciter.type === 'ayah'){
+    const urls = [];
+    for(let a = 1; a <= data.verses.length; a++){
+      urls.push('https://everyayah.com/data/' + reciter.folder + '/' + surahPart + String(a).padStart(3, '0') + '.mp3');
+    }
+    return urls;
+  }
+  return [reciter.folder + surahPart + '.mp3'];
+}
+function audioDlTimingUrl(surahId, reciter){
+  return reciter.type === 'timed' ? 'https://mp3quran.net/api/v3/ayat_timing?surah=' + surahId + '&read=' + reciter.readId : null;
+}
+function audioDlNotifySW(){
+  try{
+    if(navigator.serviceWorker && navigator.serviceWorker.controller){
+      navigator.serviceWorker.controller.postMessage({ type: 'AUDIO_INDEX_REFRESH' });
+    }
+  }catch(e){}
+}
+function audioDlFmtMB(bytes){ return (bytes / 1048576).toFixed(bytes >= 10485760 ? 0 : 1) + ' MB'; }
+function audioDlSetStatus(text, cls){
+  const el = audioDlEl('audio-dl-status');
+  if(!el) return;
+  el.textContent = text;
+  el.className = 'offline-dl-info' + (cls ? ' ' + cls : '');
+}
+function audioDlSetBusy(busy){
+  const startBtn = audioDlEl('audio-dl-start'), cancelBtn = audioDlEl('audio-dl-cancel'), prog = audioDlEl('audio-dl-progress'), sel = audioDlEl('audio-offline-surah-select');
+  if(startBtn) startBtn.style.display = busy ? 'none' : '';
+  if(cancelBtn) cancelBtn.style.display = busy ? '' : 'none';
+  if(prog) prog.style.display = busy ? '' : 'none';
+  if(sel) sel.disabled = busy;
+}
+function fillAudioOfflineSelect(){
+  const sel = audioDlEl('audio-offline-surah-select');
+  if(!sel || typeof QURAN_DATA === 'undefined') return;
+  const prev = sel.value;
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  let html = '<option value="current">' + (isEn ? 'Currently open surah' : 'السورة المفتوحة حاليًا') + '</option>';
+  QURAN_DATA.forEach(x => {
+    html += '<option value="' + x.id + '">' + x.id + '. ' + (isEn ? (x.transliteration || x.name) : x.name) + '</option>';
+  });
+  sel.innerHTML = html;
+  if(prev && Array.prototype.some.call(sel.options, o => o.value === prev)) sel.value = prev;
+}
+async function refreshAudioOfflineStatus(){
+  const startBtn = audioDlEl('audio-dl-start'), clearOne = audioDlEl('audio-dl-clear-one'), clearAll = audioDlEl('audio-dl-clear-all');
+  const reciterEl = audioDlEl('audio-dl-reciter'), storageEl = audioDlEl('audio-dl-storage');
+  if(!startBtn || audioDlAbort) return;
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  if(reciterEl) reciterEl.textContent = offT('القارئ المختار: ', 'Selected reciter: ') + reciter.name;
+  if(!audioDlSupported()){
+    audioDlSetStatus(offT('التحميل غير مدعوم في هذا المتصفح.', 'Downloading is not supported in this browser.'), 'err');
+    startBtn.disabled = clearOne.disabled = clearAll.disabled = true;
+    return;
+  }
+  const surahId = audioDlSurahId();
+  let have = new Set();
+  try{ have = new Set((await (await caches.open(AUDIO_OFFLINE_CACHE)).keys()).map(r => r.url)); }catch(e){}
+  clearAll.disabled = have.size === 0;
+  if(!surahId){
+    audioDlSetStatus(offT('افتح سورة أو اختر سورة من القائمة.', 'Open a surah or choose one from the list.'));
+    startBtn.disabled = true; clearOne.disabled = true;
+  } else {
+    const urls = audioDlUrls(surahId, reciter);
+    const n = urls.filter(u => have.has(u)).length;
+    const all = urls.length > 0 && n === urls.length;
+    if(all) audioDlSetStatus(offT('✓ التلاوة محمّلة وتعمل بدون إنترنت.', '✓ Downloaded — plays without internet.'), 'ok');
+    else if(n > 0) audioDlSetStatus(offT('محمّل جزئيًا: ' + n + ' من ' + urls.length + ' ملف.', 'Partially downloaded: ' + n + ' of ' + urls.length + ' files.'));
+    else audioDlSetStatus(offT('غير محمّلة بعد.', 'Not downloaded yet.'));
+    startBtn.disabled = all;
+    clearOne.disabled = n === 0;
+  }
+  if(storageEl){
+    let txt = offT('عدد الملفات الصوتية المحمّلة: ', 'Downloaded audio files: ') + have.size;
+    try{
+      if(navigator.storage && navigator.storage.estimate){
+        const est = await navigator.storage.estimate();
+        if(est && est.usage) txt += ' — ' + offT('مساحة التخزين المستخدمة لهذا الموقع: ', 'Storage used by this site: ') + audioDlFmtMB(est.usage);
+      }
+    }catch(e){}
+    storageEl.textContent = txt;
+  }
+}
+async function startAudioOfflineDownload(){
+  if(audioDlAbort || !audioDlSupported()) return;
+  const surahId = audioDlSurahId();
+  if(!surahId){ refreshAudioOfflineStatus(); return; }
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  const urls = audioDlUrls(surahId, reciter);
+  const cache = await caches.open(AUDIO_OFFLINE_CACHE);
+  const have = new Set((await cache.keys()).map(r => r.url));
+  const todo = urls.filter(u => !have.has(u));
+  if(!todo.length){ refreshAudioOfflineStatus(); return; }
+  const single = reciter.type !== 'ayah';
+  if(single || todo.length > 40){
+    const msg = single
+      ? offT('سيتم تحميل ملف صوتي واحد للسورة كاملة، وقد يكون كبيرًا (عشرات الميجابايت). هل تريد المتابعة؟', 'One audio file for the whole surah will be downloaded and it can be large (tens of MB). Continue?')
+      : offT('سيتم تحميل ' + todo.length + ' ملفًا صوتيًا، وقد يصل الحجم إلى عشرات الميجابايت. هل تريد المتابعة؟', todo.length + ' audio files will be downloaded, possibly tens of MB in total. Continue?');
+    if(!window.confirm(msg)) return;
+  }
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  const ctrl = new AbortController();
+  audioDlAbort = ctrl;
+  audioDlSetBusy(true);
+  const prog = audioDlEl('audio-dl-progress');
+  if(single){
+    prog.removeAttribute('value');
+    audioDlSetStatus(offT('جاري تحميل الملف… قد يستغرق وقتًا.', 'Downloading… this may take a while.'));
+  } else {
+    prog.max = todo.length; prog.value = 0;
+    audioDlSetStatus('0 / ' + todo.length);
+  }
+  let done = 0, failed = 0, next = 0;
+  const worker = async () => {
+    while(!ctrl.signal.aborted){
+      const i = next++;
+      if(i >= todo.length) return;
+      try{
+        const res = await fetch(todo[i], { mode: 'cors', signal: ctrl.signal });
+        if(!res.ok || res.status !== 200) throw new Error('HTTP ' + res.status);
+        await cache.put(todo[i], res);
+        done++;
+      }catch(e){
+        if(ctrl.signal.aborted) return;
+        failed++;
+      }
+      if(!single){ prog.value = done + failed; audioDlSetStatus((done + failed) + ' / ' + todo.length); }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(3, todo.length) }, worker));
+  const timingUrl = audioDlTimingUrl(surahId, reciter);
+  if(timingUrl && !ctrl.signal.aborted && done > 0){ try{ await fetch(timingUrl); }catch(e){} }
+  const aborted = ctrl.signal.aborted;
+  audioDlAbort = null;
+  audioDlSetBusy(false);
+  audioDlNotifySW();
+  if(aborted){
+    await refreshAudioOfflineStatus();
+  } else if(failed && !done){
+    audioDlSetStatus(offT('تعذر التحميل. تأكد من الاتصال بالإنترنت، وقد لا يسمح خادم هذا القارئ بحفظ التلاوة على الجهاز.', 'Download failed. Check your connection — this reciter\'s server may not allow saving audio on the device.'), 'err');
+  } else if(failed){
+    audioDlSetStatus(offT('تم تحميل ' + done + ' ملف وتعذر ' + failed + '. اضغط تحميل لإعادة المحاولة للباقي.', done + ' files downloaded, ' + failed + ' failed. Press download to retry the rest.'), 'err');
+    audioDlEl('audio-dl-start').disabled = false;
+  } else {
+    await refreshAudioOfflineStatus();
+  }
+}
+function cancelAudioOfflineDownload(){ if(audioDlAbort) audioDlAbort.abort(); }
+async function clearAudioOfflineSelection(){
+  const surahId = audioDlSurahId();
+  if(!surahId || !audioDlSupported()) return;
+  if(!window.confirm(offT('حذف التلاوة المحمّلة لهذه السورة (للقارئ المختار)؟', 'Delete the downloaded audio for this surah (selected reciter)?'))) return;
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  const cache = await caches.open(AUDIO_OFFLINE_CACHE);
+  await Promise.all(audioDlUrls(surahId, reciter).map(u => cache.delete(u)));
+  audioDlNotifySW();
+  await refreshAudioOfflineStatus();
+}
+async function clearAllAudioOffline(){
+  if(!audioDlSupported()) return;
+  if(!window.confirm(offT('حذف كل التلاوات المحمّلة من هذا الجهاز؟', 'Delete all downloaded audio from this device?'))) return;
+  try{ await caches.delete(AUDIO_OFFLINE_CACHE); }catch(e){}
+  audioDlNotifySW();
+  await refreshAudioOfflineStatus();
+}
+
 /* ---------- استعادة الإعدادات الافتراضية (لا تمس بيانات المستخدم) ---------- */
 const SETTINGS_KEYS_TO_RESET = [
   'audioMuted','audioVolume','autoScrollSpeedIndex','keepAwakeRecitation','playbackSpeed',
@@ -10936,6 +11121,11 @@ const I18N_STRINGS = {
     keep_awake_label: 'إبقاء الشاشة مضاءة أثناء التلاوة داخل السورة',
     sepia_label: 'سمة سيبيا الدافئة للوضع الفاتح (ألوان ورقية مريحة للعين)',
     pause_listen: 'إيقاف مؤقت',
+    audio_dl_title: 'تحميل التلاوة للاستماع بدون إنترنت',
+    audio_dl_start: 'تحميل',
+    audio_dl_cancel: 'إيقاف',
+    audio_dl_clear_one: 'حذف تلاوة هذه السورة',
+    audio_dl_clear_all: 'حذف كل التلاوات المحمّلة',
     reset_settings_btn: 'استعادة الإعدادات الافتراضية',
     reset_settings_note: 'لن تُحذف المفضلة والملاحظات وخطط الختم ومواضع القراءة.',
     reset_settings_confirm: 'هل تريد استعادة جميع الإعدادات إلى قيمها الافتراضية؟ لن تتأثر المفضلة والملاحظات وخطط الختم ومواضع القراءة.',
@@ -11273,6 +11463,11 @@ const I18N_STRINGS = {
     keep_awake_label: 'Keep the screen on while reciting inside a surah',
     sepia_label: 'Warm sepia theme for light mode (paper-like, easy on the eyes)',
     pause_listen: 'Pause',
+    audio_dl_title: 'Download recitation for offline listening',
+    audio_dl_start: 'Download',
+    audio_dl_cancel: 'Stop',
+    audio_dl_clear_one: 'Delete this surah\'s audio',
+    audio_dl_clear_all: 'Delete all downloaded audio',
     reset_settings_btn: 'Restore default settings',
     reset_settings_note: 'Favorites, notes, khatma plans and reading positions are kept.',
     reset_settings_confirm: 'Restore all settings to their defaults? Your favorites, notes, khatma plans and reading positions will not be affected.',
@@ -12316,6 +12511,22 @@ if('serviceWorker' in navigator){
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
             <span data-i18n="keep_awake_label">إبقاء الشاشة مضاءة أثناء التلاوة داخل السورة</span>
           </label>
+        </div>
+        <div data-tab="audio" class="control-group offline-dl-group" id="audio-offline-group">
+          <span class="label" id="audio-dl-title" data-i18n="audio_dl_title">تحميل التلاوة للاستماع بدون إنترنت</span>
+          <div class="offline-dl-row">
+            <select id="audio-offline-surah-select" class="font-select" onchange="refreshAudioOfflineStatus()" aria-labelledby="audio-dl-title"></select>
+            <button type="button" id="audio-dl-start" class="offline-dl-btn primary" onclick="startAudioOfflineDownload()" data-i18n="audio_dl_start">تحميل</button>
+            <button type="button" id="audio-dl-cancel" class="offline-dl-btn" style="display:none;" onclick="cancelAudioOfflineDownload()" data-i18n="audio_dl_cancel">إيقاف</button>
+          </div>
+          <div class="offline-dl-info" id="audio-dl-reciter"></div>
+          <progress id="audio-dl-progress" value="0" max="1" style="display:none;"></progress>
+          <div class="offline-dl-info" id="audio-dl-status" role="status" aria-live="polite"></div>
+          <div class="offline-dl-info small" id="audio-dl-storage"></div>
+          <div class="offline-dl-row">
+            <button type="button" id="audio-dl-clear-one" class="offline-dl-btn danger" onclick="clearAudioOfflineSelection()" data-i18n="audio_dl_clear_one">حذف تلاوة هذه السورة</button>
+            <button type="button" id="audio-dl-clear-all" class="offline-dl-btn danger" onclick="clearAllAudioOffline()" data-i18n="audio_dl_clear_all">حذف كل التلاوات المحمّلة</button>
+          </div>
         </div>
         <div data-tab="tafsir" class="control-group control-group-tafsir" id="control-group-tafsir">
           <label class="test-mode-toggle-row">
