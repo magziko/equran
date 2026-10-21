@@ -2351,6 +2351,44 @@ window.quranDataPromise = new Promise(function(resolve, reject){
 
   .header-listen-btn.playing{ background:var(--accent-bg); color:var(--accent-soft); }
 
+  /* حلقة تدور حول زر الاستماع أثناء تحميل التلاوة */
+
+  .header-listen-btn{ position:relative; }
+
+  .header-listen-btn .hl-ring{
+
+    position:absolute; inset:-6px; border-radius:999px; padding:2.5px; overflow:hidden;
+
+    pointer-events:none; opacity:0; transition:opacity .15s ease;
+
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+
+    -webkit-mask-composite:xor;
+
+    mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+
+  }
+
+  .header-listen-btn .hl-ring::before{
+
+    content:''; position:absolute; left:50%; top:50%; width:320px; height:320px; margin:-160px 0 0 -160px;
+
+    background:conic-gradient(from 0deg, transparent 0 55%, var(--accent) 100%);
+
+    animation:hl-spin .9s linear infinite;
+
+  }
+
+  .header-listen-btn.loading .hl-ring{ opacity:1; }
+
+  @keyframes hl-spin{ to{ transform:rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce){
+
+    .header-listen-btn .hl-ring::before{ animation-duration:2.4s; }
+
+  }
+
 </style>
 </head>
 <body>
@@ -2574,6 +2612,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
         <span id="surah-title">سورة الفاتحة</span>
       </h2>
       <button type="button" class="header-listen-btn" id="header-listen-btn" onclick="toggleHeaderListen()" style="display:none;" title="تشغيل السورة كاملة ثم الانتقال تلقائيًا للسورة التالية وهكذا حتى ختم المصحف" data-i18n-title="listen_title">
+        <span class="hl-ring" aria-hidden="true"></span>
         <svg class="hl-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         <svg class="hl-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
         <span class="hl-label">استماع</span>
@@ -7829,11 +7868,16 @@ function ensureAyahAudioPlayer(){
     if(!listenState.active && !repeatState.active) setMediaPlaybackState('paused');
   });
   ['play', 'pause', 'ended', 'emptied'].forEach(ev => ayahAudioPlayer.addEventListener(ev, syncWakeLock));
+  ['loadstart', 'waiting'].forEach(ev => ayahAudioPlayer.addEventListener(ev, () => { headerListenLoading = true; syncHeaderListenBtn(); }));
+  ['playing', 'pause', 'ended', 'error', 'emptied'].forEach(ev => ayahAudioPlayer.addEventListener(ev, () => { headerListenLoading = false; syncHeaderListenBtn(); }));
   ['loadedmetadata', 'durationchange', 'play', 'pause', 'ratechange', 'seeked'].forEach(ev => ayahAudioPlayer.addEventListener(ev, () => updateMediaPositionState(true)));
   ayahAudioPlayer.addEventListener('timeupdate', () => updateMediaPositionState(false));
   setupMediaSession();
   ayahAudioPlayer.addEventListener('error', () => {
     console.warn('تعذر تحميل تلاوة هذه الآية.');
+    if(ayahAudioPlayer.getAttribute('src')){
+      showShortcutToast(offT('تعذر تحميل التلاوة، تأكد من الاتصال بالإنترنت', 'Could not load the recitation — check your internet connection'), 4000);
+    }
     if(repeatState.active) stopAyahRepeat(); else if(listenState.active) stopFullSurahListen(); else stopAyahAudioUI();
   });
 }
@@ -10746,6 +10790,7 @@ const SETTINGS_KEYS_TO_RESET = [
   'testModeActive','trailFabEnabled','wbwHighlightEnabled','sideNavCollapsed','quran-note-mic-auto'
 ];
 /* ---------- زر الاستماع في رأس السورة (يتزامن مع زر الإعدادات) ---------- */
+let headerListenLoading = false;
 function syncHeaderListenBtn(){
   const btn = document.getElementById('header-listen-btn');
   if(!btn) return;
@@ -10753,14 +10798,22 @@ function syncHeaderListenBtn(){
   btn.style.display = inSurah ? '' : 'none';
   const playing = !!(typeof listenState !== 'undefined' && listenState.active && !listenState.paused);
   btn.classList.toggle('playing', playing);
+  const loading = playing && headerListenLoading;
+  btn.classList.toggle('loading', loading);
+  btn.setAttribute('aria-busy', loading ? 'true' : 'false');
   const play = btn.querySelector('.hl-play'), pause = btn.querySelector('.hl-pause'), label = btn.querySelector('.hl-label');
   if(play) play.style.display = playing ? 'none' : '';
   if(pause) pause.style.display = playing ? '' : 'none';
   if(label) label.textContent = playing ? t('pause_listen') : t('listen');
 }
 function toggleHeaderListen(){
-  if(listenState.active && !listenState.paused) pauseFullSurahListen();
-  else startFullSurahListen();
+  if(listenState.active && !listenState.paused){
+    headerListenLoading = false;
+    pauseFullSurahListen();
+  } else {
+    headerListenLoading = true;   // تظهر الحلقة فورًا حتى يبدأ الصوت فعليًا
+    startFullSurahListen();
+  }
 }
 (function initHeaderListenObserver(){
   const sub = document.getElementById('surah-sub');
@@ -11719,13 +11772,13 @@ function attachSwipeNavigation(){
 
 /* ---------- اختصارات لوحة المفاتيح: الاستماع المتواصل والتكرار ---------- */
 let shortcutToastTimer = null;
-function showShortcutToast(text){
+function showShortcutToast(text, ms){
   const el = document.getElementById('shortcut-toast');
   if(!el) return;
   el.textContent = text;
   el.classList.add('show');
   clearTimeout(shortcutToastTimer);
-  shortcutToastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+  shortcutToastTimer = setTimeout(() => el.classList.remove('show'), ms || 2200);
 }
 
 // الآية المرجعية: آخر آية شُغّلت/اختيرت، وإلا أول بطاقة آية ظاهرة في الشاشة
