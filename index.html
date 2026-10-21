@@ -2333,6 +2333,24 @@ window.quranDataPromise = new Promise(function(resolve, reject){
 
   .app-toast-btn.primary{ background:var(--accent); color:#fff; border-color:var(--accent); }
 
+  /* ---------- زر الاستماع في رأس السورة ---------- */
+
+  .header-listen-btn{
+
+    display:inline-flex; align-items:center; gap:7px; cursor:pointer;
+
+    background:var(--accent); color:#fff; border:1px solid var(--accent); border-radius:999px;
+
+    padding:8px 20px; font-family:'Cairo', sans-serif; font-size:14px; font-weight:700;
+
+    transition:opacity .15s ease, background .15s ease, color .15s ease;
+
+  }
+
+  .header-listen-btn:hover{ opacity:.9; }
+
+  .header-listen-btn.playing{ background:var(--accent-bg); color:var(--accent-soft); }
+
 </style>
 </head>
 <body>
@@ -2555,6 +2573,11 @@ window.quranDataPromise = new Promise(function(resolve, reject){
         </span>
         <span id="surah-title">سورة الفاتحة</span>
       </h2>
+      <button type="button" class="header-listen-btn" id="header-listen-btn" onclick="toggleHeaderListen()" style="display:none;" title="تشغيل السورة كاملة ثم الانتقال تلقائيًا للسورة التالية وهكذا حتى ختم المصحف" data-i18n-title="listen_title">
+        <svg class="hl-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <svg class="hl-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+        <span class="hl-label">استماع</span>
+      </button>
     </div>
     <p class="surah-sub" id="surah-sub"></p>
 
@@ -8058,6 +8081,7 @@ function startFullSurahListen(){
     const stopBtn = document.getElementById('listen-stop-btn');
     if(startBtn) startBtn.style.display = 'none';
     if(stopBtn) stopBtn.style.display = '';
+    syncHeaderListenBtn();
     if(ayahAudioPlayer && ayahAudioPlayer.src){
       ayahAudioPlayer.play().catch(() => {
         console.warn('تعذر استئناف تشغيل السورة من نقطة التوقف.');
@@ -8077,6 +8101,7 @@ function startFullSurahListen(){
   const stopBtn = document.getElementById('listen-stop-btn');
   if(startBtn) startBtn.style.display = 'none';
   if(stopBtn) stopBtn.style.display = '';
+  syncHeaderListenBtn();
 
   if(currentMode !== 'surah' || currentSurahId !== startId){
     listenState.suppressAutoStop = true;
@@ -8119,6 +8144,7 @@ async function playFromAyahNumber(surahId, ayahId, cardId){
   const stopBtn = document.getElementById('listen-stop-btn');
   if(startBtn) startBtn.style.display = 'none';
   if(stopBtn) stopBtn.style.display = '';
+  syncHeaderListenBtn();
   updateRepeatStatus(tf('listening_full_surah', { surah: surah.name }));
 
   const reciter = RECITERS[selectedReciter] || RECITERS.husary;
@@ -8242,6 +8268,7 @@ function stopFullSurahListen(){
   const stopBtn = document.getElementById('listen-stop-btn');
   if(startBtn) startBtn.style.display = '';
   if(stopBtn) stopBtn.style.display = 'none';
+  syncHeaderListenBtn();
   updateRepeatStatus('');
 }
 
@@ -8255,6 +8282,7 @@ function pauseFullSurahListen(){
   const stopBtn = document.getElementById('listen-stop-btn');
   if(startBtn) startBtn.style.display = '';
   if(stopBtn) stopBtn.style.display = 'none';
+  syncHeaderListenBtn();
   updateRepeatStatus('');
 }
 
@@ -10717,6 +10745,28 @@ const SETTINGS_KEYS_TO_RESET = [
   'tafsirAllCollapsed','tafsirContextHidden','tafsirContextRadius','tafsirFontDelta','tafsirSlugCollapsed',
   'testModeActive','trailFabEnabled','wbwHighlightEnabled','sideNavCollapsed','quran-note-mic-auto'
 ];
+/* ---------- زر الاستماع في رأس السورة (يتزامن مع زر الإعدادات) ---------- */
+function syncHeaderListenBtn(){
+  const btn = document.getElementById('header-listen-btn');
+  if(!btn) return;
+  const inSurah = (typeof currentMode !== 'undefined' && currentMode === 'surah' && typeof currentSurahId !== 'undefined' && !!currentSurahId);
+  btn.style.display = inSurah ? '' : 'none';
+  const playing = !!(typeof listenState !== 'undefined' && listenState.active && !listenState.paused);
+  btn.classList.toggle('playing', playing);
+  const play = btn.querySelector('.hl-play'), pause = btn.querySelector('.hl-pause'), label = btn.querySelector('.hl-label');
+  if(play) play.style.display = playing ? 'none' : '';
+  if(pause) pause.style.display = playing ? '' : 'none';
+  if(label) label.textContent = playing ? t('pause_listen') : t('listen');
+}
+function toggleHeaderListen(){
+  if(listenState.active && !listenState.paused) pauseFullSurahListen();
+  else startFullSurahListen();
+}
+(function initHeaderListenObserver(){
+  const sub = document.getElementById('surah-sub');
+  if(sub) new MutationObserver(syncHeaderListenBtn).observe(sub, { childList:true, characterData:true, subtree:true });
+})();
+
 function resetAllSettings(){
   if(!window.confirm(t('reset_settings_confirm'))) return;
   try{ SETTINGS_KEYS_TO_RESET.forEach(k => localStorage.removeItem(k)); }catch(e){}
@@ -10832,6 +10882,7 @@ const I18N_STRINGS = {
     trail_fab_label: 'إظهار زر مواضع القراءة السابقة داخل السورة',
     keep_awake_label: 'إبقاء الشاشة مضاءة أثناء التلاوة داخل السورة',
     sepia_label: 'سمة سيبيا الدافئة للوضع الفاتح (ألوان ورقية مريحة للعين)',
+    pause_listen: 'إيقاف مؤقت',
     reset_settings_btn: 'استعادة الإعدادات الافتراضية',
     reset_settings_note: 'لن تُحذف المفضلة والملاحظات وخطط الختم ومواضع القراءة.',
     reset_settings_confirm: 'هل تريد استعادة جميع الإعدادات إلى قيمها الافتراضية؟ لن تتأثر المفضلة والملاحظات وخطط الختم ومواضع القراءة.',
@@ -11168,6 +11219,7 @@ const I18N_STRINGS = {
     trail_fab_label: 'Show the previous reading positions button inside a surah',
     keep_awake_label: 'Keep the screen on while reciting inside a surah',
     sepia_label: 'Warm sepia theme for light mode (paper-like, easy on the eyes)',
+    pause_listen: 'Pause',
     reset_settings_btn: 'Restore default settings',
     reset_settings_note: 'Favorites, notes, khatma plans and reading positions are kept.',
     reset_settings_confirm: 'Restore all settings to their defaults? Your favorites, notes, khatma plans and reading positions will not be affected.',
