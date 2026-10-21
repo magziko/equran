@@ -10,8 +10,8 @@
 //      ولا نلمس كاش أي تطبيق تاني (كان ده سبب إن الصفحة تقع أوفلاين).
 const CACHE_PREFIX = 'quran-app-';
 
-// غيّر الرقم (v7, v8, ...) لما تحب تجبر الأجهزة تعيد تخزين الملفات الأساسية
-const CACHE_NAME = CACHE_PREFIX + 'cache-v7';
+// غيّر الرقم (v8, v9, ...) لما تحب تجبر الأجهزة تعيد تخزين الملفات الأساسية
+const CACHE_NAME = CACHE_PREFIX + 'cache-v8';
 
 // كاش التفسير والترجمات المحمّلة للأوفلاين.
 // ⚠️ اسمه عمدًا لا يبدأ بـ CACHE_PREFIX، فلا يُحذف عند تغيير رقم الإصدار أعلاه
@@ -21,6 +21,37 @@ const TAFSIR_CACHE = 'quran-tafsir-offline-v1';
 // كاش صور خلفيات مشاركة الآية (من مجلد islamic في مستودع Radio).
 // الصور ثابتة وكبيرة، فتُخزَّن مرة واحدة وتُقرأ من الكاش دون إعادة تحميل، ولا تُحذف عند تغيير الإصدار.
 const PHOTO_CACHE = 'quran-share-photos-v1';
+
+// كاش التلاوة المحمّلة للاستماع بدون إنترنت (ملفات mp3 لكل آية أو لكل سورة).
+// ⚠️ اسمه عمدًا لا يبدأ بـ CACHE_PREFIX فلا يُحذف عند تغيير رقم الإصدار أعلاه.
+// الصفحة هي التي تملؤه (زر "تحميل التلاوة" في الإعدادات)، والـ SW يقرأ منه فقط.
+const AUDIO_CACHE = 'quran-audio-offline-v1';
+
+// فهرس بعناوين الملفات المحمّلة، نحتفظ به في الذاكرة لنعرف بشكل فوري (بدون انتظار)
+// هل نتدخل في الطلب أم نتركه للمتصفح. يُبنى من الكاش عند تشغيل الـ SW ويُحدَّث بطلب من الصفحة.
+let audioIndex = null;
+let audioIndexPromise = null;
+function loadAudioIndex(force) {
+  if (force || !audioIndexPromise) {
+    audioIndexPromise = (async () => {
+      try {
+        const c = await caches.open(AUDIO_CACHE);
+        const keys = await c.keys();
+        audioIndex = new Set(keys.map((r) => r.url));
+      } catch (e) {
+        audioIndex = new Set();
+      }
+    })();
+  }
+  return audioIndexPromise;
+}
+loadAudioIndex();
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'AUDIO_INDEX_REFRESH') {
+    event.waitUntil(loadAudioIndex(true));
+  }
+});
 
 // الأساسي: لازم يتخزن، ولو فشل تخزينه يفشل الـ install كله
 // فتفضل النسخة القديمة الشغالة ولا تتحذف.
@@ -103,6 +134,56 @@ function isTafsirRequest(url) {
   return false;
 }
 
+// هل الطلب لملف تلاوة (everyayah.com أو خوادم mp3quran.net)؟
+function isAudioRequest(url) {
+  try {
+    const u = new URL(url);
+    if (!/\.mp3$/i.test(u.pathname)) return false;
+    if (u.hostname === 'everyayah.com') return u.pathname.startsWith('/data/');
+    return u.hostname === 'mp3quran.net' || u.hostname.endsWith('.mp3quran.net');
+  } catch (e) { /* تجاهل */ }
+  return false;
+}
+
+// يخدم الملف المحمّل من الكاش، مع دعم طلبات Range (تقديم/تأخير) بالرد 206
+async function handleAudio(req) {
+  await loadAudioIndex();
+  if (!audioIndex.has(req.url)) return fetch(req);
+  const cache = await caches.open(AUDIO_CACHE);
+  const hit = await cache.match(req.url);
+  if (!hit) return fetch(req);
+
+  const range = req.headers.get('range');
+  if (!range) return hit;
+
+  const blob = await hit.blob();
+  const size = blob.size;
+  const type = hit.headers.get('Content-Type') || 'audio/mpeg';
+  const m = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+  if (!m || (m[1] === '' && m[2] === '')) return new Response(blob, { status: 200, headers: { 'Content-Type': type, 'Accept-Ranges': 'bytes', 'Content-Length': String(size) } });
+
+  let start, end;
+  if (m[1] === '') {
+    start = Math.max(size - parseInt(m[2], 10), 0);
+    end = size - 1;
+  } else {
+    start = parseInt(m[1], 10);
+    end = m[2] === '' ? size - 1 : Math.min(parseInt(m[2], 10), size - 1);
+  }
+  if (isNaN(start) || start >= size || start > end) {
+    return new Response(null, { status: 416, headers: { 'Content-Range': 'bytes */' + size } });
+  }
+  return new Response(blob.slice(start, end + 1, type), {
+    status: 206,
+    headers: {
+      'Content-Type': type,
+      'Accept-Ranges': 'bytes',
+      'Content-Range': 'bytes ' + start + '-' + end + '/' + size,
+      'Content-Length': String(end - start + 1)
+    }
+  });
+}
+
 // هل الطلب لصورة خلفية من مجلد islamic في مستودع magziko/Radio؟
 function isPhotoRequest(url) {
   try {
@@ -119,6 +200,14 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
 
   if (req.method !== 'GET') return;
+
+  // التلاوة المحمّلة: نتدخل فقط لو الملف محمّل عندنا؛ غير ذلك يتعامل معه المتصفح مباشرة
+  // (يشمل طلبات Range) فلا نغيّر شيئًا في التشغيل العادي أونلاين.
+  if (isAudioRequest(req.url)) {
+    if (audioIndex && !audioIndex.has(req.url)) return;
+    event.respondWith(handleAudio(req));
+    return;
+  }
 
   // طلبات الصوت بـ Range (تقديم/تأخير) يتعامل معها المتصفح مباشرة
   if (req.headers.has('range')) return;
