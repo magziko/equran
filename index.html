@@ -5933,7 +5933,68 @@ function refreshOfflineTafsirStatus(){
       else setOfflineStatus('');
     } else setOfflineStatus('');
   }
+  try{ decorateOfflineTafsirSelect(slugs); } catch(e){}
   refreshOfflineStorageInfo();
+}
+// ---------- علامات حالة التحميل داخل القوائم (✓ محمّلة، ◐ جزئيًا، ○ لم تُحمَّل) ----------
+function offlineMark(state){ return state === 'full' ? '✓ ' : state === 'part' ? '◐ ' : '○ '; }
+function offlineLegendText(){ return offT('✓ محمّلة     ◐ جزئيًا     ○ لم تُحمَّل بعد', '✓ Downloaded     ◐ Partial     ○ Not yet'); }
+function offlineSurahCountText(n){
+  if(document.documentElement.getAttribute('data-lang') === 'en') return n === 1 ? '1 surah' : n + ' surahs';
+  return n + ' سورة';
+}
+function decorateOfflineTafsirSelect(slugs){
+  const sel = document.getElementById('offline-surah-select');
+  if(!sel || typeof QURAN_DATA === 'undefined') return;
+  slugs = slugs || getSelectedTafsirSlugs();
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  const done = getOfflineDoneMap();
+  const byId = {};
+  let fullCount = 0, anyCount = 0;
+  QURAN_DATA.forEach(x => {
+    if(!slugs.length){ byId[x.id] = null; return; }
+    let n = 0;
+    slugs.forEach(sl => { if(done[sl + '|' + x.id]) n++; });
+    const st = n === 0 ? 'none' : (n === slugs.length ? 'full' : 'part');
+    byId[x.id] = st;
+    if(st === 'full') fullCount++;
+    if(st !== 'none') anyCount++;
+  });
+  Array.prototype.forEach.call(sel.options, o => {
+    let base, st = null;
+    if(o.value === 'current'){
+      base = isEn ? 'Currently open surah' : 'السورة المفتوحة حاليًا';
+      st = (typeof currentSurahId !== 'undefined' && currentSurahId) ? byId[currentSurahId] : null;
+    } else if(o.value === 'all'){
+      base = isEn ? 'The whole Quran (large download)' : 'القرآن كله (حجم كبير)';
+      st = !slugs.length ? null : (fullCount === QURAN_DATA.length ? 'full' : (anyCount ? 'part' : 'none'));
+    } else {
+      const x = QURAN_DATA.find(q => String(q.id) === o.value);
+      if(!x) return;
+      base = x.id + '. ' + (isEn ? (x.transliteration || x.name) : x.name);
+      st = byId[x.id];
+    }
+    o.textContent = (st ? offlineMark(st) : '') + base;
+  });
+  const legend = document.getElementById('offline-dl-legend');
+  if(legend) legend.textContent = slugs.length ? offlineLegendText() : '';
+  // ملخص: ما المحمّل فعلًا لكل مصدر (بغض النظر عن المصادر المختارة الآن)
+  const overview = document.getElementById('offline-dl-overview');
+  if(overview){
+    const counts = {};
+    Object.keys(done).forEach(k => {
+      const sl = k.split('|')[0];
+      if(!ALL_TAFSIR_SOURCES.some(s => s.slug === sl)) return;   // مصدر غير معروف (قديم/محذوف)
+      counts[sl] = (counts[sl] || 0) + 1;
+    });
+    const parts = Object.keys(counts).map(sl => {
+      const i = getSourceInfo(sl);
+      return '\u2068' + (isEn ? (i.nameEn || i.name) : i.name) + '\u2069 — ' + offlineSurahCountText(counts[sl]);
+    });
+    overview.textContent = parts.length
+      ? offT('المحمّل حاليًا: ', 'Downloaded now: ') + parts.join(' • ')
+      : offT('لا يوجد تفسير محمّل بعد.', 'No tafsir downloaded yet.');
+  }
 }
 async function refreshOfflineStorageInfo(){
   const el = document.getElementById('offline-dl-storage');
@@ -6023,6 +6084,7 @@ async function startOfflineTafsirDownload(){
   if(cancelled) setOfflineStatus(offT('تم الإيقاف. ما تم تحميله حتى الآن محفوظ ويعمل أوفلاين.', 'Stopped. What was downloaded so far is saved and works offline.'));
   else if(failed) setOfflineStatus(offT(`اكتمل مع تعذّر ${failed} ملف. تأكد من الاتصال واضغط "تحميل" لإكمال الناقص.`, `Finished, but ${failed} files failed. Check your connection and press Download to retry.`), 'err');
   else setOfflineStatus(offT('✓ اكتمل التحميل — التفسير متاح الآن بدون إنترنت.', '✓ Done — tafsir is now available offline.'), 'ok');
+  try{ decorateOfflineTafsirSelect(slugs); } catch(e){}
   refreshOfflineStorageInfo();
 }
 function cancelOfflineTafsirDownload(){ if(offlineDlRunning) offlineDlCancel = true; }
@@ -6031,6 +6093,7 @@ async function clearOfflineTafsir(){
   try{ if('caches' in window) await caches.delete(OFFLINE_TAFSIR_CACHE); } catch(e){}
   try{ localStorage.removeItem('tafsirOfflineDone'); } catch(e){}
   setOfflineStatus(offT('تم الحذف.', 'Deleted.'), 'ok');
+  try{ decorateOfflineTafsirSelect(); } catch(e){}
   refreshOfflineStorageInfo();
 }
 
@@ -10843,6 +10906,80 @@ function fillAudioOfflineSelect(){
   sel.innerHTML = html;
   if(prev && Array.prototype.some.call(sel.options, o => o.value === prev)) sel.value = prev;
 }
+function audioDlSurahState(x, reciter, have){
+  const urls = audioDlUrls(x.id, reciter);
+  if(!urls.length) return 'none';
+  let n = 0;
+  for(let i = 0; i < urls.length; i++) if(have.has(urls[i])) n++;
+  return n === 0 ? 'none' : (n === urls.length ? 'full' : 'part');
+}
+function decorateAudioOfflineSelect(have, reciter){
+  const sel = audioDlEl('audio-offline-surah-select');
+  if(!sel || typeof QURAN_DATA === 'undefined') return;
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  const byId = {};
+  let full = 0, part = 0;
+  QURAN_DATA.forEach(x => {
+    const st = audioDlSurahState(x, reciter, have);
+    byId[x.id] = st;
+    if(st === 'full') full++; else if(st === 'part') part++;
+  });
+  Array.prototype.forEach.call(sel.options, o => {
+    let base, st;
+    if(o.value === 'current'){
+      base = isEn ? 'Currently open surah' : 'السورة المفتوحة حاليًا';
+      st = (typeof currentSurahId !== 'undefined' && currentSurahId) ? byId[currentSurahId] : null;
+    } else {
+      const x = QURAN_DATA.find(q => String(q.id) === o.value);
+      if(!x) return;
+      base = x.id + '. ' + (isEn ? (x.transliteration || x.name) : x.name);
+      st = byId[x.id];
+    }
+    o.textContent = (st ? offlineMark(st) : '') + base;
+  });
+  const legend = audioDlEl('audio-dl-legend');
+  if(legend){
+    let txt = offlineLegendText();
+    if(full || part){
+      txt += '\n' + offT('لهذا القارئ: ', 'For this reciter: ') + offlineSurahCountText(full) + offT(' كاملة', ' complete') + (part ? (' + ' + offlineSurahCountText(part) + offT(' جزئيًا', ' partial')) : '');
+    }
+    legend.style.whiteSpace = 'pre-line';
+    legend.textContent = txt;
+  }
+  // ملخص كل القرّاء: أيهم لديه تلاوة محمّلة وكم سورة كاملة
+  const overview = audioDlEl('audio-dl-overview');
+  if(overview){
+    const keys = Object.keys(RECITERS);
+    const perReciter = {};
+    have.forEach(url => {
+      for(let i = 0; i < keys.length; i++){
+        const r = RECITERS[keys[i]];
+        const prefix = r.type === 'ayah' ? 'https://everyayah.com/data/' + r.folder + '/' : r.folder;
+        if(url.indexOf(prefix) === 0){
+          const file = url.slice(prefix.length).replace(/\.mp3$/i, '');
+          const sid = parseInt(file.slice(0, 3), 10);
+          if(!perReciter[keys[i]]) perReciter[keys[i]] = {};
+          perReciter[keys[i]][sid] = (perReciter[keys[i]][sid] || 0) + 1;
+          return;
+        }
+      }
+    });
+    const parts = [];
+    Object.keys(perReciter).forEach(k => {
+      const r = RECITERS[k];
+      let complete = 0;
+      Object.keys(perReciter[k]).forEach(sid => {
+        const x = QURAN_DATA.find(q => q.id === Number(sid));
+        const need = r.type === 'ayah' ? (x ? x.verses.length : 1) : 1;
+        if(perReciter[k][sid] >= need) complete++;
+      });
+      parts.push('\u2068' + r.name + '\u2069 — ' + offlineSurahCountText(complete));   // عزل اتجاه الاسم العربي داخل جملة إنجليزية
+    });
+    overview.textContent = parts.length
+      ? offT('المحمّل حاليًا: ', 'Downloaded now: ') + parts.join(' • ')
+      : offT('لا توجد تلاوة محمّلة بعد.', 'No audio downloaded yet.');
+  }
+}
 async function refreshAudioOfflineStatus(){
   const startBtn = audioDlEl('audio-dl-start'), clearOne = audioDlEl('audio-dl-clear-one'), clearAll = audioDlEl('audio-dl-clear-all');
   const reciterEl = audioDlEl('audio-dl-reciter'), storageEl = audioDlEl('audio-dl-storage');
@@ -10858,6 +10995,7 @@ async function refreshAudioOfflineStatus(){
   let have = new Set();
   try{ have = new Set((await (await caches.open(AUDIO_OFFLINE_CACHE)).keys()).map(r => r.url)); }catch(e){}
   clearAll.disabled = have.size === 0;
+  try{ decorateAudioOfflineSelect(have, reciter); } catch(e){}
   if(!surahId){
     audioDlSetStatus(offT('افتح سورة أو اختر سورة من القائمة.', 'Open a surah or choose one from the list.'));
     startBtn.disabled = true; clearOne.disabled = true;
@@ -12520,6 +12658,8 @@ if('serviceWorker' in navigator){
             <button type="button" id="audio-dl-cancel" class="offline-dl-btn" style="display:none;" onclick="cancelAudioOfflineDownload()" data-i18n="audio_dl_cancel">إيقاف</button>
           </div>
           <div class="offline-dl-info" id="audio-dl-reciter"></div>
+          <div class="offline-dl-info small" id="audio-dl-legend"></div>
+          <div class="offline-dl-info small" id="audio-dl-overview"></div>
           <progress id="audio-dl-progress" value="0" max="1" style="display:none;"></progress>
           <div class="offline-dl-info" id="audio-dl-status" role="status" aria-live="polite"></div>
           <div class="offline-dl-info small" id="audio-dl-storage"></div>
@@ -12552,6 +12692,8 @@ if('serviceWorker' in navigator){
             <button type="button" id="offline-dl-cancel" class="offline-dl-btn" style="display:none;" onclick="cancelOfflineTafsirDownload()">إيقاف</button>
           </div>
           <div class="offline-dl-info" id="offline-dl-sources"></div>
+          <div class="offline-dl-info small" id="offline-dl-legend"></div>
+          <div class="offline-dl-info small" id="offline-dl-overview"></div>
           <progress id="offline-dl-progress" value="0" max="1" style="display:none;"></progress>
           <div class="offline-dl-info" id="offline-dl-status" role="status" aria-live="polite"></div>
           <div class="offline-dl-info small" id="offline-dl-storage"></div>
