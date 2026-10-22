@@ -11250,6 +11250,18 @@ function toggleHeaderListen(){
   if(sub) new MutationObserver(syncHeaderListenBtn).observe(sub, { childList:true, characterData:true, subtree:true });
 })();
 
+/* ---------- طباعة السورة المفتوحة / حفظها PDF ---------- */
+function printCurrentView(){
+  const rv = document.getElementById('read-view');
+  if(!rv || rv.style.display !== 'block'){
+    closeSettingsModal();
+    showShortcutToast(t('print_open_surah_first'), 3500);
+    return;
+  }
+  closeSettingsModal();
+  setTimeout(() => { try{ window.print(); }catch(e){} }, 200);   // ننتظر إغلاق النافذة قبل فتح الطباعة
+}
+
 function resetAllSettings(){
   if(!window.confirm(t('reset_settings_confirm'))) return;
   try{ SETTINGS_KEYS_TO_RESET.forEach(k => localStorage.removeItem(k)); }catch(e){}
@@ -11371,6 +11383,9 @@ const I18N_STRINGS = {
     audio_dl_cancel: 'إيقاف',
     audio_dl_clear_one: 'حذف تلاوة هذه السورة',
     audio_dl_clear_all: 'حذف كل التلاوات المحمّلة',
+    print_btn: 'طباعة السورة / حفظ PDF',
+    print_note: 'تُطبع الآيات فقط بدون الأزرار والقوائم. اختر «حفظ كـ PDF» من نافذة الطباعة لحفظها كملف.',
+    print_open_surah_first: 'افتح سورة أولًا ثم اطبعها.',
     reset_settings_btn: 'استعادة الإعدادات الافتراضية',
     reset_settings_note: 'لن تُحذف المفضلة والملاحظات وخطط الختم ومواضع القراءة.',
     reset_settings_confirm: 'هل تريد استعادة جميع الإعدادات إلى قيمها الافتراضية؟ لن تتأثر المفضلة والملاحظات وخطط الختم ومواضع القراءة.',
@@ -11713,6 +11728,9 @@ const I18N_STRINGS = {
     audio_dl_cancel: 'Stop',
     audio_dl_clear_one: 'Delete this surah\'s audio',
     audio_dl_clear_all: 'Delete all downloaded audio',
+    print_btn: 'Print surah / Save as PDF',
+    print_note: 'Only the ayahs are printed, without buttons or menus. Choose "Save as PDF" in the print dialog to save a file.',
+    print_open_surah_first: 'Open a surah first, then print it.',
     reset_settings_btn: 'Restore default settings',
     reset_settings_note: 'Favorites, notes, khatma plans and reading positions are kept.',
     reset_settings_confirm: 'Restore all settings to their defaults? Your favorites, notes, khatma plans and reading positions will not be affected.',
@@ -12868,6 +12886,12 @@ if('serviceWorker' in navigator){
             <input type="file" id="data-import-input" accept="application/json" style="display:none;" onchange="importUserData(this.files[0])">
           </div>
           <div class="settings-modal-note" id="data-backup-status" style="display:none;"></div>
+        </div>
+        <div data-tab="more" class="control-group" id="print-group">
+          <button type="button" class="offline-dl-btn primary" onclick="printCurrentView()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span data-i18n="print_btn">طباعة السورة / حفظ PDF</span>
+          </button>
+          <div class="settings-modal-note" data-i18n="print_note">تُطبع الآيات فقط بدون الأزرار والقوائم. اختر «حفظ كـ PDF» من نافذة الطباعة لحفظها كملف.</div>
         </div>
         <div data-tab="more" class="control-group" id="reset-settings-group">
           <button type="button" class="offline-dl-btn danger" onclick="resetAllSettings()"><span data-i18n="reset_settings_btn">استعادة الإعدادات الافتراضية</span></button>
