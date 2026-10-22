@@ -2401,6 +2401,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   <button type="button" class="volume-pill-close" onclick="hideVolumePill()" aria-label="إخفاء شريط الصوت" title="إخفاء">×</button>
 </div>
 <div class="shortcut-toast" id="shortcut-toast" role="status" aria-live="polite"></div>
+<div class="sr-only" id="sr-status" role="status" aria-live="polite" aria-atomic="true"></div>
 <div class="update-toast ready-toast" id="ready-toast" role="status" aria-live="polite">
   <span>
     <span id="ready-toast-text">✓ التطبيق جاهز للعمل بدون إنترنت</span>
@@ -6575,7 +6576,9 @@ function setSettingsTab(name){
     const on = btn.getAttribute('data-tab-btn') === name;
     btn.classList.toggle('active', on);
     btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    btn.setAttribute('tabindex', on ? '0' : '-1');
   });
+  if(body) body.setAttribute('aria-labelledby', 'settings-tab-' + name);
   const modal = document.querySelector('#settings-overlay .settings-modal');
   if(modal) modal.scrollTop = 0;
 }
@@ -10761,6 +10764,37 @@ function toggleSepia(checked){
   applySepia(getSepiaEnabled());
 })();
 
+/* ---------- التنقل بين تابات الإعدادات بلوحة المفاتيح (الأسهم + Home/End) ---------- */
+(function initSettingsTabsKeyboard(){
+  // تفويض الحدث على document لأن عناصر الإعدادات تأتي بعد هذا السكربت في الصفحة
+  document.addEventListener('keydown', (e) => {
+    const list = e.target && e.target.closest ? e.target.closest('#settings-tabs') : null;
+    if(!list) return;
+    const tabs = Array.prototype.slice.call(list.querySelectorAll('[role="tab"]'));
+    const cur = tabs.indexOf(document.activeElement);
+    if(cur < 0) return;
+    const rtl = getComputedStyle(list).direction === 'rtl';
+    let next = -1;
+    if(e.key === 'ArrowRight') next = rtl ? cur - 1 : cur + 1;
+    else if(e.key === 'ArrowLeft') next = rtl ? cur + 1 : cur - 1;
+    else if(e.key === 'Home') next = 0;
+    else if(e.key === 'End') next = tabs.length - 1;
+    else return;
+    e.preventDefault();
+    next = (next + tabs.length) % tabs.length;
+    setSettingsTab(tabs[next].getAttribute('data-tab-btn'));
+    tabs[next].focus();
+  });
+})();
+
+/* ---------- إعلان التغييرات لقارئات الشاشة ---------- */
+function announceSR(text){
+  const el = document.getElementById('sr-status');
+  if(!el || !text) return;
+  el.textContent = '';
+  setTimeout(() => { el.textContent = text; }, 60);
+}
+
 /* ---------- إشعار صغير قابل لإعادة الاستخدام ---------- */
 function hideAppToast(immediate){
   const el = document.getElementById('app-toast');
@@ -11114,6 +11148,7 @@ const SETTINGS_KEYS_TO_RESET = [
 ];
 /* ---------- زر الاستماع في رأس السورة (يتزامن مع زر الإعدادات) ---------- */
 let headerListenLoading = false;
+let headerListenLastState = null;
 function syncHeaderListenBtn(){
   const btn = document.getElementById('header-listen-btn');
   if(!btn) return;
@@ -11128,6 +11163,15 @@ function syncHeaderListenBtn(){
   if(play) play.style.display = playing ? 'none' : '';
   if(pause) pause.style.display = playing ? '' : 'none';
   if(label) label.textContent = playing ? t('pause_listen') : t('listen');
+  btn.setAttribute('aria-label', playing ? t('pause_listen') : t('listen'));
+  // إعلان تغيّر الحالة لقارئ الشاشة (تحميل / تشغيل / إيقاف) دون تكرار نفس الحالة
+  const state = !inSurah ? 'hidden' : (loading ? 'loading' : (playing ? 'playing' : 'idle'));
+  if(headerListenLastState !== null && state !== headerListenLastState && state !== 'hidden' && headerListenLastState !== 'hidden'){
+    if(state === 'loading') announceSR(offT('جاري تحميل التلاوة', 'Loading recitation'));
+    else if(state === 'playing') announceSR(offT('بدأت التلاوة', 'Recitation playing'));
+    else if(state === 'idle') announceSR(offT('توقفت التلاوة', 'Recitation stopped'));
+  }
+  headerListenLastState = state;
 }
 function toggleHeaderListen(){
   if(listenState.active && !listenState.paused){
@@ -12491,21 +12535,21 @@ if('serviceWorker' in navigator){
 </script>
 
   <div class="settings-overlay" id="settings-overlay" onclick="if(event.target===this) closeSettingsModal()">
-    <div class="settings-modal">
+    <div class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title">
       <div class="settings-modal-header">
-        <span class="settings-modal-title" data-i18n="reading_controls">خيارات القراءة والتحكم</span>
+        <span class="settings-modal-title" id="settings-modal-title" data-i18n="reading_controls">خيارات القراءة والتحكم</span>
         <button class="settings-modal-close" onclick="closeSettingsModal()" title="إغلاق" data-i18n-title="close">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
       <div class="settings-modal-note" id="settings-modal-note" style="display:none;" data-i18n="settings_no_surah_note">التكرار والاستماع المتواصل متاحين وأنت داخل سورة. باقي الإعدادات بتتطبق فورًا وتفضل محفوظة.</div>
       <div class="settings-tabs" id="settings-tabs" role="tablist">
-        <button type="button" class="settings-tab active" role="tab" aria-selected="true" data-tab-btn="reading" onclick="setSettingsTab('reading')"><span data-i18n="settings_tab_reading">القراءة والعرض</span></button>
-        <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab-btn="audio" onclick="setSettingsTab('audio')"><span data-i18n="settings_tab_audio">الصوت والتلاوة</span></button>
-        <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab-btn="tafsir" onclick="setSettingsTab('tafsir')"><span data-i18n="settings_tab_tafsir">التفسير والترجمة</span></button>
-        <button type="button" class="settings-tab" role="tab" aria-selected="false" data-tab-btn="more" onclick="setSettingsTab('more')"><span data-i18n="settings_tab_more">البيانات وأخرى</span></button>
+        <button type="button" class="settings-tab active" role="tab" id="settings-tab-reading" aria-selected="true" aria-controls="settings-tabpanel" tabindex="0" data-tab-btn="reading" onclick="setSettingsTab('reading')"><span data-i18n="settings_tab_reading">القراءة والعرض</span></button>
+        <button type="button" class="settings-tab" role="tab" id="settings-tab-audio" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="audio" onclick="setSettingsTab('audio')"><span data-i18n="settings_tab_audio">الصوت والتلاوة</span></button>
+        <button type="button" class="settings-tab" role="tab" id="settings-tab-tafsir" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="tafsir" onclick="setSettingsTab('tafsir')"><span data-i18n="settings_tab_tafsir">التفسير والترجمة</span></button>
+        <button type="button" class="settings-tab" role="tab" id="settings-tab-more" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="more" onclick="setSettingsTab('more')"><span data-i18n="settings_tab_more">البيانات وأخرى</span></button>
       </div>
-      <div class="controls-body" data-active-tab="reading">
+      <div class="controls-body" data-active-tab="reading" id="settings-tabpanel" role="tabpanel" aria-labelledby="settings-tab-reading">
         <div data-tab="reading" class="control-group">
           <span class="label" data-i18n="display_mode_label">طريقة العرض</span>
           <div class="display-mode-toggle">
