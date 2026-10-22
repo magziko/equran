@@ -2389,6 +2389,64 @@ window.quranDataPromise = new Promise(function(resolve, reject){
 
   }
 
+  /* ---------- علامة موضع سجدة التلاوة ---------- */
+
+  .ayah-sajda-chip{
+
+    display:inline-flex; align-items:center; gap:5px; padding:3px 11px; border-radius:999px;
+
+    background:var(--accent-bg); color:var(--accent-soft); border:1px solid var(--border);
+
+    font-size:12px; font-weight:700; line-height:1.5; cursor:help;
+
+  }
+
+  /* ---------- تنسيق الطباعة / حفظ PDF ---------- */
+
+  @media print{
+
+    @page{ margin:14mm; }
+
+    html, body{ background:#fff !important; color:#000 !important; }
+
+    body::before, body::after{ display:none !important; }
+
+    .volume-pill, .shortcut-toast, .sr-only, .app-toast, .update-toast, .offline-banner, .fullscreen-progress,
+
+    .scroll-position-badge, .scroll-back-btn, .scroll-top-btn, .trail-fab, .trail-overlay, .auto-scroll-group,
+
+    .radio-fab, .settings-overlay, .surah-side-nav, .read-view-top, .surah-nav-top, .page-jump-bar,
+
+    .ayah-search-section, .controls-open-btn, .tafsir-collapse-all-bar, .header-listen-btn,
+
+    .ayah-bookmark-btn, .ayah-more-wrap, .ayah-num-badge__play, .ayah-inline-tafsir:empty, #surah-sub{ display:none !important; }
+
+    .page-shell, .page-shell > .wrap, .wrap{ display:block !important; max-width:none !important; margin:0 !important; padding:0 !important; }
+
+    .surah-header{ border:none !important; padding:0 0 8px !important; }
+
+    .surah-header, .surah-header *, .surah-sub, .basmala, .basmala *{ color:#000 !important; background:transparent !important; box-shadow:none !important; }
+
+    .ayah-card, .ayah-card.is-saved{
+
+      background:#fff !important; border:none !important; border-bottom:1px solid #ccc !important; border-radius:0 !important;
+
+      box-shadow:none !important; padding:8px 0 !important; margin:0 !important;
+
+      break-inside:avoid; page-break-inside:avoid;
+
+    }
+
+    .ayah-text, .ayah-text *{ color:#000 !important; }
+
+    .ayah-num-badge{ background:transparent !important; border:1px solid #888 !important; color:#000 !important; box-shadow:none !important; }
+
+    .ayah-num-badge__num{ color:#000 !important; }
+
+    .ayah-sajda-chip{ background:transparent !important; color:#000 !important; border:1px solid #888 !important; }
+
+  }
+
 </style>
 </head>
 <body>
@@ -4149,6 +4207,10 @@ function skeletonLinesHtml(count, opts){
   return html;
 }
 
+/* ---------- مواضع سجدة التلاوة الخمسة عشر في رواية حفص (سورة:آية) ---------- */
+const SAJDA_AYAHS = new Set(['7:206','13:15','16:50','17:109','19:58','22:18','22:77','25:60','27:26','32:15','38:24','41:38','53:62','84:21','96:19']);
+function isSajdaAyah(surahId, ayahId){ return SAJDA_AYAHS.has(surahId + ':' + ayahId); }
+
 /* ---------- كارت الآية الموحّد (يُستخدم في السورة/الجزء/الحزب/الربع) ----------
    idPrefix: بادئة معرّف العنصر (ayah / jayah / hayah / rayah)
    تلاتة خصائص للوصولية: tabindex ليتقدر يوصله بالـ Tab، role=button لقارئ الشاشة،
@@ -4165,6 +4227,7 @@ function renderReadingAyahCard(idPrefix, surahId, ayahId, surahName, text){
           <span class="ayah-num-badge__num">${ayahId}</span>
           <svg class="ayah-num-badge__play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
         </div>
+        ${isSajdaAyah(surahId, ayahId) ? `<span class="ayah-sajda-chip" onclick="event.stopPropagation()" title="${escapeHtml(offT('موضع سجدة التلاوة', 'Sajdah (prostration of recitation) verse'))}">۩ ${escapeHtml(offT('سجدة', 'Sajdah'))}</span>` : ''}
                 <button class="ayah-bookmark-btn${fav ? ' active' : ''}" onclick="event.stopPropagation(); toggleBookmark(${surahId}, ${ayahId}, '${surahName}')" title="${t('add_to_favorites')}" aria-label="${t('add_to_favorites')}">
           <svg viewBox="0 0 24 24" fill="${fav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
         </button>
