@@ -2447,6 +2447,14 @@ window.quranDataPromise = new Promise(function(resolve, reject){
 
   }
 
+  /* اختيار التفاسير التي تظهر في صورة الآية */
+
+  .share-tafsir-sources{ margin:0 0 8px; padding:10px 14px; border:1px dashed var(--border); border-radius:12px; background:var(--surface); }
+
+  .share-tafsir-sources-title{ font-size:12.5px; font-weight:700; color:var(--text-muted); margin-bottom:6px; }
+
+  .share-tafsir-sources label{ display:flex; align-items:center; gap:8px; padding:4px 0; font-size:13.5px; cursor:pointer; }
+
 </style>
 </head>
 <body>
@@ -4613,6 +4621,69 @@ function toggleShareImageTafsir(enabled){
   try{ localStorage.setItem('shareImageIncludeTafsir', enabled ? '1' : '0'); } catch(e){ /* تجاهل أخطاء التخزين */ }
 }
 
+// اختيار أي التفاسير (من المختارة للقراءة) تظهر في الصورة. نحفظ المستبعَدة فقط، فأي تفسير جديد يُضاف للقراءة يدخل الصورة افتراضيًا.
+function getShareImageTafsirExcluded(){
+  try{
+    const v = JSON.parse(localStorage.getItem('shareImageTafsirExcluded') || '[]');
+    return Array.isArray(v) ? v : [];
+  }catch(e){ return []; }
+}
+function setShareImageTafsirExcluded(arr){
+  try{ localStorage.setItem('shareImageTafsirExcluded', JSON.stringify(arr)); }catch(e){}
+}
+function getShareImageTafsirSlugs(){
+  const excluded = getShareImageTafsirExcluded();
+  return getSelectedTafsirSlugs().filter(s => excluded.indexOf(s) === -1);
+}
+function renderShareTafsirSources(){
+  const box = document.getElementById('share-tafsir-sources');
+  const main = document.getElementById('share-range-tafsir');
+  if(!box || !main) return;
+  const selected = getSelectedTafsirSlugs();
+  box.innerHTML = '';
+  // لا فائدة من القائمة لو الاختيار مصدر واحد أو الخيار الرئيسي مُطفأ
+  if(!main.checked || selected.length < 2){ box.style.display = 'none'; return; }
+  const excluded = getShareImageTafsirExcluded();
+  const isEn = document.documentElement.getAttribute('data-lang') === 'en';
+  const title = document.createElement('div');
+  title.className = 'share-tafsir-sources-title';
+  title.textContent = offT('اختر التفسير الذي يظهر في الصورة:', 'Choose which tafsir appears in the image:');
+  box.appendChild(title);
+  selected.forEach(slug => {
+    const info = getSourceInfo(slug);
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = 'checkbox';
+    input.setAttribute('data-slug', slug);
+    input.checked = excluded.indexOf(slug) === -1;
+    const span = document.createElement('span');
+    span.textContent = isEn ? (info.nameEn || info.name) : info.name;
+    label.appendChild(input);
+    label.appendChild(span);
+    box.appendChild(label);
+  });
+  box.style.display = '';
+}
+function saveShareTafsirSelection(){
+  const main = document.getElementById('share-range-tafsir');
+  const box = document.getElementById('share-tafsir-sources');
+  if(!main || !box || !main.checked) return;
+  const inputs = Array.prototype.slice.call(box.querySelectorAll('input[data-slug]'));
+  if(!inputs.length) return;   // القائمة غير ظاهرة (مصدر واحد)
+  const shown = inputs.map(i => i.getAttribute('data-slug'));
+  const checked = inputs.filter(i => i.checked).map(i => i.getAttribute('data-slug'));
+  if(!checked.length){
+    // لم يختر أي تفسير: نُطفئ التضمين بدل صورة بلا تفسير بشكل غامض
+    toggleShareImageTafsir(false);
+    main.checked = false;
+    const settingsChk = document.getElementById('share-image-tafsir-toggle');
+    if(settingsChk) settingsChk.checked = false;
+    return;
+  }
+  const keepOthers = getShareImageTafsirExcluded().filter(s => shown.indexOf(s) === -1);
+  setShareImageTafsirExcluded(keepOthers.concat(shown.filter(s => checked.indexOf(s) === -1)));
+}
+
 // يحوّل نص التفسير (ممكن يحتوي وسوم HTML) لنص عادي بدون تنفيذ أي شيء منه (DOMParser لا يحمّل صور ولا ينفذ سكربتات)
 function tafsirHtmlToPlainText(raw){
   if(!raw) return '';
@@ -4739,7 +4810,7 @@ async function generateAyahImage(surahId, fromAyah, toAyah, surahName){
     : `${t('surah_word')} ${surahName} — ${t('ayah_word')} ${ayahId}`;
 
   // نجيب التفسير/الترجمة المختار (لو الخيار مفعّل) بالتوازي، وأي مصدر يفشل نتجاهله بهدوء
-  const slugs = isShareImageTafsirEnabled() ? getSelectedTafsirSlugs() : [];
+  const slugs = isShareImageTafsirEnabled() ? getShareImageTafsirSlugs() : [];
   let extras = [];
   if(slugs.length){
     const toastTimer = setTimeout(showShareImageToast, 450);
@@ -6266,6 +6337,7 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   document.getElementById('share-range-to').innerHTML = opts;
   const tafsirChk = document.getElementById('share-range-tafsir');
   if(tafsirChk) tafsirChk.checked = isShareImageTafsirEnabled();
+  renderShareTafsirSources();
   const istChk = document.getElementById('share-range-istiadha');
   if(istChk) istChk.checked = isShareImageIstiadhaEnabled();
   const basChk = document.getElementById('share-range-basmala');
@@ -6408,6 +6480,7 @@ function confirmShareRange(){
     const settingsChk = document.getElementById('share-image-tafsir-toggle');
     if(settingsChk) settingsChk.checked = chk.checked;
   }
+  saveShareTafsirSelection();
   const istChk = document.getElementById('share-range-istiadha');
   if(istChk) setShareImageIstiadha(istChk.checked);
   const basRow = document.getElementById('share-range-basmala-row');
@@ -11205,7 +11278,7 @@ const SETTINGS_KEYS_TO_RESET = [
   'audioMuted','audioVolume','autoScrollSpeedIndex','keepAwakeRecitation','playbackSpeed',
   'quran-bold-active','quran-display-mode','quran-font-family','quran-font-size','quran-oled','quran-sepia',
   'selectedReciter','selectedTafsirSlug','selectedTafsirSlugs','showInlineTafsir',
-  'shareImageBasmala','shareImageDesign','shareImageIncludeTafsir','shareImageIstiadha','shareImageMushafBg','shareImagePhoto',
+  'shareImageBasmala','shareImageDesign','shareImageIncludeTafsir','shareImageTafsirExcluded','shareImageIstiadha','shareImageMushafBg','shareImagePhoto',
   'tafsirAllCollapsed','tafsirContextHidden','tafsirContextRadius','tafsirFontDelta','tafsirSlugCollapsed',
   'testModeActive','trailFabEnabled','wbwHighlightEnabled','sideNavCollapsed','quran-note-mic-auto'
 ];
@@ -13073,9 +13146,10 @@ if('serviceWorker' in navigator){
       <div class="share-range-preview" id="share-range-preview"></div>
       <div class="share-range-note" id="share-range-note" role="status" aria-live="polite"></div>
       <label class="test-mode-toggle-row">
-        <input type="checkbox" id="share-range-tafsir">
+        <input type="checkbox" id="share-range-tafsir" onchange="renderShareTafsirSources()">
         <span id="share-range-tafsir-label">تضمين التفسير/الترجمة المختار</span>
       </label>
+      <div class="share-tafsir-sources" id="share-tafsir-sources" style="display:none;"></div>
       <label class="test-mode-toggle-row">
         <input type="checkbox" id="share-range-istiadha">
         <span id="share-range-istiadha-label">إضافة الاستعاذة في أعلى الصورة</span>
