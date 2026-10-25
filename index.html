@@ -2289,7 +2289,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
 
     --bg:#f4ecd8; --bg-elev:#faf3e0; --surface:#fbf5e6; --surface-2:#efe4c8; --border:#dccfa8;
 
-    --text:#3b2f1e; --text-muted:#76664a; --text-faint:#a39878;
+    --text:#3b2f1e; --text-muted:#76664a; --text-faint:#78694c;
 
     --accent:#9a5b13; --accent-soft:#7d4a0e; --accent-bg:rgba(154,91,19,.10); --ring:rgba(154,91,19,.25);
 
@@ -6687,6 +6687,7 @@ function attachModalFocusTrap(){
 
 function openSettingsModal(){
   try{ fillAudioOfflineSelect(); refreshAudioOfflineStatus(); } catch(e){}
+  try{ updateInstallUI(); } catch(e){}
   const hasActiveReading = currentMode === 'surah' && !!currentSurahId && currentVerseList.length > 0;
   const repeatGroup = document.getElementById('repeat-group');
   const note = document.getElementById('settings-modal-note');
@@ -8337,6 +8338,20 @@ function toggleListenContinuous(enabled){
 }
 let listenPlayFailures = 0;   // محاولات تشغيل فاشلة متتالية (حماية من حلقة لا تنتهي)
 
+// أول آية ظاهرة في العرض الحالي (جزء/حزب/ربع/صفحة)، أو null لو لا يوجد عرض قراءة مفتوح
+function findFirstVisibleAyahForListen(){
+  const rv = document.getElementById('read-view');
+  if(!rv || rv.style.display !== 'block') return null;
+  const cards = rv.querySelectorAll('.ayah-card[data-surah][data-ayah]');
+  if(!cards.length) return null;
+  let pick = null;
+  for(let i = 0; i < cards.length; i++){
+    if(cards[i].getBoundingClientRect().bottom > 90){ pick = cards[i]; break; }
+  }
+  if(!pick) pick = cards[0];
+  return { surahId: Number(pick.getAttribute('data-surah')), ayahId: Number(pick.getAttribute('data-ayah')) };
+}
+
 function startFullSurahListen(){
   requestVolumePill();
   if(repeatState.active) stopAyahRepeat();
@@ -8361,6 +8376,18 @@ function startFullSurahListen(){
 
   if(listenState.active) stopFullSurahListen();
   listenPlayFailures = 0;
+
+  // في وضع الجزء/الحزب/الربع/الصفحة: نبدأ من أول آية ظاهرة (بدل الفاتحة)، فننتقل لعرض سورتها ونكمل منها
+  if(currentMode !== 'surah'){
+    const target = findFirstVisibleAyahForListen();
+    if(target){
+      listenState.suppressAutoStop = true;
+      openSurah(target.surahId);
+      listenState.suppressAutoStop = false;
+      playFromAyahNumber(target.surahId, target.ayahId, getAyahCardId(target.surahId, target.ayahId));
+      return;
+    }
+  }
 
   const startId = (currentMode === 'surah' && currentSurahId) ? currentSurahId : 1;
 
@@ -8413,7 +8440,8 @@ async function playFromAyahNumber(surahId, ayahId, cardId){
   if(startBtn) startBtn.style.display = 'none';
   if(stopBtn) stopBtn.style.display = '';
   syncHeaderListenBtn();
-  updateRepeatStatus(tf('listening_full_surah', { surah: surah.name }));
+  listenPlayFailures = 0;
+  updateRepeatStatus(tf(isListenContinuousEnabled() ? 'listening_full_surah' : 'listening_single_surah', { surah: surah.name }));
 
   const reciter = RECITERS[selectedReciter] || RECITERS.husary;
   if(reciter.type === 'timed'){
@@ -11355,6 +11383,48 @@ function toggleHeaderListen(){
   if(sub) new MutationObserver(syncHeaderListenBtn).observe(sub, { childList:true, characterData:true, subtree:true });
 })();
 
+/* ---------- تثبيت التطبيق على الجهاز (PWA) ---------- */
+let deferredInstallPrompt = null;
+function isStandaloneMode(){
+  try{ return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true; }
+  catch(e){ return false; }
+}
+function isIOSDevice(){
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+function updateInstallUI(){
+  const group = document.getElementById('install-group');
+  if(!group) return;
+  const btn = document.getElementById('install-app-btn');
+  const note = document.getElementById('install-note');
+  const iosNote = document.getElementById('install-ios-note');
+  let mode = 'none';
+  if(!isStandaloneMode()){
+    if(deferredInstallPrompt) mode = 'prompt';
+    else if(isIOSDevice()) mode = 'ios';
+  }
+  if(btn) btn.style.display = mode === 'prompt' ? '' : 'none';
+  if(note) note.style.display = mode === 'prompt' ? '' : 'none';
+  if(iosNote) iosNote.style.display = mode === 'ios' ? '' : 'none';
+  group.style.display = mode === 'none' ? 'none' : '';
+}
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();               // نعرض زر التثبيت بأنفسنا في الإعدادات
+  deferredInstallPrompt = e;
+  updateInstallUI();
+});
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  updateInstallUI();
+});
+async function promptInstall(){
+  const p = deferredInstallPrompt;
+  if(!p) return;
+  deferredInstallPrompt = null;     // لا يمكن استخدام نفس الطلب مرتين
+  try{ p.prompt(); await p.userChoice; }catch(e){}
+  updateInstallUI();
+}
+
 /* ---------- طباعة السورة المفتوحة / حفظها PDF ---------- */
 function printCurrentView(){
   const rv = document.getElementById('read-view');
@@ -11488,6 +11558,9 @@ const I18N_STRINGS = {
     audio_dl_cancel: 'إيقاف',
     audio_dl_clear_one: 'حذف تلاوة هذه السورة',
     audio_dl_clear_all: 'حذف كل التلاوات المحمّلة',
+    install_btn: 'تثبيت التطبيق',
+    install_note: 'يفتح أسرع ويعمل بدون إنترنت مثل أي تطبيق على جهازك.',
+    install_ios_note: 'لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».',
     print_btn: 'طباعة السورة / حفظ PDF',
     print_note: 'تُطبع الآيات فقط بدون الأزرار والقوائم. اختر «حفظ كـ PDF» من نافذة الطباعة لحفظها كملف.',
     print_open_surah_first: 'افتح سورة أولًا ثم اطبعها.',
@@ -11838,6 +11911,9 @@ const I18N_STRINGS = {
     audio_dl_cancel: 'Stop',
     audio_dl_clear_one: 'Delete this surah\'s audio',
     audio_dl_clear_all: 'Delete all downloaded audio',
+    install_btn: 'Install the app',
+    install_note: 'Opens faster and works offline like any app on your device.',
+    install_ios_note: 'To install: tap the Share button in Safari, then "Add to Home Screen".',
     print_btn: 'Print surah / Save as PDF',
     print_note: 'Only the ayahs are printed, without buttons or menus. Choose "Save as PDF" in the print dialog to save a file.',
     print_open_surah_first: 'Open a surah first, then print it.',
@@ -13009,6 +13085,13 @@ if('serviceWorker' in navigator){
             <input type="file" id="data-import-input" accept="application/json" style="display:none;" onchange="importUserData(this.files[0])">
           </div>
           <div class="settings-modal-note" id="data-backup-status" style="display:none;"></div>
+        </div>
+        <div data-tab="more" class="control-group" id="install-group" style="display:none;">
+          <button type="button" class="offline-dl-btn primary" id="install-app-btn" onclick="promptInstall()" style="display:none;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="install_btn">تثبيت التطبيق</span>
+          </button>
+          <div class="settings-modal-note" id="install-note" style="display:none;" data-i18n="install_note">يفتح أسرع ويعمل بدون إنترنت مثل أي تطبيق على جهازك.</div>
+          <div class="settings-modal-note" id="install-ios-note" style="display:none;" data-i18n="install_ios_note">لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».</div>
         </div>
         <div data-tab="more" class="control-group" id="print-group">
           <button type="button" class="offline-dl-btn primary" onclick="printCurrentView()">
