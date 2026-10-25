@@ -3232,6 +3232,8 @@ async function init(){
   if(wbwToggle) wbwToggle.checked = isWbwHighlightEnabled();
   const keepAwakeToggle = document.getElementById('keep-awake-toggle');
   if(keepAwakeToggle) keepAwakeToggle.checked = isKeepAwakeRecitationEnabled();
+  const listenContinuousToggle = document.getElementById('listen-continuous-toggle');
+  if(listenContinuousToggle) listenContinuousToggle.checked = isListenContinuousEnabled();
   const sepiaToggle = document.getElementById('sepia-toggle');
   if(sepiaToggle) sepiaToggle.checked = getSepiaEnabled();
   setTimeout(maybeShowBackupReminder, 4000);
@@ -8073,6 +8075,7 @@ function ensureAyahAudioPlayer(){
   });
   ['play', 'pause', 'ended', 'emptied'].forEach(ev => ayahAudioPlayer.addEventListener(ev, syncWakeLock));
   ['loadstart', 'waiting'].forEach(ev => ayahAudioPlayer.addEventListener(ev, () => { headerListenLoading = true; syncHeaderListenBtn(); }));
+  ayahAudioPlayer.addEventListener('playing', () => { listenPlayFailures = 0; });
   ['playing', 'pause', 'ended', 'error', 'emptied'].forEach(ev => ayahAudioPlayer.addEventListener(ev, () => { headerListenLoading = false; syncHeaderListenBtn(); }));
   ['loadedmetadata', 'durationchange', 'play', 'pause', 'ratechange', 'seeked'].forEach(ev => ayahAudioPlayer.addEventListener(ev, () => updateMediaPositionState(true)));
   ayahAudioPlayer.addEventListener('timeupdate', () => updateMediaPositionState(false));
@@ -8318,6 +8321,22 @@ async function startListenTimingWatcher(surahId, readId){
   ayahAudioPlayer.addEventListener('timeupdate', listenTimeUpdateHandler);
 }
 
+/* ---------- متابعة تشغيل السور تباعًا (مفعّلة افتراضيًا) ---------- */
+function isListenContinuousEnabled(){
+  try{ return localStorage.getItem('listenContinuousSurahs') !== '0'; }catch(e){ return true; }
+}
+function toggleListenContinuous(enabled){
+  try{ localStorage.setItem('listenContinuousSurahs', enabled ? '1' : '0'); }catch(e){}
+  const el = document.getElementById('listen-continuous-toggle');
+  if(el) el.checked = enabled;
+  // لو هناك جلسة استماع جارية نحدّث نص الحالة ليطابق الوضع الجديد
+  if(listenState.active){
+    const surah = QURAN.find(s => s.id === currentSurahId);
+    if(surah) updateRepeatStatus(tf(enabled ? 'listening_full_surah' : 'listening_single_surah', { surah: surah.name }));
+  }
+}
+let listenPlayFailures = 0;   // محاولات تشغيل فاشلة متتالية (حماية من حلقة لا تنتهي)
+
 function startFullSurahListen(){
   requestVolumePill();
   if(repeatState.active) stopAyahRepeat();
@@ -8341,6 +8360,7 @@ function startFullSurahListen(){
   }
 
   if(listenState.active) stopFullSurahListen();
+  listenPlayFailures = 0;
 
   const startId = (currentMode === 'surah' && currentSurahId) ? currentSurahId : 1;
 
@@ -8540,7 +8560,7 @@ function playListenSurah(surahId){
   const surah = QURAN.find(s => s.id === surahId);
   if(!surah){ stopFullSurahListen(); return; }
 
-  updateRepeatStatus(tf('listening_full_surah', { surah: surah.name }));
+  updateRepeatStatus(tf(isListenContinuousEnabled() ? 'listening_full_surah' : 'listening_single_surah', { surah: surah.name }));
   ensureAyahAudioPlayer();
 
   const reciter = RECITERS[selectedReciter] || RECITERS.husary;
@@ -8556,6 +8576,13 @@ function playListenSurah(surahId){
     ayahAudioPlayer.src = audioUrl;
     updateMediaSession(surahId, null);
     ayahAudioPlayer.play().catch(() => {
+      listenPlayFailures++;
+      if(listenPlayFailures >= 3){
+        // حتى لا ندور بين السور بلا نهاية لو تعذّر التشغيل (انقطاع إنترنت أو منع تشغيل تلقائي)
+        stopFullSurahListen();
+        showShortcutToast(t('listen_stopped_errors'), 4500);
+        return;
+      }
       console.warn('تعذر تشغيل ملف السورة كاملة، سيتم الانتقال للسورة التالية.');
       advanceListenToNextSurah();
     });
@@ -8607,15 +8634,20 @@ function advanceListenToNextSurah(){
   if(!listenState.active) return;
   // مؤقت النوم بوضع "عند نهاية السورة": نتوقف هنا بدل الانتقال للسورة التالية
   if(sleepTimer.mode === 'surah'){ triggerSleepStop(); return; }
-  const next = QURAN.find(s => s.id === currentSurahId + 1);
+  // خيار "متابعة السور" مُطفأ: نكتفي بالسورة المختارة فقط
+  if(!isListenContinuousEnabled()){ stopFullSurahListen(); return; }
+  let next = QURAN.find(s => s.id === currentSurahId + 1);
+  let wrapped = false;
   if(!next){
-    updateRepeatStatus(t('completed_full_quran_listen'));
-    stopFullSurahListen();
-    return;
+    // بعد آخر سورة في المصحف (الناس) نبدأ من الفاتحة من جديد
+    next = QURAN.find(s => s.id === 1);
+    wrapped = true;
   }
+  if(!next){ stopFullSurahListen(); return; }
   listenState.suppressAutoStop = true;
   openSurah(next.id);
   listenState.suppressAutoStop = false;
+  if(wrapped) showShortcutToast(t('listen_restart_from_start'), 4000);
   playListenSurah(next.id);
 }
 
@@ -11280,7 +11312,7 @@ const SETTINGS_KEYS_TO_RESET = [
   'selectedReciter','selectedTafsirSlug','selectedTafsirSlugs','showInlineTafsir',
   'shareImageBasmala','shareImageDesign','shareImageIncludeTafsir','shareImageTafsirExcluded','shareImageIstiadha','shareImageMushafBg','shareImagePhoto',
   'tafsirAllCollapsed','tafsirContextHidden','tafsirContextRadius','tafsirFontDelta','tafsirSlugCollapsed',
-  'testModeActive','trailFabEnabled','wbwHighlightEnabled','sideNavCollapsed','quran-note-mic-auto'
+  'testModeActive','trailFabEnabled','listenContinuousSurahs','wbwHighlightEnabled','sideNavCollapsed','quran-note-mic-auto'
 ];
 /* ---------- زر الاستماع في رأس السورة (يتزامن مع زر الإعدادات) ---------- */
 let headerListenLoading = false;
@@ -11482,7 +11514,7 @@ const I18N_STRINGS = {
     test_mode_label: 'وضع اختبار: يخفي نص الآية بالكامل حتى تمرّر الماوس عليها أو تضغط عليها باللمس',
     start_repeat: 'ابدأ التكرار',
     stop_repeat: 'إيقاف التكرار',
-    listen_title: 'تشغيل السورة كاملة ثم الانتقال تلقائيًا للسورة التالية وهكذا حتى ختم المصحف',
+    listen_title: 'تشغيل السورة كاملة (ويمكن ضبط الانتقال التلقائي للسور التالية من الإعدادات)',
     listen: 'استماع',
     stop_listen: 'إيقاف الاستماع',
     favorites_desc: 'الآيات التي حفظتها في مفضلتك، اضغط على "الذهاب" للانتقال إليها مباشرة.',
@@ -11641,6 +11673,11 @@ const I18N_STRINGS = {
     repeat_segment_round: ' — جولة المقطع {seg} من {segTotal}',
     listening_full_surah: 'جارٍ الاستماع إلى سورة {surah} كاملة، وستنتقل تلقائيًا للسورة التالية بعد انتهائها...',
     completed_full_quran_listen: 'تم بحمد الله الاستماع إلى القرآن الكريم كاملاً 🌙',
+    listening_single_surah: 'جارٍ الاستماع إلى سورة {surah} كاملة...',
+    listen_restart_from_start: 'انتهى المصحف، يبدأ الاستماع من سورة الفاتحة من جديد 🔁',
+    listen_stopped_errors: 'توقف الاستماع المتواصل لتعذّر تشغيل التلاوة. تأكد من الاتصال بالإنترنت.',
+    listen_continuous_label: 'متابعة تشغيل السور تباعًا دون توقف',
+    listen_continuous_note: 'مفعّل: تُشغَّل السورة المختارة ثم التي تليها وهكذا حتى آخر المصحف، ثم تبدأ من الفاتحة من جديد. مُطفأ: تُشغَّل السورة المختارة فقط.',
     repeat_unsupported_reciter: 'تكرار الآية الواحدة غير متاح لهذا القارئ لأن تسجيله ملف واحد للسورة كاملة. جرّب "استماع" أو اختر قارئًا آخر.',
     viewing_page_prefix: 'عرض صفحة',
     of_604_madinah_layout: 'من ٦٠٤ بنفس تقسيم أسطر مصحف المدينة',
@@ -11827,7 +11864,7 @@ const I18N_STRINGS = {
     test_mode_label: 'Test mode: hides the ayah text completely until you hover or tap it',
     start_repeat: 'Start repeat',
     stop_repeat: 'Stop repeat',
-    listen_title: 'Play the full surah, then move automatically to the next one, until the whole Mushaf is finished',
+    listen_title: 'Play the full surah (automatic continuation to the next surahs can be set in Settings)',
     listen: 'Listen',
     stop_listen: 'Stop listening',
     favorites_desc: 'Ayahs you saved to your favorites. Tap "Go" to jump straight to them.',
@@ -11986,6 +12023,11 @@ const I18N_STRINGS = {
     repeat_segment_round: ' — Segment round {seg} of {segTotal}',
     listening_full_surah: 'Listening to Surah {surah} in full — it will move automatically to the next surah when finished...',
     completed_full_quran_listen: 'Alhamdulillah, you have finished listening to the entire Holy Quran 🌙',
+    listening_single_surah: 'Listening to Surah {surah} in full...',
+    listen_restart_from_start: 'End of the Mushaf — starting again from Al-Fatihah 🔁',
+    listen_stopped_errors: 'Continuous listening stopped because the recitation could not be played. Check your connection.',
+    listen_continuous_label: 'Play surahs continuously, one after another',
+    listen_continuous_note: 'On: the chosen surah plays, then the next ones to the end of the Quran, then it restarts from Al-Fatihah. Off: only the chosen surah plays.',
     repeat_unsupported_reciter: 'Single-verse repeat isn\'t available for this reciter because their recording is one file per full surah. Try "Listen" instead, or pick a different reciter.',
     viewing_page_prefix: 'Viewing page',
     of_604_madinah_layout: 'of 604, following the Madinah Mushaf line layout',
@@ -12847,6 +12889,14 @@ if('serviceWorker' in navigator){
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
             <span data-i18n="keep_awake_label">إبقاء الشاشة مضاءة أثناء التلاوة داخل السورة</span>
           </label>
+        </div>
+        <div data-tab="audio" class="control-group">
+          <label class="test-mode-toggle-row">
+            <input type="checkbox" id="listen-continuous-toggle" onchange="toggleListenContinuous(this.checked)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+            <span data-i18n="listen_continuous_label">متابعة تشغيل السور تباعًا دون توقف</span>
+          </label>
+          <div class="settings-modal-note" data-i18n="listen_continuous_note">مفعّل: تُشغَّل السورة المختارة ثم التي تليها وهكذا حتى آخر المصحف، ثم تبدأ من الفاتحة من جديد. مُطفأ: تُشغَّل السورة المختارة فقط.</div>
         </div>
         <div data-tab="audio" class="control-group offline-dl-group" id="audio-offline-group">
           <span class="label" id="audio-dl-title" data-i18n="audio_dl_title">تحميل التلاوة للاستماع بدون إنترنت</span>
