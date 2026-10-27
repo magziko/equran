@@ -11425,6 +11425,148 @@ async function promptInstall(){
   updateInstallUI();
 }
 
+/* ---------- تشغيل التطبيق مع الويندوز ----------
+   المتصفح يمنع أي موقع من فتح chrome://apps أو edge://apps، لذلك يكتفي الزر بنسخ العنوان
+   ويلصقه العميل في تبويب جديد ثم يفعّل «تشغيل التطبيق عند تسجيل الدخول» من هناك. */
+function getAppsAddress(){
+  const ua = navigator.userAgent || '';
+  if(/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return null;     // الموبايل: لا توجد صفحة تطبيقات
+  if(/Firefox\//.test(ua) || /OPR\/|Opera/.test(ua) || navigator.brave) return null;
+  if(/Edg\//.test(ua)) return 'edge://apps';
+  if(/Chrome\//.test(ua)) return 'chrome://apps';
+  return null;
+}
+function updateStartupUI(){
+  const group = document.getElementById('startup-group');
+  if(!group) return;
+  const addr = getAppsAddress();
+  const urlEl = document.getElementById('startup-url');
+  if(addr && urlEl) urlEl.textContent = addr;
+  group.style.display = addr ? '' : 'none';
+}
+function copyTextToClipboard(text){
+  const legacy = () => {
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0;';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    }catch(e){ return false; }
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    return navigator.clipboard.writeText(text).then(() => true, () => legacy());
+  }
+  return Promise.resolve(legacy());
+}
+let startupBtnTimer = null;
+function copyAppsAddress(){
+  const addr = getAppsAddress();
+  if(!addr) return;
+  const note = document.getElementById('startup-note');
+  const btnText = document.getElementById('startup-btn-text');
+  // نغيّر مفتاح الترجمة نفسه كي يبقى النص صحيحًا لو بدّل المستخدم اللغة بعد النسخ
+  const setKey = (el, key) => { if(!el) return; el.setAttribute('data-i18n', key); el.textContent = t(key); };
+  copyTextToClipboard(addr).then(ok => {
+    if(ok){
+      setKey(note, addr.indexOf('edge') === 0 ? 'startup_steps_edge' : 'startup_steps_chrome');
+      setKey(btnText, 'startup_btn_done');
+      clearTimeout(startupBtnTimer);
+      startupBtnTimer = setTimeout(() => setKey(btnText, 'startup_btn'), 2500);
+    }else{
+      setKey(note, 'startup_copy_failed');
+    }
+  });
+}
+window.addEventListener('DOMContentLoaded', updateStartupUI);
+
+/* ---------- تثبيت تطبيق الراديو من داخل المصحف، والعكس ----------
+   المتصفح لا يسمح بتثبيت تطبيق من صفحة تطبيق آخر، فنفتح التطبيق الشقيق في تبويب جديد
+   مع ?install=app، وهناك تظهر لافتة فيها زر التثبيت (لازم ضغطة من المستخدم لتظهر نافذة التثبيت). */
+const SISTER_APP_URL = 'https://magziko.github.io/Radio/';
+function openSisterAppInstall(){
+  const url = SISTER_APP_URL + '?install=app';
+  try{
+    const a = document.createElement('a');
+    a.href = url; a.target = '_blank'; a.rel = 'noopener';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }catch(err){ window.location.href = url; }
+}
+
+(function sisterArriveBanner(){
+  let wanted = false;
+  try{ wanted = new URLSearchParams(location.search).get('install') === 'app'; }catch(err){}
+  if(!wanted) return;
+  // نحذف البارامتر من الرابط (مع إبقاء #surah-... كما هو) كي لا تظهر اللافتة عند التحديث
+  try{
+    const u = new URL(location.href);
+    u.searchParams.delete('install');
+    history.replaceState(null, '', u.pathname + u.search + u.hash);
+  }catch(err){}
+
+  function show(){
+    if(isStandaloneMode() || document.getElementById('sister-arrive-banner')) return;
+    const bar = document.createElement('div');
+    bar.id = 'sister-arrive-banner';
+    bar.setAttribute('role', 'dialog');
+    bar.style.cssText = 'position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);' +
+      'z-index:2147483000;width:min(94vw,440px);box-sizing:border-box;padding:12px 14px;border-radius:16px;' +
+      'background:var(--surface-2,#1e2b27);color:var(--text,#fff);border:1px solid var(--accent,#2f9e75);' +
+      'box-shadow:0 8px 28px rgba(0,0,0,.4);font-family:inherit;';
+    bar.innerHTML =
+      '<div data-i18n="sister_arrive_title" style="font-weight:800;font-size:15px;margin-bottom:4px;"></div>' +
+      '<div id="sister-arrive-msg" data-i18n="sister_arrive_msg" style="font-size:13px;line-height:1.7;"></div>' +
+      '<div style="display:flex;gap:8px;margin-top:10px;">' +
+        '<button type="button" id="sister-arrive-install" class="offline-dl-btn primary" data-i18n="sister_install" style="flex:1;"></button>' +
+        '<button type="button" id="sister-arrive-close" class="offline-dl-btn" data-i18n="sister_close"></button>' +
+      '</div>';
+    document.body.appendChild(bar);
+    bar.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.getAttribute('data-i18n')); });
+
+    const msg = bar.querySelector('#sister-arrive-msg');
+    const btn = bar.querySelector('#sister-arrive-install');
+    const hide = () => { if(bar.parentNode) bar.parentNode.removeChild(bar); };
+    bar.querySelector('#sister-arrive-close').onclick = hide;
+
+    const setKey = (el, key) => { el.setAttribute('data-i18n', key); el.textContent = t(key); };
+    const manualHelp = () => setKey(msg, isIOSDevice() ? 'install_ios_note' : 'sister_manual');
+    const go = (ev) => {
+      deferredInstallPrompt = null;   // لا يمكن استخدام نفس الطلب مرتين
+      try{
+        ev.prompt();
+        ev.userChoice.then(r => { if(r && r.outcome === 'accepted') hide(); }).catch(() => {});
+      }catch(err){ manualHelp(); }
+      updateInstallUI();
+    };
+    let busy = false;
+    btn.onclick = () => {
+      if(busy) return;
+      if(deferredInstallPrompt){ go(deferredInstallPrompt); return; }
+      if(isIOSDevice()){ manualHelp(); return; }
+      // المتصفح أحيانًا يتأخر في إطلاق حدث التثبيت: ننتظر حتى ٤ ثوانٍ
+      busy = true; btn.disabled = true; setKey(btn, 'sister_preparing');
+      let tries = 0;
+      const iv = setInterval(() => {
+        tries++;
+        if(deferredInstallPrompt || tries >= 16){
+          clearInterval(iv);
+          busy = false; btn.disabled = false; setKey(btn, 'sister_install');
+          if(deferredInstallPrompt) go(deferredInstallPrompt); else manualHelp();
+        }
+      }, 250);
+    };
+  }
+  // نؤخر قليلًا حتى تُطبَّق اللغة المحفوظة قبل بناء اللافتة
+  window.addEventListener('DOMContentLoaded', () => setTimeout(show, 500));
+})();
+
 /* ---------- طباعة السورة المفتوحة / حفظها PDF ---------- */
 function printCurrentView(){
   const rv = document.getElementById('read-view');
@@ -11561,6 +11703,20 @@ const I18N_STRINGS = {
     install_btn: 'تثبيت التطبيق',
     install_note: 'يفتح أسرع ويعمل بدون إنترنت مثل أي تطبيق على جهازك.',
     install_ios_note: 'لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».',
+    startup_btn: 'نسخ عنوان صفحة التطبيقات',
+    startup_btn_done: 'تم النسخ ✓',
+    startup_note: 'لتشغيل التطبيق مع الويندوز: المتصفح لا يسمح لأي موقع بفتح صفحة التطبيقات مباشرة، فاضغط الزر لنسخ العنوان ثم الصقه في تبويب جديد. (يجب تثبيت التطبيق أولًا)',
+    startup_steps_chrome: 'تم نسخ العنوان. افتح تبويبًا جديدًا (Ctrl+T) والصقه (Ctrl+V) ثم Enter. بعدها اضغط كليك يمين على أيقونة التطبيق واختر «تشغيل التطبيق عند تسجيل الدخول».',
+    startup_steps_edge: 'تم نسخ العنوان. افتح تبويبًا جديدًا (Ctrl+T) والصقه (Ctrl+V) ثم Enter. بعدها اضغط «التفاصيل» تحت التطبيق وفعّل «بدء التطبيق عند تسجيل الدخول للجهاز».',
+    startup_copy_failed: 'تعذّر النسخ تلقائيًا. انسخ العنوان الظاهر أعلاه يدويًا والصقه في تبويب جديد.',
+    sister_btn: 'تثبيت تطبيق الراديو',
+    sister_note: 'ثبّت تطبيق إذاعة القرآن الكريم أيضًا على جهازك. سيُفتح في تبويب جديد مع زر التثبيت.',
+    sister_arrive_title: '📖 تثبيت تطبيق المصحف',
+    sister_arrive_msg: 'اضغط «تثبيت» ليُضاف التطبيق إلى جهازك.',
+    sister_install: '⬇️ تثبيت',
+    sister_preparing: '⏳ جارٍ التحضير...',
+    sister_close: 'إغلاق',
+    sister_manual: 'لم تظهر نافذة التثبيت. إن كان التطبيق مثبّتًا بالفعل فافتحه من قائمة التطبيقات، وإلا افتح قائمة المتصفح (⋮) واختر «تثبيت التطبيق».',
     print_btn: 'طباعة السورة / حفظ PDF',
     print_note: 'تُطبع الآيات فقط بدون الأزرار والقوائم. اختر «حفظ كـ PDF» من نافذة الطباعة لحفظها كملف.',
     print_open_surah_first: 'افتح سورة أولًا ثم اطبعها.',
@@ -11914,6 +12070,20 @@ const I18N_STRINGS = {
     install_btn: 'Install the app',
     install_note: 'Opens faster and works offline like any app on your device.',
     install_ios_note: 'To install: tap the Share button in Safari, then "Add to Home Screen".',
+    startup_btn: 'Copy apps page address',
+    startup_btn_done: 'Copied ✓',
+    startup_note: 'To launch the app with Windows: browsers do not allow websites to open the apps page directly. Tap the button to copy the address, then paste it in a new tab. (The app must be installed first)',
+    startup_steps_chrome: 'Address copied. Open a new tab (Ctrl+T), paste it (Ctrl+V) and press Enter. Then right-click the app icon and choose "Start app when you sign in".',
+    startup_steps_edge: 'Address copied. Open a new tab (Ctrl+T), paste it (Ctrl+V) and press Enter. Then click "Details" under the app and turn on "Start app on device sign-in".',
+    startup_copy_failed: 'Automatic copy failed. Copy the address shown above manually and paste it in a new tab.',
+    sister_btn: 'Install the Radio app',
+    sister_note: 'Install the Quran Radio app on your device too. It opens in a new tab with an install button.',
+    sister_arrive_title: '📖 Install the Quran app',
+    sister_arrive_msg: 'Tap Install to add the app to your device.',
+    sister_install: '⬇️ Install',
+    sister_preparing: '⏳ Preparing...',
+    sister_close: 'Close',
+    sister_manual: 'No install prompt appeared. If the app is already installed, open it from your app list. Otherwise open the browser menu (⋮) and choose "Install app".',
     print_btn: 'Print surah / Save as PDF',
     print_note: 'Only the ayahs are printed, without buttons or menus. Choose "Save as PDF" in the print dialog to save a file.',
     print_open_surah_first: 'Open a surah first, then print it.',
@@ -13092,6 +13262,19 @@ if('serviceWorker' in navigator){
           </button>
           <div class="settings-modal-note" id="install-note" style="display:none;" data-i18n="install_note">يفتح أسرع ويعمل بدون إنترنت مثل أي تطبيق على جهازك.</div>
           <div class="settings-modal-note" id="install-ios-note" style="display:none;" data-i18n="install_ios_note">لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».</div>
+        </div>
+        <div data-tab="more" class="control-group" id="startup-group" style="display:none;">
+          <button type="button" class="offline-dl-btn primary" id="startup-copy-btn" onclick="copyAppsAddress()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span id="startup-btn-text" data-i18n="startup_btn">نسخ عنوان صفحة التطبيقات</span>
+          </button>
+          <div style="margin:8px 0 2px;text-align:center;"><code id="startup-url" dir="ltr" style="display:inline-block;padding:3px 12px;border-radius:8px;background:rgba(127,127,127,0.18);font-family:Consolas,Menlo,monospace;font-size:13px;user-select:all;-webkit-user-select:all;">chrome://apps</code></div>
+          <div class="settings-modal-note" id="startup-note" data-i18n="startup_note">لتشغيل التطبيق مع الويندوز: المتصفح لا يسمح لأي موقع بفتح صفحة التطبيقات مباشرة، فاضغط الزر لنسخ العنوان ثم الصقه في تبويب جديد. (يجب تثبيت التطبيق أولًا)</div>
+        </div>
+        <div data-tab="more" class="control-group" id="sister-group">
+          <button type="button" class="offline-dl-btn primary" onclick="openSisterAppInstall()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="sister_btn">تثبيت تطبيق الراديو</span>
+          </button>
+          <div class="settings-modal-note" data-i18n="sister_note">ثبّت تطبيق إذاعة القرآن الكريم أيضًا على جهازك. سيُفتح في تبويب جديد مع زر التثبيت.</div>
         </div>
         <div data-tab="more" class="control-group" id="print-group">
           <button type="button" class="offline-dl-btn primary" onclick="printCurrentView()">
