@@ -7600,7 +7600,15 @@ const RECITERS = {
   idris_abkar: { name: 'الشيخ إدريس أبكر (مصحف مرتل)', type: 'timed', readId: 'est:idris_abkar', estimate: true, folder: 'https://server6.mp3quran.net/abkr/', missing: [45,46,49] },
   wadee_yamani: { name: 'الشيخ وديع اليمني (مصحف مرتل)', type: 'timed', readId: 'est:wadee_yamani', estimate: true, folder: 'https://server6.mp3quran.net/wdee3/' },
   hazza_balushi: { name: 'الشيخ هزاع البلوشي (مصحف مرتل)', type: 'timed', readId: 'est:hazza_balushi', estimate: true, folder: 'https://server11.mp3quran.net/hazza/', missing: [2,3,4,5,6,7,8,9,10,11,12,16,17,20,21,22,23,24,26,27,28,32,33,34,35,41,43,45,46,48,58,59,60,61,62,63,64,65,66] },
-  haitham_dukhain: { name: 'الشيخ هيثم الدخين (مصحف مرتل)', type: 'timed', readId: 'est:haitham_dukhain', estimate: true, folder: 'https://server16.mp3quran.net/h_dukhain/Rewayat-Hafs-A-n-Assem/' }
+  haitham_dukhain: { name: 'الشيخ هيثم الدخين (مصحف مرتل)', type: 'timed', readId: 'est:haitham_dukhain', estimate: true, folder: 'https://server16.mp3quran.net/h_dukhain/Rewayat-Hafs-A-n-Assem/' },
+  walk_en: { name: 'تلاوة مع ترجمة إنجليزية — إبراهيم ووك (Saheeh International)', type: 'ayah', folder: 'English/Sahih_Intnl_Ibrahim_Walk_192kbps', translation: true },
+  basfar_walk_en: { name: 'الشيخ عبد الله بصفر مع ترجمة إنجليزية (إبراهيم ووك)', type: 'ayah', folder: 'MultiLanguage/Basfar_Walk_192kbps', translation: true },
+  hedayatfar_fa: { name: 'تلاوة مع ترجمة فارسية — هدايت‌فر (ترجمة فولادوند)', type: 'ayah', folder: 'translations/Fooladvand_Hedayatfar_40Kbps', translation: true },
+  kabiri_fa: { name: 'تلاوة مع ترجمة فارسية — كبيري (ترجمة مكارم)', type: 'ayah', folder: 'translations/Makarem_Kabiri_16Kbps', translation: true },
+  shamshad_ur: { name: 'تلاوة مع ترجمة أردية — شمشاد علي خان', type: 'ayah', folder: 'translations/urdu_shamshad_ali_khan_46kbps', translation: true },
+  hashmi_ur: { name: 'ترجمة أردية كلمة بكلمة — فرحت هاشمي', type: 'ayah', folder: 'translations/urdu_farhat_hashmi', translation: true },
+  balayev_az: { name: 'تلاوة مع ترجمة أذرية — بالايف', type: 'ayah', folder: 'translations/azerbaijani/balayev', translation: true },
+  korkut_bs: { name: 'تلاوة مع ترجمة بوسنية — بسيم كوركوت', type: 'ayah', folder: 'translations/besim_korkut_ajet_po_ajet', translation: true }
 };
 let selectedReciter = localStorage.getItem('selectedReciter') || 'husary';
 if(!RECITERS[selectedReciter]) selectedReciter = 'husary';
@@ -12037,6 +12045,14 @@ const I18N_STRINGS = {
     reciter_wadee_yamani: 'الشيخ وديع اليمني (مصحف مرتل)',
     reciter_hazza_balushi: 'الشيخ هزاع البلوشي (مصحف مرتل)',
     reciter_haitham_dukhain: 'الشيخ هيثم الدخين (مصحف مرتل)',
+    reciter_walk_en: 'تلاوة مع ترجمة إنجليزية — إبراهيم ووك (Saheeh International)',
+    reciter_basfar_walk_en: 'الشيخ عبد الله بصفر مع ترجمة إنجليزية (إبراهيم ووك)',
+    reciter_hedayatfar_fa: 'تلاوة مع ترجمة فارسية — هدايت‌فر (ترجمة فولادوند)',
+    reciter_kabiri_fa: 'تلاوة مع ترجمة فارسية — كبيري (ترجمة مكارم)',
+    reciter_shamshad_ur: 'تلاوة مع ترجمة أردية — شمشاد علي خان',
+    reciter_hashmi_ur: 'ترجمة أردية كلمة بكلمة — فرحت هاشمي',
+    reciter_balayev_az: 'تلاوة مع ترجمة أذرية — بالايف',
+    reciter_korkut_bs: 'تلاوة مع ترجمة بوسنية — بسيم كوركوت',
     reciter_surah_missing: 'هذه السورة غير متوفرة بصوت هذا القارئ. اختر قارئًا آخر أو سورة أخرى.',
     playback_speed_label: 'سرعة التلاوة',
     speed_0_5: '0.5×',
@@ -12421,6 +12437,14 @@ const I18N_STRINGS = {
     reciter_wadee_yamani: 'Sheikh Wadee Al-Yamani (Murattal Mushaf)',
     reciter_hazza_balushi: 'Sheikh Hazza Al-Balushi (Murattal Mushaf)',
     reciter_haitham_dukhain: 'Sheikh Haitham Al-Dukhain (Murattal Mushaf)',
+    reciter_walk_en: 'Recitation with English translation — Ibrahim Walk (Saheeh International)',
+    reciter_basfar_walk_en: 'Sheikh Abdullah Basfar with English translation (Ibrahim Walk)',
+    reciter_hedayatfar_fa: 'Recitation with Persian translation — Hedayatfar (Fooladvand)',
+    reciter_kabiri_fa: 'Recitation with Persian translation — Kabiri (Makarem)',
+    reciter_shamshad_ur: 'Recitation with Urdu translation — Shamshad Ali Khan',
+    reciter_hashmi_ur: 'Urdu word-for-word translation — Farhat Hashmi',
+    reciter_balayev_az: 'Recitation with Azerbaijani translation — Balayev',
+    reciter_korkut_bs: 'Recitation with Bosnian translation — Besim Korkut',
     reciter_surah_missing: 'This surah isn\'t available in this reciter\'s recording. Pick another reciter or surah.',
     playback_speed_label: 'Playback Speed',
     speed_0_5: '0.5×',
@@ -13458,6 +13482,14 @@ if('serviceWorker' in navigator){
             <option value="wadee_yamani" data-i18n="reciter_wadee_yamani">الشيخ وديع اليمني (مصحف مرتل)</option>
             <option value="hazza_balushi" data-i18n="reciter_hazza_balushi">الشيخ هزاع البلوشي (مصحف مرتل)</option>
             <option value="haitham_dukhain" data-i18n="reciter_haitham_dukhain">الشيخ هيثم الدخين (مصحف مرتل)</option>
+            <option value="walk_en" data-i18n="reciter_walk_en">تلاوة مع ترجمة إنجليزية — إبراهيم ووك (Saheeh International)</option>
+            <option value="basfar_walk_en" data-i18n="reciter_basfar_walk_en">الشيخ عبد الله بصفر مع ترجمة إنجليزية (إبراهيم ووك)</option>
+            <option value="hedayatfar_fa" data-i18n="reciter_hedayatfar_fa">تلاوة مع ترجمة فارسية — هدايت‌فر (ترجمة فولادوند)</option>
+            <option value="kabiri_fa" data-i18n="reciter_kabiri_fa">تلاوة مع ترجمة فارسية — كبيري (ترجمة مكارم)</option>
+            <option value="shamshad_ur" data-i18n="reciter_shamshad_ur">تلاوة مع ترجمة أردية — شمشاد علي خان</option>
+            <option value="hashmi_ur" data-i18n="reciter_hashmi_ur">ترجمة أردية كلمة بكلمة — فرحت هاشمي</option>
+            <option value="balayev_az" data-i18n="reciter_balayev_az">تلاوة مع ترجمة أذرية — بالايف</option>
+            <option value="korkut_bs" data-i18n="reciter_korkut_bs">تلاوة مع ترجمة بوسنية — بسيم كوركوت</option>
           </select>
         </div>
         <div data-tab="audio" class="control-group">
