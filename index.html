@@ -2392,6 +2392,8 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   }
 
   .header-listen-btn:hover{ opacity:.9; }
+  .header-listen-btn{ -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  .header-listen-btn.looping .hl-label::after{ content:' ↻'; }
 
   .header-listen-btn.playing{ background:var(--accent-bg); color:var(--accent-soft); }
 
@@ -7589,7 +7591,16 @@ const RECITERS = {
   qatami: { name: 'الشيخ ناصر القطامي', type: 'ayah', folder: 'Nasser_Alqatami_128kbps' },
   bukhatir: { name: 'الشيخ صلاح بوخاطر', type: 'ayah', folder: 'Salaah_AbdulRahman_Bukhatir_128kbps' },
   badr_turki: { name: 'الشيخ بدر التركي (مصحف مرتل)', type: 'surah', folder: 'https://server10.mp3quran.net/download/bader/Rewayat-Hafs-A-n-Assem/' },
-  islam_sobhy: { name: 'الشيخ إسلام صبحي (مصحف مرتل)', type: 'surah', folder: 'https://server14.mp3quran.net/download/islam/Rewayat-Hafs-A-n-Assem/' }
+  islam_sobhy: { name: 'الشيخ إسلام صبحي (مصحف مرتل)', type: 'surah', folder: 'https://server14.mp3quran.net/download/islam/Rewayat-Hafs-A-n-Assem/' },
+  ahmad_nufais: { name: 'الشيخ أحمد النفيس (مصحف مرتل)', type: 'surah', folder: 'https://server16.mp3quran.net/nufais/Rewayat-Hafs-A-n-Assem/' },
+  qatami_mushaf: { name: 'الشيخ ناصر القطامي (مصحف مرتل كامل)', type: 'surah', folder: 'https://server6.mp3quran.net/qtm/' },
+  ahmad_bin_humaid: { name: 'الشيخ أحمد طالب بن حميد (مصحف مرتل)', type: 'surah', folder: 'https://server16.mp3quran.net/a_binhameed/Rewayat-Hafs-A-n-Assem/', missing: [3,4,7,9,11,13,14,15,16,17,19,21,22,23,24,25,26,27,28,33,34,36,39,40,41,42,43,46,47,48,53,80] },
+  abdulrahman_majed: { name: 'الشيخ عبد الرحمن الماجد (مصحف مرتل)', type: 'surah', folder: 'https://server10.mp3quran.net/a_majed/' },
+  abdulrahman_aloosi: { name: 'الشيخ عبد الرحمن العوسي (مصحف مرتل)', type: 'surah', folder: 'https://server6.mp3quran.net/aloosi/' },
+  idris_abkar: { name: 'الشيخ إدريس أبكر (مصحف مرتل)', type: 'surah', folder: 'https://server6.mp3quran.net/abkr/', missing: [45,46,49] },
+  wadee_yamani: { name: 'الشيخ وديع اليمني (مصحف مرتل)', type: 'surah', folder: 'https://server6.mp3quran.net/wdee3/' },
+  hazza_balushi: { name: 'الشيخ هزاع البلوشي (مصحف مرتل)', type: 'surah', folder: 'https://server11.mp3quran.net/hazza/', missing: [2,3,4,5,6,7,8,9,10,11,12,16,17,20,21,22,23,24,26,27,28,32,33,34,35,41,43,45,46,48,58,59,60,61,62,63,64,65,66] },
+  haitham_dukhain: { name: 'الشيخ هيثم الدخين (مصحف مرتل)', type: 'surah', folder: 'https://server16.mp3quran.net/h_dukhain/Rewayat-Hafs-A-n-Assem/' }
 };
 let selectedReciter = localStorage.getItem('selectedReciter') || 'husary';
 if(!RECITERS[selectedReciter]) selectedReciter = 'husary';
@@ -7788,6 +7799,11 @@ function loadAndPlayAyah(surahId, ayahId){
       playTimedSegment(reciter.folder, surahId, timing.start_time, timing.end_time);
     });
   } else if(reciter.type === 'surah'){
+    if(reciter.missing && reciter.missing.indexOf(surahId) !== -1){
+      showShortcutToast(t('reciter_surah_missing'), 4000);
+      if(repeatState.active) stopAyahRepeat(); else if(listenState.active) stopFullSurahListen(); else stopAyahAudioUI();
+      return;
+    }
     // هذا القارئ متاح بملف واحد للسورة كاملة فقط (بدون تفريغ توقيت لكل آية)
     // لذلك يتم تشغيل السورة كاملة من بدايتها عند الضغط على أي آية منها
     const surahPart = String(surahId).padStart(3, '0');
@@ -8272,6 +8288,7 @@ function startAyahRepeat(){
 
 function stopAyahRepeat(){
   repeatState.active = false;
+  repeatState.loopForever = false;
   if(ayahAudioPlayer) ayahAudioPlayer.pause();
   stopAyahAudioUI();
 
@@ -8280,6 +8297,7 @@ function stopAyahRepeat(){
   if(startBtn) startBtn.style.display = '';
   if(stopBtn) stopBtn.style.display = 'none';
   updateRepeatStatus('');
+  try{ syncHeaderListenBtn(); }catch(e){}
 }
 
 function playRepeatStep(){
@@ -8287,6 +8305,11 @@ function playRepeatStep(){
   if(repeatState.currentIndex > repeatState.toIndex || repeatState.currentIndex > currentVerseList.length){
     if(repeatState.currentSegment < repeatState.segmentTimes){
       repeatState.currentSegment++;
+      repeatState.currentIndex = repeatState.fromIndex;
+      repeatState.currentCount = 0;
+      playRepeatStep();
+    } else if(repeatState.loopForever){
+      repeatState.currentSegment = 1;
       repeatState.currentIndex = repeatState.fromIndex;
       repeatState.currentCount = 0;
       playRepeatStep();
@@ -8345,7 +8368,8 @@ let listenState = {
   paused: false, // متوقف مؤقتًا (إيقاف/استئناف) وليس إنهاء كامل للجلسة
   sequenceMode: false, // true = تشغيل آية بآية (لقارئ بدون ملف واحد للسورة كاملة)
   verseIndex: 0,
-  suppressAutoStop: false
+  suppressAutoStop: false,
+  loop: false // تكرار السورة المفتوحة بلا نهاية (ضغطة مطوّلة على زر الاستماع)
 };
 
 // تتبّع/تمييز الآية الحالية أثناء "الاستماع المتواصل" لقارئ له ملف صوتي واحد للسورة كاملة (نوع timed)
@@ -8633,6 +8657,7 @@ function repeatSingleAyahFromGesture(surahId, ayahId){
 
 function stopFullSurahListen(){
   listenState.active = false;
+  listenState.loop = false;
   listenState.paused = false;
   listenState.sequenceMode = false;
   if(ayahAudioPlayer) ayahAudioPlayer.pause();
@@ -8672,6 +8697,12 @@ function playListenSurah(surahId){
   ensureAyahAudioPlayer();
 
   const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+
+  if(reciter.missing && reciter.missing.indexOf(surahId) !== -1){
+    showShortcutToast(t('reciter_surah_missing'), 4000);
+    stopFullSurahListen();
+    return;
+  }
 
   if(reciter.type === 'timed' || reciter.type === 'surah'){
     // القارئ متاح بملف صوتي واحد للسورة كاملة: نشغّله من أوله لآخره دون تفريغ آية بآية
@@ -8742,6 +8773,8 @@ function advanceListenToNextSurah(){
   if(!listenState.active) return;
   // مؤقت النوم بوضع "عند نهاية السورة": نتوقف هنا بدل الانتقال للسورة التالية
   if(sleepTimer.mode === 'surah'){ triggerSleepStop(); return; }
+  // تكرار السورة المفتوحة بلا نهاية: نعيد نفس السورة (كل آية مرة واحدة؛ تكرار الآيات يتبع نظام التكرار في الإعدادات)
+  if(listenState.loop){ playListenSurah(currentSurahId); return; }
   // خيار "متابعة السور" مُطفأ: نكتفي بالسورة المختارة فقط
   if(!isListenContinuousEnabled()){ stopFullSurahListen(); return; }
   let next = QURAN.find(s => s.id === currentSurahId + 1);
@@ -11515,8 +11548,10 @@ function syncHeaderListenBtn(){
   if(!btn) return;
   const inSurah = (typeof currentMode !== 'undefined' && currentMode === 'surah' && typeof currentSurahId !== 'undefined' && !!currentSurahId);
   btn.style.display = inSurah ? '' : 'none';
-  const playing = !!(typeof listenState !== 'undefined' && listenState.active && !listenState.paused);
+  const repeatLooping = !!(typeof repeatState !== 'undefined' && repeatState.active && repeatState.loopForever);
+  const playing = !!(typeof listenState !== 'undefined' && listenState.active && !listenState.paused) || repeatLooping;
   btn.classList.toggle('playing', playing);
+  btn.classList.toggle('looping', playing && (repeatLooping || !!listenState.loop));
   const loading = playing && headerListenLoading;
   btn.classList.toggle('loading', loading);
   btn.setAttribute('aria-busy', loading ? 'true' : 'false');
@@ -11535,6 +11570,7 @@ function syncHeaderListenBtn(){
   headerListenLastState = state;
 }
 function toggleHeaderListen(){
+  if(repeatState.active && repeatState.loopForever){ headerListenLoading = false; stopAyahRepeat(); return; }
   if(listenState.active && !listenState.paused){
     headerListenLoading = false;
     pauseFullSurahListen();
@@ -11546,6 +11582,76 @@ function toggleHeaderListen(){
 (function initHeaderListenObserver(){
   const sub = document.getElementById('surah-sub');
   if(sub) new MutationObserver(syncHeaderListenBtn).observe(sub, { childList:true, characterData:true, subtree:true });
+})();
+
+/* ---------- ضغطة مطوّلة على زر "استماع": تكرار السورة المفتوحة بلا نهاية ----------
+   • افتراضيًا: تُتلى السورة كاملة وتُعاد من أولها دون تكرار الآيات
+   • لو ضبطتَ "عدد التكرار لكل آية" في الإعدادات: يُستخدم نظام التكرار بعددك ويدور على السورة بلا نهاية
+   • ضغطة مطوّلة أخرى أثناء التكرار تلغيه */
+let repeatTimesUserSet = false;
+document.addEventListener('input', function(e){ if(e.target && e.target.id === 'repeat-times') repeatTimesUserSet = true; }, true);
+function startSurahLoopFromGesture(){
+  if(currentMode !== 'surah' || !currentSurahId) return;
+  const surah = QURAN.find(x => x.id === currentSurahId);
+  if(!surah) return;
+  if(repeatState.active && repeatState.loopForever){
+    stopAyahRepeat();
+    showShortcutToast(offT('أُلغي تكرار السورة', 'Surah loop cancelled'));
+    return;
+  }
+  if(listenState.active && listenState.loop){
+    listenState.loop = false; syncHeaderListenBtn();
+    showShortcutToast(offT('أُلغي تكرار السورة، سيستمر الاستماع حسب إعدادك', 'Surah loop cancelled — listening continues as set'));
+    return;
+  }
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  const timesEl = document.getElementById('repeat-times');
+  const perAyah = timesEl ? (parseInt(timesEl.value, 10) || 1) : 1;
+  if(repeatTimesUserSet && perAyah > 1 && reciter.type !== 'surah'){
+    if(listenState.active) stopFullSurahListen();
+    if(startRepeatForRange(1, currentVerseList.length)){
+      repeatState.loopForever = true;
+      syncHeaderListenBtn();
+      showShortcutToast(offT(`↻ تكرار ${surah.name} بلا نهاية — كل آية ${perAyah} مرات`, `↻ Looping ${surah.name} endlessly — each ayah ${perAyah}×`), 3500);
+    }
+    return;
+  }
+  if(listenState.active && !listenState.paused){
+    listenState.loop = true; // الاستماع شغّال: نفعّل التكرار دون إعادة البدء
+  } else {
+    headerListenLoading = true;
+    startFullSurahListen();
+    listenState.loop = true;
+  }
+  syncHeaderListenBtn();
+  showShortcutToast(offT(`↻ تكرار ${surah.name} بلا نهاية (كل آية مرة واحدة)`, `↻ Looping ${surah.name} endlessly (each ayah once)`), 3500);
+}
+(function setupHeaderListenLongPress(){
+  const LONG_MS = 550, MOVE_PX = 10, SEL = '#header-listen-btn';
+  let timer = null, startX = 0, startY = 0, firedAt = 0;
+  const clear = () => { clearTimeout(timer); timer = null; };
+  document.addEventListener('pointerdown', function(e){
+    if(e.button > 0) return;
+    if(!(e.target && e.target.closest && e.target.closest(SEL))) return;
+    startX = e.clientX; startY = e.clientY;
+    clear();
+    timer = setTimeout(function(){
+      timer = null; firedAt = Date.now();
+      try{ if(navigator.vibrate) navigator.vibrate(18); }catch(err){}
+      startSurahLoopFromGesture();
+    }, LONG_MS);
+  }, true);
+  document.addEventListener('pointermove', function(e){
+    if(timer && (Math.abs(e.clientX - startX) > MOVE_PX || Math.abs(e.clientY - startY) > MOVE_PX)) clear();
+  }, true);
+  ['pointerup', 'pointercancel'].forEach(ev => document.addEventListener(ev, clear, true));
+  // نبتلع النقرة التي تلي الضغط المطوّل حتى لا تُوقف/تُشغّل الاستماع مرة ثانية
+  document.addEventListener('click', function(e){
+    if(Date.now() - firedAt < 900 && e.target.closest && e.target.closest(SEL)){ e.stopPropagation(); e.preventDefault(); firedAt = 0; }
+  }, true);
+  document.addEventListener('contextmenu', function(e){
+    if(Date.now() - firedAt < 900 && e.target.closest && e.target.closest(SEL)) e.preventDefault();
+  }, true);
 })();
 
 /* ---------- تثبيت التطبيق على الجهاز (PWA) ---------- */
@@ -11846,6 +11952,16 @@ const I18N_STRINGS = {
     reciter_bukhatir: 'الشيخ صلاح بوخاطر',
     reciter_badr_turki: 'الشيخ بدر التركي (مصحف مرتل)',
     reciter_islam_sobhy: 'الشيخ إسلام صبحي (مصحف مرتل)',
+    reciter_ahmad_nufais: 'الشيخ أحمد النفيس (مصحف مرتل)',
+    reciter_qatami_mushaf: 'الشيخ ناصر القطامي (مصحف مرتل كامل)',
+    reciter_ahmad_bin_humaid: 'الشيخ أحمد طالب بن حميد (مصحف مرتل)',
+    reciter_abdulrahman_majed: 'الشيخ عبد الرحمن الماجد (مصحف مرتل)',
+    reciter_abdulrahman_aloosi: 'الشيخ عبد الرحمن العوسي (مصحف مرتل)',
+    reciter_idris_abkar: 'الشيخ إدريس أبكر (مصحف مرتل)',
+    reciter_wadee_yamani: 'الشيخ وديع اليمني (مصحف مرتل)',
+    reciter_hazza_balushi: 'الشيخ هزاع البلوشي (مصحف مرتل)',
+    reciter_haitham_dukhain: 'الشيخ هيثم الدخين (مصحف مرتل)',
+    reciter_surah_missing: 'هذه السورة غير متوفرة بصوت هذا القارئ. اختر قارئًا آخر أو سورة أخرى.',
     playback_speed_label: 'سرعة التلاوة',
     speed_0_5: '0.5×',
     speed_0_75: '0.75×',
@@ -11911,7 +12027,7 @@ const I18N_STRINGS = {
     test_mode_label: 'وضع اختبار: يخفي نص الآية بالكامل حتى تمرّر الماوس عليها أو تضغط عليها باللمس',
     start_repeat: 'ابدأ التكرار',
     stop_repeat: 'إيقاف التكرار',
-    listen_title: 'تشغيل السورة كاملة (ويمكن ضبط الانتقال التلقائي للسور التالية من الإعدادات)',
+    listen_title: 'تشغيل السورة كاملة (ويمكن ضبط الانتقال التلقائي للسور التالية من الإعدادات) — اضغط مطوّلًا لتكرار السورة بلا نهاية',
     listen: 'استماع',
     stop_listen: 'إيقاف الاستماع',
     favorites_desc: 'الآيات التي حفظتها في مفضلتك، اضغط على "الذهاب" للانتقال إليها مباشرة.',
@@ -11981,6 +12097,10 @@ const I18N_STRINGS = {
     shortcut_cards_mode: 'وضع العرض: آيات منفصلة (بطاقات)',
     shortcut_continuous_mode: 'وضع العرض: آيات متتالية (كالمصحف)',
     shortcut_prev_next_surah: 'السورة السابقة / التالية (داخل السورة)',
+    shortcut_loop_surah: 'تكرار السورة بلا نهاية / إلغاء التكرار (داخل السورة)',
+    gesture_long_listen: 'على زر «استماع»: تكرار السورة المفتوحة بلا نهاية (ضغطة طويلة أخرى تلغيه)',
+    shortcut_aod_nav: 'التنقل بين آيات بطاقة «آية اليوم» (في الصفحة الرئيسية)',
+    shortcut_tafsir_nav: 'تفسير الآية التالية / السابقة (داخل نافذة التفسير)',
     next_juz: 'الجزء التالي',
     prev_juz: 'الجزء السابق',
     next_hizb: 'الحزب التالي',
@@ -12216,6 +12336,16 @@ const I18N_STRINGS = {
     reciter_bukhatir: 'Sheikh Salah Bukhatir',
     reciter_badr_turki: 'Sheikh Badr Al-Turki (Murattal Mushaf)',
     reciter_islam_sobhy: 'Sheikh Islam Sobhy (Murattal Mushaf)',
+    reciter_ahmad_nufais: 'Sheikh Ahmad Al-Nufais (Murattal Mushaf)',
+    reciter_qatami_mushaf: 'Sheikh Nasser Al-Qatami (Complete Murattal Mushaf)',
+    reciter_ahmad_bin_humaid: 'Sheikh Ahmad Talib bin Humaid (Murattal Mushaf)',
+    reciter_abdulrahman_majed: 'Sheikh Abdulrahman Al-Majed (Murattal Mushaf)',
+    reciter_abdulrahman_aloosi: 'Sheikh Abdulrahman Al-Ausi (Murattal Mushaf)',
+    reciter_idris_abkar: 'Sheikh Idris Abkar (Murattal Mushaf)',
+    reciter_wadee_yamani: 'Sheikh Wadee Al-Yamani (Murattal Mushaf)',
+    reciter_hazza_balushi: 'Sheikh Hazza Al-Balushi (Murattal Mushaf)',
+    reciter_haitham_dukhain: 'Sheikh Haitham Al-Dukhain (Murattal Mushaf)',
+    reciter_surah_missing: 'This surah isn\'t available in this reciter\'s recording. Pick another reciter or surah.',
     playback_speed_label: 'Playback Speed',
     speed_0_5: '0.5×',
     speed_0_75: '0.75×',
@@ -12281,7 +12411,7 @@ const I18N_STRINGS = {
     test_mode_label: 'Test mode: hides the ayah text completely until you hover or tap it',
     start_repeat: 'Start repeat',
     stop_repeat: 'Stop repeat',
-    listen_title: 'Play the full surah (automatic continuation to the next surahs can be set in Settings)',
+    listen_title: 'Play the full surah (automatic continuation to the next surahs can be set in Settings) — long-press to loop the surah endlessly',
     listen: 'Listen',
     stop_listen: 'Stop listening',
     favorites_desc: 'Ayahs you saved to your favorites. Tap "Go" to jump straight to them.',
@@ -12351,6 +12481,10 @@ const I18N_STRINGS = {
     shortcut_cards_mode: 'Display mode: separate ayah cards',
     shortcut_continuous_mode: 'Display mode: continuous (mushaf-style)',
     shortcut_prev_next_surah: 'Previous / next surah (while reading)',
+    shortcut_loop_surah: 'Loop the surah endlessly / cancel the loop (while reading)',
+    gesture_long_listen: 'On the Listen button: loop the open surah endlessly (long-press again to cancel)',
+    shortcut_aod_nav: 'Browse the “Ayah of the day” card (on the home page)',
+    shortcut_tafsir_nav: 'Next / previous ayah’s tafsir (inside the tafsir dialog)',
     next_juz: 'Next Juz',
     prev_juz: 'Previous Juz',
     next_hizb: 'Next Hizb',
@@ -13045,6 +13179,12 @@ function attachDisplayModeShortcuts(){
       toggleListenShortcut();
       return;
     }
+    // اختصار "L" / "م": تكرار السورة المفتوحة بلا نهاية (Loop) — نفس فعل الضغطة المطوّلة على زر "استماع"، ويضغط مرة ثانية لإلغائه
+    if(!blockingOverlay && (e.code === 'KeyL' || e.key === 'l' || e.key === 'L' || e.key === 'م')){
+      e.preventDefault();
+      startSurahLoopFromGesture();
+      return;
+    }
     // اختصار "[" و"]": الآية السابقة/التالية في التلاوة
     if(!blockingOverlay && (e.code === 'BracketLeft' || e.key === '[')){ e.preventDefault(); stepAyahShortcut(-1); return; }
     if(!blockingOverlay && (e.code === 'BracketRight' || e.key === ']')){ e.preventDefault(); stepAyahShortcut(1); return; }
@@ -13233,6 +13373,15 @@ if('serviceWorker' in navigator){
             <option value="bukhatir" data-i18n="reciter_bukhatir">الشيخ صلاح بوخاطر</option>
             <option value="badr_turki" data-i18n="reciter_badr_turki">الشيخ بدر التركي (مصحف مرتل)</option>
             <option value="islam_sobhy" data-i18n="reciter_islam_sobhy">الشيخ إسلام صبحي (مصحف مرتل)</option>
+            <option value="ahmad_nufais" data-i18n="reciter_ahmad_nufais">الشيخ أحمد النفيس (مصحف مرتل)</option>
+            <option value="qatami_mushaf" data-i18n="reciter_qatami_mushaf">الشيخ ناصر القطامي (مصحف مرتل كامل)</option>
+            <option value="ahmad_bin_humaid" data-i18n="reciter_ahmad_bin_humaid">الشيخ أحمد طالب بن حميد (مصحف مرتل)</option>
+            <option value="abdulrahman_majed" data-i18n="reciter_abdulrahman_majed">الشيخ عبد الرحمن الماجد (مصحف مرتل)</option>
+            <option value="abdulrahman_aloosi" data-i18n="reciter_abdulrahman_aloosi">الشيخ عبد الرحمن العوسي (مصحف مرتل)</option>
+            <option value="idris_abkar" data-i18n="reciter_idris_abkar">الشيخ إدريس أبكر (مصحف مرتل)</option>
+            <option value="wadee_yamani" data-i18n="reciter_wadee_yamani">الشيخ وديع اليمني (مصحف مرتل)</option>
+            <option value="hazza_balushi" data-i18n="reciter_hazza_balushi">الشيخ هزاع البلوشي (مصحف مرتل)</option>
+            <option value="haitham_dukhain" data-i18n="reciter_haitham_dukhain">الشيخ هيثم الدخين (مصحف مرتل)</option>
           </select>
         </div>
         <div data-tab="audio" class="control-group">
@@ -13506,6 +13655,7 @@ if('serviceWorker' in navigator){
             <tr><td><kbd>T</kbd></td><td data-i18n="shortcut_tafsir">إظهار/إخفاء التفسير المضمّن (داخل السورة)</td></tr>
             <tr><td><kbd>Space</kbd></td><td data-i18n="shortcut_play_pause">تشغيل/إيقاف تلاوة الآية (داخل السورة)</td></tr>
             <tr><td><kbd>P</kbd> / <kbd>ح</kbd></td><td data-i18n="shortcut_listen">تشغيل/إيقاف الاستماع المتواصل للسورة (داخل السورة)</td></tr>
+            <tr><td><kbd>L</kbd> / <kbd>م</kbd></td><td data-i18n="shortcut_loop_surah">تكرار السورة بلا نهاية / إلغاء التكرار (داخل السورة)</td></tr>
             <tr><td><kbd>[</kbd> / <kbd>]</kbd></td><td data-i18n="shortcut_ayah_step">الآية السابقة / التالية في التلاوة (داخل السورة)</td></tr>
             <tr><td><kbd>J</kbd> / <kbd>ت</kbd></td><td data-i18n="shortcut_tafsir_open">فتح تفسير الآية الحالية (داخل السورة)</td></tr>
             <tr><td><kbd>Z</kbd> / <kbd>ئ</kbd></td><td data-i18n="shortcut_sleep">مؤقت النوم: يتنقل بين 15 / 30 / 60 دقيقة / نهاية السورة / إلغاء (داخل السورة)</td></tr>
@@ -13516,12 +13666,15 @@ if('serviceWorker' in navigator){
             <tr><td><kbd>Home</kbd> / <kbd>End</kbd></td><td data-i18n="shortcut_edges">الانتقال لأول آية / آخر آية (داخل السورة)</td></tr>
             <tr><td><kbd data-i18n="kbd_long_press">ضغطة طويلة</kbd></td><td data-i18n="gesture_long_num">على رقم الآية: تكرار السورة كاملة بإعدادات التكرار</td></tr>
             <tr><td><kbd data-i18n="kbd_long_press">ضغطة طويلة</kbd></td><td data-i18n="gesture_long_text">على نص الآية: تكرار هذه الآية وحدها</td></tr>
+            <tr><td><kbd data-i18n="kbd_long_press">ضغطة طويلة</kbd></td><td data-i18n="gesture_long_listen">على زر «استماع»: تكرار السورة المفتوحة بلا نهاية (ضغطة طويلة أخرى تلغيه)</td></tr>
             <tr><td><kbd>?</kbd></td><td data-i18n="shortcut_help">فتح/إغلاق قائمة الاختصارات</td></tr>
             <tr><td><kbd>R</kbd> / <kbd>ق</kbd></td><td data-i18n="shortcut_repeat">تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)</td></tr>
             <tr><td><kbd>B</kbd></td><td data-i18n="shortcut_bookmark">إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)</td></tr>
             <tr><td><kbd>S</kbd></td><td data-i18n="shortcut_cards_mode">وضع العرض: آيات منفصلة (بطاقات)</td></tr>
             <tr><td><kbd>C</kbd></td><td data-i18n="shortcut_continuous_mode">وضع العرض: آيات متتالية (كالمصحف)</td></tr>
             <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td data-i18n="shortcut_prev_next_surah">السورة السابقة / التالية (داخل السورة)</td></tr>
+            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td data-i18n="shortcut_aod_nav">التنقل بين آيات بطاقة «آية اليوم» (في الصفحة الرئيسية)</td></tr>
+            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td data-i18n="shortcut_tafsir_nav">تفسير الآية التالية / السابقة (داخل نافذة التفسير)</td></tr>
           </tbody>
         </table>
       </div>
