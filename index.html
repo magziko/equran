@@ -7589,11 +7589,11 @@ const RECITERS = {
   bandar_balila: { name: 'الشيخ بندر بليلة', type: 'timed', readId: 217, folder: 'https://server6.mp3quran.net/balilah/' },
   dussary: { name: 'الشيخ ياسر الدوسري', type: 'ayah', folder: 'Yasser_Ad-Dussary_128kbps' },
   qatami: { name: 'الشيخ ناصر القطامي', type: 'ayah', folder: 'Nasser_Alqatami_128kbps' },
+  qatami_mushaf: { name: 'الشيخ ناصر القطامي (مصحف كامل — mp3quran)', type: 'surah', folder: 'https://server6.mp3quran.net/qtm/' },
   bukhatir: { name: 'الشيخ صلاح بوخاطر', type: 'ayah', folder: 'Salaah_AbdulRahman_Bukhatir_128kbps' },
   badr_turki: { name: 'الشيخ بدر التركي (مصحف مرتل)', type: 'surah', folder: 'https://server10.mp3quran.net/download/bader/Rewayat-Hafs-A-n-Assem/' },
   islam_sobhy: { name: 'الشيخ إسلام صبحي (مصحف مرتل)', type: 'surah', folder: 'https://server14.mp3quran.net/download/islam/Rewayat-Hafs-A-n-Assem/' },
   ahmad_nufais: { name: 'الشيخ أحمد النفيس (مصحف مرتل)', type: 'surah', folder: 'https://server16.mp3quran.net/nufais/Rewayat-Hafs-A-n-Assem/' },
-  qatami_mushaf: { name: 'الشيخ ناصر القطامي (مصحف مرتل كامل)', type: 'surah', folder: 'https://server6.mp3quran.net/qtm/' },
   ahmad_bin_humaid: { name: 'الشيخ أحمد طالب بن حميد (مصحف مرتل)', type: 'surah', folder: 'https://server16.mp3quran.net/a_binhameed/Rewayat-Hafs-A-n-Assem/', missing: [3,4,7,9,11,13,14,15,16,17,19,21,22,23,24,25,26,27,28,33,34,36,39,40,41,42,43,46,47,48,53,80] },
   abdulrahman_majed: { name: 'الشيخ عبد الرحمن الماجد (مصحف مرتل)', type: 'surah', folder: 'https://server10.mp3quran.net/a_majed/' },
   abdulrahman_aloosi: { name: 'الشيخ عبد الرحمن العوسي (مصحف مرتل)', type: 'surah', folder: 'https://server6.mp3quran.net/aloosi/' },
@@ -11953,7 +11953,7 @@ const I18N_STRINGS = {
     reciter_badr_turki: 'الشيخ بدر التركي (مصحف مرتل)',
     reciter_islam_sobhy: 'الشيخ إسلام صبحي (مصحف مرتل)',
     reciter_ahmad_nufais: 'الشيخ أحمد النفيس (مصحف مرتل)',
-    reciter_qatami_mushaf: 'الشيخ ناصر القطامي (مصحف مرتل كامل)',
+    reciter_qatami_mushaf: 'الشيخ ناصر القطامي (مصحف كامل — mp3quran)',
     reciter_ahmad_bin_humaid: 'الشيخ أحمد طالب بن حميد (مصحف مرتل)',
     reciter_abdulrahman_majed: 'الشيخ عبد الرحمن الماجد (مصحف مرتل)',
     reciter_abdulrahman_aloosi: 'الشيخ عبد الرحمن العوسي (مصحف مرتل)',
@@ -12337,7 +12337,7 @@ const I18N_STRINGS = {
     reciter_badr_turki: 'Sheikh Badr Al-Turki (Murattal Mushaf)',
     reciter_islam_sobhy: 'Sheikh Islam Sobhy (Murattal Mushaf)',
     reciter_ahmad_nufais: 'Sheikh Ahmad Al-Nufais (Murattal Mushaf)',
-    reciter_qatami_mushaf: 'Sheikh Nasser Al-Qatami (Complete Murattal Mushaf)',
+    reciter_qatami_mushaf: 'Sheikh Nasser Al-Qatami (Full Mushaf — mp3quran)',
     reciter_ahmad_bin_humaid: 'Sheikh Ahmad Talib bin Humaid (Murattal Mushaf)',
     reciter_abdulrahman_majed: 'Sheikh Abdulrahman Al-Majed (Murattal Mushaf)',
     reciter_abdulrahman_aloosi: 'Sheikh Abdulrahman Al-Ausi (Murattal Mushaf)',
@@ -13370,11 +13370,11 @@ if('serviceWorker' in navigator){
             <option value="bandar_balila" data-i18n="reciter_bandar_balila">الشيخ بندر بليلة</option>
             <option value="dussary" data-i18n="reciter_dussary">الشيخ ياسر الدوسري</option>
             <option value="qatami" data-i18n="reciter_qatami">الشيخ ناصر القطامي</option>
+            <option value="qatami_mushaf" data-i18n="reciter_qatami_mushaf">الشيخ ناصر القطامي (مصحف كامل — mp3quran)</option>
             <option value="bukhatir" data-i18n="reciter_bukhatir">الشيخ صلاح بوخاطر</option>
             <option value="badr_turki" data-i18n="reciter_badr_turki">الشيخ بدر التركي (مصحف مرتل)</option>
             <option value="islam_sobhy" data-i18n="reciter_islam_sobhy">الشيخ إسلام صبحي (مصحف مرتل)</option>
             <option value="ahmad_nufais" data-i18n="reciter_ahmad_nufais">الشيخ أحمد النفيس (مصحف مرتل)</option>
-            <option value="qatami_mushaf" data-i18n="reciter_qatami_mushaf">الشيخ ناصر القطامي (مصحف مرتل كامل)</option>
             <option value="ahmad_bin_humaid" data-i18n="reciter_ahmad_bin_humaid">الشيخ أحمد طالب بن حميد (مصحف مرتل)</option>
             <option value="abdulrahman_majed" data-i18n="reciter_abdulrahman_majed">الشيخ عبد الرحمن الماجد (مصحف مرتل)</option>
             <option value="abdulrahman_aloosi" data-i18n="reciter_abdulrahman_aloosi">الشيخ عبد الرحمن العوسي (مصحف مرتل)</option>
