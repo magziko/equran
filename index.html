@@ -131,6 +131,8 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   font-style: normal;
   font-display: swap;
 }
+  .reciter-search-input{ cursor:text; margin-bottom:8px; box-sizing:border-box; font-weight:500; }
+  .reciter-search-input::placeholder{ color:var(--text-faint); }
 </style>
 <style>
   :root{
@@ -7601,6 +7603,7 @@ const RECITERS = {
   wadee_yamani: { name: 'الشيخ وديع اليمني (مصحف مرتل)', type: 'timed', readId: 'est:wadee_yamani', estimate: true, folder: 'https://server6.mp3quran.net/wdee3/' },
   hazza_balushi: { name: 'الشيخ هزاع البلوشي (مصحف مرتل)', type: 'timed', readId: 'est:hazza_balushi', estimate: true, folder: 'https://server11.mp3quran.net/hazza/', missing: [2,3,4,5,6,7,8,9,10,11,12,16,17,20,21,22,23,24,26,27,28,32,33,34,35,41,43,45,46,48,58,59,60,61,62,63,64,65,66] },
   haitham_dukhain: { name: 'الشيخ هيثم الدخين (مصحف مرتل)', type: 'timed', readId: 'est:haitham_dukhain', estimate: true, folder: 'https://server16.mp3quran.net/h_dukhain/Rewayat-Hafs-A-n-Assem/' },
+  mohammad_ebada: { name: 'الشيخ محمد عبادة (مصحف مرتل)', type: 'timed', readId: 'est:mohammad_ebada', estimate: true, folder: 'https://media.midad.com/resources/ar/recitations/53111/465380/' },
   walk_en: { name: 'تلاوة مع ترجمة إنجليزية — إبراهيم ووك (Saheeh International)', type: 'ayah', folder: 'English/Sahih_Intnl_Ibrahim_Walk_192kbps', translation: true },
   basfar_walk_en: { name: 'الشيخ عبد الله بصفر مع ترجمة إنجليزية (إبراهيم ووك)', type: 'ayah', folder: 'MultiLanguage/Basfar_Walk_192kbps', translation: true },
   hedayatfar_fa: { name: 'تلاوة مع ترجمة فارسية — هدايت‌فر (ترجمة فولادوند)', type: 'ayah', folder: 'translations/Fooladvand_Hedayatfar_40Kbps', translation: true },
@@ -7628,6 +7631,77 @@ function changePlaybackSpeed(value){
 
 function getReciterName(){
   return (RECITERS[selectedReciter] || RECITERS.husary).name;
+}
+/* ---------- بحث سريع في قائمة القرّاء (بالاسم أو اللغة) ---------- */
+const RECITER_LANG_TAGS = {
+  en: 'english انجليزي انجليزيه انكليزي en',
+  fa: 'persian farsi فارسي فارسيه فارسى fa',
+  ur: 'urdu اردو اردي اوردو أردو ur',
+  az: 'azerbaijani azeri اذري اذريه اذربيجاني az',
+  bs: 'bosnian bosanski بوسني بوسنيه bs'
+};
+let reciterSelectMaster = null;
+function reciterSearchHaystack(key){
+  const r = RECITERS[key] || {};
+  const ar = I18N_STRINGS.ar['reciter_' + key] || r.name || '';
+  const en = (I18N_STRINGS.en && I18N_STRINGS.en['reciter_' + key]) || '';
+  let tags = '';
+  if(r.translation){
+    tags += ' ترجمه translation تعليمي ';
+    const suf = key.split('_').pop();
+    if(RECITER_LANG_TAGS[suf]) tags += RECITER_LANG_TAGS[suf];
+  }
+  if(r.type === 'timed' || r.type === 'surah') tags += ' مصحف كامل full mushaf';
+  return normalizeArabicSearch(ar + ' ' + en + ' ' + tags);
+}
+function getReciterSelectMaster(){
+  if(reciterSelectMaster) return reciterSelectMaster;
+  const sel = document.getElementById('reciter-select');
+  if(!sel) return [];
+  reciterSelectMaster = Array.from(sel.options).map(o => ({ value: o.value, i18n: o.getAttribute('data-i18n') }));
+  return reciterSelectMaster;
+}
+function reciterMatches(rawQuery){
+  const terms = normalizeArabicSearch(rawQuery).split(' ').filter(Boolean);
+  return getReciterSelectMaster().filter(item => {
+    if(!terms.length) return true;
+    const hay = reciterSearchHaystack(item.value);
+    return terms.every(term => hay.indexOf(term) !== -1);
+  });
+}
+function filterReciterSelect(rawQuery){
+  const sel = document.getElementById('reciter-select');
+  if(!sel) return;
+  const matches = reciterMatches(rawQuery);
+  const keep = new Set(matches.map(m => m.value));
+  const frag = document.createDocumentFragment();
+  getReciterSelectMaster().forEach(item => {
+    // القارئ المختار حاليًا يبقى دائمًا في القائمة حتى لا تضيع قيمته
+    if(!keep.has(item.value) && item.value !== selectedReciter) return;
+    const o = document.createElement('option');
+    o.value = item.value;
+    if(item.i18n){ o.setAttribute('data-i18n', item.i18n); o.textContent = t(item.i18n); }
+    else o.textContent = (RECITERS[item.value] || {}).name || item.value;
+    frag.appendChild(o);
+  });
+  sel.innerHTML = '';
+  if(!matches.length){
+    const none = document.createElement('option');
+    none.disabled = true;
+    none.textContent = t('reciter_no_results');
+    sel.appendChild(none);
+  }
+  sel.appendChild(frag);
+  sel.value = selectedReciter;
+}
+function pickFirstReciterMatch(){
+  const input = document.getElementById('reciter-search');
+  const matches = reciterMatches(input ? input.value : '');
+  if(!matches.length) return;
+  const first = matches[0];
+  changeReciter(first.value);
+  const sel = document.getElementById('reciter-select');
+  if(sel) sel.value = selectedReciter;
 }
 function changeReciter(value){
   if(!RECITERS[value]) return;
@@ -12045,6 +12119,9 @@ const I18N_STRINGS = {
     reciter_wadee_yamani: 'الشيخ وديع اليمني (مصحف مرتل)',
     reciter_hazza_balushi: 'الشيخ هزاع البلوشي (مصحف مرتل)',
     reciter_haitham_dukhain: 'الشيخ هيثم الدخين (مصحف مرتل)',
+    reciter_search_ph: 'ابحث عن قارئ أو لغة (إنجليزي، أردو، فارسي…)',
+    reciter_no_results: 'لا توجد نتائج',
+    reciter_mohammad_ebada: 'الشيخ محمد عبادة (مصحف مرتل)',
     reciter_walk_en: 'تلاوة مع ترجمة إنجليزية — إبراهيم ووك (Saheeh International)',
     reciter_basfar_walk_en: 'الشيخ عبد الله بصفر مع ترجمة إنجليزية (إبراهيم ووك)',
     reciter_hedayatfar_fa: 'تلاوة مع ترجمة فارسية — هدايت‌فر (ترجمة فولادوند)',
@@ -12437,6 +12514,9 @@ const I18N_STRINGS = {
     reciter_wadee_yamani: 'Sheikh Wadee Al-Yamani (Murattal Mushaf)',
     reciter_hazza_balushi: 'Sheikh Hazza Al-Balushi (Murattal Mushaf)',
     reciter_haitham_dukhain: 'Sheikh Haitham Al-Dukhain (Murattal Mushaf)',
+    reciter_search_ph: 'Search reciter or language (English, Urdu, Persian…)',
+    reciter_no_results: 'No results',
+    reciter_mohammad_ebada: 'Sheikh Mohamed Obada (Murattal Mushaf)',
     reciter_walk_en: 'Recitation with English translation — Ibrahim Walk (Saheeh International)',
     reciter_basfar_walk_en: 'Sheikh Abdullah Basfar with English translation (Ibrahim Walk)',
     reciter_hedayatfar_fa: 'Recitation with Persian translation — Hedayatfar (Fooladvand)',
@@ -13443,6 +13523,7 @@ if('serviceWorker' in navigator){
         </div>
         <div data-tab="audio" class="control-group">
           <span class="label" data-i18n="reciter_label">القارئ</span>
+          <input type="search" id="reciter-search" class="font-select reciter-search-input" placeholder="ابحث عن قارئ أو لغة…" data-i18n-placeholder="reciter_search_ph" autocomplete="off" oninput="filterReciterSelect(this.value)" onkeydown="if(event.key==='Enter'){ event.preventDefault(); pickFirstReciterMatch(); }">
           <select id="reciter-select" class="font-select" onchange="changeReciter(this.value)">
             <option value="mustafa_ismail" data-i18n="reciter_mustafa_ismail">الشيخ مصطفى إسماعيل (مرتل)</option>
             <option value="mustafa_ismail_mujawwad" data-i18n="reciter_mustafa_ismail_mujawwad">الشيخ مصطفى إسماعيل (مجود)</option>
@@ -13482,6 +13563,7 @@ if('serviceWorker' in navigator){
             <option value="wadee_yamani" data-i18n="reciter_wadee_yamani">الشيخ وديع اليمني (مصحف مرتل)</option>
             <option value="hazza_balushi" data-i18n="reciter_hazza_balushi">الشيخ هزاع البلوشي (مصحف مرتل)</option>
             <option value="haitham_dukhain" data-i18n="reciter_haitham_dukhain">الشيخ هيثم الدخين (مصحف مرتل)</option>
+            <option value="mohammad_ebada" data-i18n="reciter_mohammad_ebada">الشيخ محمد عبادة (مصحف مرتل)</option>
             <option value="walk_en" data-i18n="reciter_walk_en">تلاوة مع ترجمة إنجليزية — إبراهيم ووك (Saheeh International)</option>
             <option value="basfar_walk_en" data-i18n="reciter_basfar_walk_en">الشيخ عبد الله بصفر مع ترجمة إنجليزية (إبراهيم ووك)</option>
             <option value="hedayatfar_fa" data-i18n="reciter_hedayatfar_fa">تلاوة مع ترجمة فارسية — هدايت‌فر (ترجمة فولادوند)</option>
