@@ -7594,7 +7594,7 @@ const RECITERS = {
   qatami_mushaf: { name: 'الشيخ ناصر القطامي (مصحف كامل — mp3quran)', type: 'timed', readId: 'est:qatami_mushaf', estimate: true, folder: 'https://server6.mp3quran.net/qtm/' },
   bukhatir: { name: 'الشيخ صلاح بوخاطر', type: 'ayah', folder: 'Salaah_AbdulRahman_Bukhatir_128kbps' },
   badr_turki: { name: 'الشيخ بدر التركي (مصحف مرتل)', type: 'timed', readId: 'est:badr_turki', estimate: true, folder: 'https://server10.mp3quran.net/download/bader/Rewayat-Hafs-A-n-Assem/' },
-  islam_sobhy: { name: 'الشيخ إسلام صبحي (مصحف مرتل)', type: 'timed', readId: 'est:islam_sobhy', estimate: true, folder: 'https://server14.mp3quran.net/download/islam/Rewayat-Hafs-A-n-Assem/' },
+  islam_sobhy: { name: 'الشيخ إسلام صبحي (مصحف مرتل)', type: 'timed', readId: 'est:islam_sobhy', estimate: true, folder: 'https://server14.mp3quran.net/download/islam/Rewayat-Hafs-A-n-Assem/', altUrls: {4:'https://media.way2quran.com/islam-sobhi/hafs-an-asim/004.mp3',7:'https://media.way2quran.com/islam-sobhi/hafs-an-asim/007.mp3',9:'https://media.way2quran.com/islam-sobhi/hafs-an-asim/009.mp3',37:'https://media.way2quran.com/islam-sobhi/hafs-an-asim/037.mp3',39:'https://media.way2quran.com/islam-sobhi/hafs-an-asim/039.mp3',40:'https://media.way2quran.com/islam-sobhi/hafs-an-asim/040.mp3',45:'https://media.way2quran.com/islam-sobhi/hafs-an-asim/045.mp3',65:'https://media.way2quran.com/islam-sobhi/hafs-an-asim/065.mp3'} },
   ahmad_nufais: { name: 'الشيخ أحمد النفيس (مصحف مرتل)', type: 'timed', readId: 'est:ahmad_nufais', estimate: true, folder: 'https://server16.mp3quran.net/nufais/Rewayat-Hafs-A-n-Assem/' },
   ahmad_bin_humaid: { name: 'الشيخ أحمد طالب بن حميد (مصحف مرتل)', type: 'timed', readId: 'est:ahmad_bin_humaid', estimate: true, folder: 'https://server16.mp3quran.net/a_binhameed/Rewayat-Hafs-A-n-Assem/', missing: [3,4,7,9,11,13,14,15,16,17,19,21,22,23,24,25,26,27,28,33,34,36,39,40,41,42,43,46,47,48,53,80] },
   abdulrahman_majed: { name: 'الشيخ عبد الرحمن الماجد (مصحف مرتل)', type: 'timed', readId: 'est:abdulrahman_majed', estimate: true, folder: 'https://server10.mp3quran.net/a_majed/' },
@@ -7603,7 +7603,7 @@ const RECITERS = {
   wadee_yamani: { name: 'الشيخ وديع اليمني (مصحف مرتل)', type: 'timed', readId: 'est:wadee_yamani', estimate: true, folder: 'https://server6.mp3quran.net/wdee3/' },
   hazza_balushi: { name: 'الشيخ هزاع البلوشي (مصحف مرتل)', type: 'timed', readId: 'est:hazza_balushi', estimate: true, folder: 'https://server11.mp3quran.net/hazza/', missing: [2,3,4,5,6,7,8,9,10,11,12,16,17,20,21,22,23,24,26,27,28,32,33,34,35,41,43,45,46,48,58,59,60,61,62,63,64,65,66] },
   haitham_dukhain: { name: 'الشيخ هيثم الدخين (مصحف مرتل)', type: 'timed', readId: 'est:haitham_dukhain', estimate: true, folder: 'https://server16.mp3quran.net/h_dukhain/Rewayat-Hafs-A-n-Assem/' },
-  mohammad_ebada: { name: 'الشيخ محمد عبادة (مصحف مرتل)', type: 'timed', readId: 'est:mohammad_ebada', estimate: true, folder: 'https://media.midad.com/resources/ar/recitations/53111/465380/' },
+  mohammad_ebada: { name: 'الشيخ محمد عبادة (مصحف مرتل)', type: 'timed', readId: 'est:mohammad_ebada', estimate: true, folder: 'https://media.way2quran.com/muhammad-abadh/hafs-an-asim/' },
   walk_en: { name: 'تلاوة مع ترجمة إنجليزية — إبراهيم ووك (Saheeh International)', type: 'ayah', folder: 'English/Sahih_Intnl_Ibrahim_Walk_192kbps', translation: true },
   basfar_walk_en: { name: 'الشيخ عبد الله بصفر مع ترجمة إنجليزية (إبراهيم ووك)', type: 'ayah', folder: 'MultiLanguage/Basfar_Walk_192kbps', translation: true },
   hedayatfar_fa: { name: 'تلاوة مع ترجمة فارسية — هدايت‌فر (ترجمة فولادوند)', type: 'ayah', folder: 'translations/Fooladvand_Hedayatfar_40Kbps', translation: true },
@@ -7777,6 +7777,11 @@ function estAyahWeight(text){
   const words = t.split(/\s+/).filter(Boolean).length;
   return letters + madd * 2.5 + shadda * 0.8 + words * 0.4 + 4;
 }
+// رابط ملف السورة لقارئ المصحف المرتل: يُستخدم الرابط البديل (altUrls) للسور غير المتوفرة في المجلد الأساسي
+function reciterSurahUrl(reciter, surahId){
+  if(reciter.altUrls && reciter.altUrls[surahId]) return reciter.altUrls[surahId];
+  return `${reciter.folder}${String(surahId).padStart(3, '0')}.mp3`;
+}
 async function getEstimatedTimings(readId, surahId){
   const cacheKey = `${readId}_${surahId}`;
   if(ayahTimingCache[cacheKey]) return ayahTimingCache[cacheKey];
@@ -7784,7 +7789,7 @@ async function getEstimatedTimings(readId, surahId){
   const reciter = RECITERS[key];
   const surah = (typeof QURAN !== 'undefined' && QURAN) ? QURAN.find(s => s.id === surahId) : null;
   if(!reciter || !surah || !surah.verses || !surah.verses.length) return null;
-  const url = `${reciter.folder}${String(surahId).padStart(3, '0')}.mp3`;
+  const url = reciterSurahUrl(reciter, surahId);
   const total = await getAudioDurationMs(url);
   if(!total) return null;
   const lead = (surahId === 1 || surahId === 9) ? 0 : 22;   // حصة البسملة في بداية الملف (تقدير)
@@ -7898,9 +7903,9 @@ function clearTimedSegmentWatcher(){
   }
 }
 
-function playTimedSegment(folderUrl, surahId, startMs, endMs){
+function playTimedSegment(folderUrl, surahId, startMs, endMs, urlOverride){
   const surahPart = String(surahId).padStart(3, '0');
-  const audioUrl = `${folderUrl}${surahPart}.mp3`;
+  const audioUrl = urlOverride || `${folderUrl}${surahPart}.mp3`;
   clearTimedSegmentWatcher();
 
   const startPlayback = () => {
@@ -7947,7 +7952,7 @@ function loadAndPlayAyah(surahId, ayahId){
         if(repeatState.active) stopAyahRepeat(); else if(listenState.active) stopFullSurahListen(); else stopAyahAudioUI();
         return;
       }
-      playTimedSegment(reciter.folder, surahId, timing.start_time, timing.end_time);
+      playTimedSegment(reciter.folder, surahId, timing.start_time, timing.end_time, reciterSurahUrl(reciter, surahId));
     });
   } else if(reciter.type === 'surah'){
     if(reciter.missing && reciter.missing.indexOf(surahId) !== -1){
@@ -8713,7 +8718,7 @@ async function playFromAyahNumber(surahId, ayahId, cardId){
     clearListenTimingWatcher();
     const timing = await getAyahTiming(reciter.readId, surahId, ayahId);
     if(!listenState.active) return; // أوقفه المستخدم أثناء انتظار التوقيت
-    const audioUrl = `${reciter.folder}${String(surahId).padStart(3, '0')}.mp3`;
+    const audioUrl = reciterSurahUrl(reciter, surahId);
     const seekTo = timing ? timing.start_time / 1000 : 0;
     const startPlayback = () => {
       ayahAudioPlayer.currentTime = seekTo;
@@ -8867,8 +8872,7 @@ function playListenSurah(surahId){
     listenState.sequenceMode = false;
     clearTimedSegmentWatcher();
     clearListenTimingWatcher();
-    const surahPart = String(surahId).padStart(3, '0');
-    const audioUrl = `${reciter.folder}${surahPart}.mp3`;
+    const audioUrl = reciterSurahUrl(reciter, surahId);
     stopAyahAudioUI();
     ayahAudioPlayer.src = audioUrl;
     updateMediaSession(surahId, null);
@@ -11454,7 +11458,7 @@ function audioDlUrls(surahId, reciter){
     }
     return urls;
   }
-  return [reciter.folder + surahPart + '.mp3'];
+  return [reciterSurahUrl(reciter, surahId)];
 }
 function audioDlTimingUrl(surahId, reciter){
   return (reciter.type === 'timed' && !reciter.estimate) ? 'https://mp3quran.net/api/v3/ayat_timing?surah=' + surahId + '&read=' + reciter.readId : null;
@@ -11540,6 +11544,14 @@ function decorateAudioOfflineSelect(have, reciter){
     have.forEach(url => {
       for(let i = 0; i < keys.length; i++){
         const r = RECITERS[keys[i]];
+        if(r.altUrls){
+          const altSid = Object.keys(r.altUrls).find(k => r.altUrls[k] === url);
+          if(altSid){
+            if(!perReciter[keys[i]]) perReciter[keys[i]] = {};
+            perReciter[keys[i]][Number(altSid)] = (perReciter[keys[i]][Number(altSid)] || 0) + 1;
+            return;
+          }
+        }
         const prefix = r.type === 'ayah' ? 'https://everyayah.com/data/' + r.folder + '/' : r.folder;
         if(url.indexOf(prefix) === 0){
           const file = url.slice(prefix.length).replace(/\.mp3$/i, '');
