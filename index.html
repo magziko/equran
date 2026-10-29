@@ -7962,8 +7962,8 @@ function startSyncCalibration(){
     return;
   }
   if(!isCalibratableListen()){
-    showShortcutToast(offT('شغّل «استماع» أولًا، وبعد نحو 30 ثانية افتح المعايرة ثم اضغط على الآية التي تسمعها',
-      'Start “Listen” first; after about 30 seconds open calibration, then tap the ayah you are hearing'), 6500);
+    showShortcutToast(offT('شغّل «استماع» (P) أولًا، وبعد نحو 30 ثانية اضغط Y ثم اضغط على الآية التي تسمعها',
+      'Start “Listen” (P) first; after about 30 seconds press Y, then tap the ayah you are hearing'), 6500);
     return;
   }
   closeSettingsModal();
@@ -8007,6 +8007,15 @@ function applySyncCalibration(surahId, ayahId){
   const msg = offT('✅ تمت المعايرة: ', '✅ Calibrated: ') + ayahSyncSpeed.toFixed(2) + '×'
     + (clamped ? offT(' (وصلت للحد الأقصى المسموح؛ قد لا يكفي لهذا القارئ)', ' (hit the allowed limit; may not be enough for this reciter)') : '');
   showShortcutToast(msg, 4500);
+}
+// اختصار لوحة المفاتيح: يبدأ وضع المعايرة والتلاوة شغّالة دون فتح الإعدادات، وضغطة ثانية تلغيه
+function syncCalibShortcut(){
+  if(syncCalibActive){
+    cancelSyncCalibration();
+    showShortcutToast(offT('أُلغيت المعايرة', 'Calibration cancelled'), 2200);
+    return;
+  }
+  startSyncCalibration();
 }
 function syncCalibHitFromEvent(e){
   const card = e.target && e.target.closest ? e.target.closest('.ayah-card[data-surah][data-ayah]') : null;
@@ -12347,7 +12356,7 @@ const I18N_STRINGS = {
     sync_speed_label: 'سرعة تنقل الآيات مع التلاوة',
     sync_speed_reset: 'إعادة ضبط',
     sync_calib_btn: '🎯 معايرة تلقائية بالاستماع',
-    sync_calib_note: 'اضغط «استماع»، وبعد نحو 30 ثانية افتح المعايرة ثم اضغط على الآية التي تسمعها فعلًا، وسيحسب التطبيق السرعة المناسبة لهذا القارئ.',
+    sync_calib_note: 'اضغط «استماع»، وبعد نحو 30 ثانية افتح المعايرة (أو اضغط Y من لوحة المفاتيح دون فتح الإعدادات) ثم اضغط على الآية التي تسمعها فعلًا، وسيحسب التطبيق السرعة المناسبة لهذا القارئ.',
     sync_speed_note: 'لو كان تمييز الآية يتأخر عن صوت القارئ ارفع القيمة، ولو كان يسبقه خفّضها. يُحفظ الضبط لكل قارئ على حدة.',
     ayah_autoscroll_label: 'تمرير الشاشة تلقائيًا إلى الآية التي تُتلى',
     ayah_hl_label: 'تلوين الآية التي تُتلى',
@@ -12478,6 +12487,7 @@ const I18N_STRINGS = {
     shortcut_continuous_mode: 'وضع العرض: آيات متتالية (كالمصحف)',
     shortcut_prev_next_surah: 'السورة السابقة / التالية (داخل السورة)',
     shortcut_loop_surah: 'تكرار السورة بلا نهاية / إلغاء التكرار (داخل السورة)',
+    shortcut_sync_calib: 'معايرة مزامنة تمييز الآيات: اضغط أثناء الاستماع ثم اضغط على الآية التي تسمعها (داخل السورة)',
     gesture_long_listen: 'على زر «استماع»: تكرار السورة المفتوحة بلا نهاية (ضغطة طويلة أخرى تلغيه)',
     shortcut_aod_nav: 'التنقل بين آيات بطاقة «آية اليوم» (في الصفحة الرئيسية)',
     shortcut_tafsir_nav: 'تفسير الآية التالية / السابقة (داخل نافذة التفسير)',
@@ -12749,7 +12759,7 @@ const I18N_STRINGS = {
     sync_speed_label: 'Ayah-following speed during recitation',
     sync_speed_reset: 'Reset',
     sync_calib_btn: '🎯 Auto-calibrate by listening',
-    sync_calib_note: 'Press “Listen”, and after about 30 seconds open calibration and tap the ayah you are actually hearing; the app will work out the right speed for this reciter.',
+    sync_calib_note: 'Press “Listen”, and after about 30 seconds open calibration (or press Y on the keyboard, no need to open settings) and tap the ayah you are actually hearing; the app will work out the right speed for this reciter.',
     sync_speed_note: 'If the highlighted ayah lags behind the reciter, raise the value; if it runs ahead, lower it. Saved separately for each reciter.',
     ayah_autoscroll_label: 'Auto-scroll to the ayah being recited',
     ayah_hl_label: 'Color the ayah being recited',
@@ -12880,6 +12890,7 @@ const I18N_STRINGS = {
     shortcut_continuous_mode: 'Display mode: continuous (mushaf-style)',
     shortcut_prev_next_surah: 'Previous / next surah (while reading)',
     shortcut_loop_surah: 'Loop the surah endlessly / cancel the loop (while reading)',
+    shortcut_sync_calib: 'Calibrate ayah sync: press while listening, then tap the ayah you are hearing (while reading)',
     gesture_long_listen: 'On the Listen button: loop the open surah endlessly (long-press again to cancel)',
     shortcut_aod_nav: 'Browse the “Ayah of the day” card (on the home page)',
     shortcut_tafsir_nav: 'Next / previous ayah’s tafsir (inside the tafsir dialog)',
@@ -13583,6 +13594,12 @@ function attachDisplayModeShortcuts(){
       startSurahLoopFromGesture();
       return;
     }
+    // اختصار "Y" / "غ": معايرة مزامنة تمييز الآيات بالاستماع (sYnc) — اضغط ثم اضغط على الآية التي تسمعها
+    if(!blockingOverlay && !e.ctrlKey && !e.metaKey && !e.altKey && (e.code === 'KeyY' || e.key === 'y' || e.key === 'Y' || e.key === 'غ')){
+      e.preventDefault();
+      syncCalibShortcut();
+      return;
+    }
     // اختصار "[" و"]": الآية السابقة/التالية في التلاوة
     if(!blockingOverlay && (e.code === 'BracketLeft' || e.key === '[')){ e.preventDefault(); stepAyahShortcut(-1); return; }
     if(!blockingOverlay && (e.code === 'BracketRight' || e.key === ']')){ e.preventDefault(); stepAyahShortcut(1); return; }
@@ -13875,7 +13892,7 @@ if('serviceWorker' in navigator){
           <div class="sync-speed-row">
             <button type="button" class="sync-speed-reset" id="sync-calib-btn" onclick="startSyncCalibration()" data-i18n="sync_calib_btn">🎯 معايرة تلقائية بالاستماع</button>
           </div>
-          <div class="share-photo-note" data-i18n="sync_calib_note">اضغط «استماع»، وبعد نحو 30 ثانية افتح المعايرة ثم اضغط على الآية التي تسمعها فعلًا، وسيحسب التطبيق السرعة المناسبة لهذا القارئ.</div>
+          <div class="share-photo-note" data-i18n="sync_calib_note">اضغط «استماع»، وبعد نحو 30 ثانية افتح المعايرة (أو اضغط Y من لوحة المفاتيح دون فتح الإعدادات) ثم اضغط على الآية التي تسمعها فعلًا، وسيحسب التطبيق السرعة المناسبة لهذا القارئ.</div>
         </div>
         <div data-tab="audio" class="control-group">
           <label class="test-mode-toggle-row">
@@ -14105,6 +14122,7 @@ if('serviceWorker' in navigator){
             <tr><td><kbd data-i18n="kbd_long_press">ضغطة طويلة</kbd></td><td data-i18n="gesture_long_listen">على زر «استماع»: تكرار السورة المفتوحة بلا نهاية (ضغطة طويلة أخرى تلغيه)</td></tr>
             <tr><td><kbd>?</kbd></td><td data-i18n="shortcut_help">فتح/إغلاق قائمة الاختصارات</td></tr>
             <tr><td><kbd>R</kbd> / <kbd>ق</kbd></td><td data-i18n="shortcut_repeat">تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)</td></tr>
+            <tr><td><kbd>Y</kbd> / <kbd>غ</kbd></td><td data-i18n="shortcut_sync_calib">معايرة مزامنة تمييز الآيات: اضغط أثناء الاستماع ثم اضغط على الآية التي تسمعها (داخل السورة)</td></tr>
             <tr><td><kbd>B</kbd></td><td data-i18n="shortcut_bookmark">إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)</td></tr>
             <tr><td><kbd>S</kbd></td><td data-i18n="shortcut_cards_mode">وضع العرض: آيات منفصلة (بطاقات)</td></tr>
             <tr><td><kbd>C</kbd></td><td data-i18n="shortcut_continuous_mode">وضع العرض: آيات متتالية (كالمصحف)</td></tr>
