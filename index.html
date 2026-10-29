@@ -8268,6 +8268,27 @@ function updateMediaPositionState(force){
   } catch(e){ /* قيم غير صالحة مؤقتًا */ }
 }
 // السابق/التالي من شاشة القفل: حسب وضع التشغيل الحالي
+// التنقل بين الآيات أثناء الاستماع المتواصل لقارئ ملفه واحد للسورة (نوع timed مثل الشيخ هيثم الدخين):
+// نقفز داخل الملف نفسه إلى بداية الآية السابقة/التالية بحسب خط التوقيت (مع معامل المزامنة).
+// يعيد: 'stepped' تمّ التنقل، 'edge' لا توجد آية قبل الأولى/بعد الأخيرة، 'none' غير مدعوم الآن
+function stepTimedListenAyah(dir){
+  if(!listenState.active || listenState.sequenceMode || !ayahAudioPlayer) return 'none';
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  if(reciter.type !== 'timed' || !listenTimingData || !listenTimingData.length) return 'none';
+  const nowMs = ayahAudioPlayer.currentTime * 1000 * ayahSyncSpeed;
+  let idx = 0;
+  for(let i = 0; i < listenTimingData.length; i++){
+    if(listenTimingData[i].start_time <= nowMs) idx = i; else break;
+  }
+  const target = idx + dir;
+  if(target < 0 || target >= listenTimingData.length) return 'edge';
+  try{
+    ayahAudioPlayer.currentTime = listenTimingData[target].start_time / ayahSyncSpeed / 1000;
+  } catch(e){ return 'none'; }
+  if(typeof listenTimeUpdateHandler === 'function') listenTimeUpdateHandler(); // حدّث التمييز فورًا دون انتظار timeupdate
+  updateMediaPositionState(true);
+  return 'stepped';
+}
 function mediaSessionStep(dir){
   if(repeatState.active) return; // وضع التكرار للحفظ له إيقاعه الخاص
   if(listenState.active){
@@ -8275,6 +8296,8 @@ function mediaSessionStep(dir){
       listenState.paused = false;
       listenState.verseIndex = Math.max(0, listenState.verseIndex + dir);
       playListenAyahStep();
+    } else if(stepTimedListenAyah(dir) === 'stepped'){
+      /* انتقلنا للآية المجاورة داخل ملف السورة */
     } else if(dir > 0){
       advanceListenToNextSurah();
     } else {
@@ -13333,7 +13356,14 @@ function getReferenceAyah(){
 function stepAyahShortcut(dir){
   if(repeatState.active){ showShortcutToast(offT('الانتقال بين الآيات غير متاح أثناء التكرار', 'Ayah stepping is unavailable while repeating')); return; }
   if(listenState.active && !listenState.sequenceMode){
-    showShortcutToast(offT('الانتقال بين الآيات يعمل مع القرّاء الذين تُشغَّل تلاوتهم آية بآية', 'Ayah stepping works with reciters whose recitation plays ayah by ayah'));
+    const res = stepTimedListenAyah(dir);
+    if(res === 'stepped'){
+      showShortcutToast(dir > 0 ? offT('⏭ الآية التالية', '⏭ Next ayah') : offT('⏮ الآية السابقة', '⏮ Previous ayah'));
+    } else if(res === 'edge'){
+      showShortcutToast(dir > 0 ? offT('هذه آخر آية في السورة', 'This is the last ayah of the surah') : offT('هذه أول آية في السورة', 'This is the first ayah of the surah'));
+    } else {
+      showShortcutToast(offT('الانتقال بين الآيات غير متاح الآن مع هذا القارئ', 'Ayah stepping is not available right now with this reciter'));
+    }
     return;
   }
   if(!listenState.active && !mediaSessionMeta.ayahId){
