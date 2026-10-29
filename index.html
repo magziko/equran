@@ -1717,6 +1717,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .sync-speed-reset{ background:none; border:1px solid var(--border); color:var(--text-muted); border-radius:8px; padding:4px 10px; font-size:12px; font-family:inherit; cursor:pointer; }
   .sync-speed-reset:disabled, .sync-speed-row input:disabled{ opacity:.45; cursor:not-allowed; }
   .sync-speed-for{ margin-top:6px; font-size:12px; color:var(--accent-soft); }
+  html[data-sync-calib="on"] #read-view .ayah-card{ outline:1px dashed var(--accent); outline-offset:2px; cursor:crosshair; }
   @media (hover:none){
     .ayah-num-badge__num{ opacity:1; }
     .ayah-num-badge__play{ opacity:0; }
@@ -7929,6 +7930,8 @@ function updateSyncSpeedUI(){
   range.disabled = !applicable;
   const resetBtn = document.getElementById('sync-speed-reset');
   if(resetBtn) resetBtn.disabled = !applicable;
+  const calibBtn = document.getElementById('sync-calib-btn');
+  if(calibBtn) calibBtn.disabled = !applicable;
   range.value = String(ayahSyncSpeed);
   const val = document.getElementById('sync-speed-val');
   if(val) val.textContent = ayahSyncSpeed.toFixed(2) + '×';
@@ -7937,6 +7940,97 @@ function updateSyncSpeedUI(){
     ? offT('للقارئ الحالي: ', 'Current reciter: ') + reciter.name
     : offT('لا ينطبق على هذا القارئ (التمييز تلقائي أو غير متاح)', 'Not applicable to this reciter (sync is automatic or unavailable)');
 }
+
+/* ---------- معايرة المزامنة بالاستماع: اضغط على الآية التي تسمعها فعلًا فيُضبط معامل السرعة تلقائيًا ---------- */
+let syncCalibActive = false, syncCalibTimer = null;
+
+function cancelSyncCalibration(){
+  syncCalibActive = false;
+  clearTimeout(syncCalibTimer);
+  syncCalibTimer = null;
+  document.documentElement.removeAttribute('data-sync-calib');
+}
+function isCalibratableListen(){
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  return reciter.type === 'timed' && listenState.active && !listenState.sequenceMode
+    && !!ayahAudioPlayer && !ayahAudioPlayer.paused;
+}
+function startSyncCalibration(){
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  if(reciter.type !== 'timed'){
+    showShortcutToast(offT('المعايرة لا تنطبق على هذا القارئ', 'Calibration does not apply to this reciter'), 3500);
+    return;
+  }
+  if(!isCalibratableListen()){
+    showShortcutToast(offT('شغّل «استماع» أولًا، وبعد نحو 30 ثانية افتح المعايرة ثم اضغط على الآية التي تسمعها',
+      'Start “Listen” first; after about 30 seconds open calibration, then tap the ayah you are hearing'), 6500);
+    return;
+  }
+  closeSettingsModal();
+  syncCalibActive = true;
+  document.documentElement.setAttribute('data-sync-calib', 'on');
+  showShortcutToast(offT('👆 اضغط الآن على الآية التي تسمعها فعلًا', 'Tap the ayah you are actually hearing right now'), 8000);
+  clearTimeout(syncCalibTimer);
+  syncCalibTimer = setTimeout(() => {
+    if(syncCalibActive){
+      cancelSyncCalibration();
+      showShortcutToast(offT('انتهت مهلة المعايرة', 'Calibration timed out'), 2500);
+    }
+  }, 25000);
+}
+function applySyncCalibration(surahId, ayahId){
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  if(!isCalibratableListen() || surahId !== currentSurahId){
+    cancelSyncCalibration();
+    showShortcutToast(offT('توقّف الاستماع، أعد المحاولة أثناء التشغيل', 'Listening stopped; try again while playing'), 3500);
+    return;
+  }
+  const audioMs = ayahAudioPlayer.currentTime * 1000;
+  if(audioMs < 15000){
+    cancelSyncCalibration();
+    showShortcutToast(offT('انتظر حتى تمضي نحو 30 ثانية من التلاوة ثم أعد المحاولة (الدقة أفضل في آيات متأخرة)',
+      'Wait until about 30 seconds of recitation have played, then try again (more accurate on later ayahs)'), 5000);
+    return;
+  }
+  const list = ayahTimingCache[`${reciter.readId}_${surahId}`] || [];
+  const item = list.find(x => x.ayah === ayahId);
+  if(!item){
+    cancelSyncCalibration();
+    showShortcutToast(offT('تعذّر قراءة توقيت هذه الآية', 'Could not read this ayah’s timing'), 3500);
+    return;
+  }
+  const target = (item.start_time + (item.end_time || (item.start_time + 8000))) / 2; // منتصف الآية بحسب الخط الزمني
+  const raw = target / audioMs;
+  const clamped = raw < SYNC_SPEED_MIN || raw > SYNC_SPEED_MAX;
+  cancelSyncCalibration();
+  setAyahSyncSpeed(raw);
+  const msg = offT('✅ تمت المعايرة: ', '✅ Calibrated: ') + ayahSyncSpeed.toFixed(2) + '×'
+    + (clamped ? offT(' (وصلت للحد الأقصى المسموح؛ قد لا يكفي لهذا القارئ)', ' (hit the allowed limit; may not be enough for this reciter)') : '');
+  showShortcutToast(msg, 4500);
+}
+function syncCalibHitFromEvent(e){
+  const card = e.target && e.target.closest ? e.target.closest('.ayah-card[data-surah][data-ayah]') : null;
+  if(!card) return null;
+  const surahId = parseInt(card.getAttribute('data-surah'), 10), ayahId = parseInt(card.getAttribute('data-ayah'), 10);
+  if(card.id !== getAyahCardId(surahId, ayahId)) return null; // بطاقات المفضلة/الملاحظات ليست من السورة المفتوحة
+  return { surahId, ayahId };
+}
+document.addEventListener('click', function(e){
+  if(!syncCalibActive) return;
+  const hit = syncCalibHitFromEvent(e);
+  if(!hit) return;
+  e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+  applySyncCalibration(hit.surahId, hit.ayahId);
+}, true);
+document.addEventListener('keydown', function(e){
+  if(!syncCalibActive) return;
+  if(e.key === 'Escape'){ cancelSyncCalibration(); return; }
+  if(e.key !== 'Enter' && e.key !== ' ') return;
+  const hit = syncCalibHitFromEvent(e);
+  if(!hit) return;
+  e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+  applySyncCalibration(hit.surahId, hit.ayahId);
+}, true);
 
 function isAyahAutoScrollEnabled(){
   try{ return localStorage.getItem('ayahAutoScroll') !== '0'; }catch(e){ return true; }
@@ -12252,6 +12346,8 @@ const I18N_STRINGS = {
     wbw_highlight_label: 'تظليل الكلمة أثناء التلاوة (تقديري)',
     sync_speed_label: 'سرعة تنقل الآيات مع التلاوة',
     sync_speed_reset: 'إعادة ضبط',
+    sync_calib_btn: '🎯 معايرة تلقائية بالاستماع',
+    sync_calib_note: 'اضغط «استماع»، وبعد نحو 30 ثانية افتح المعايرة ثم اضغط على الآية التي تسمعها فعلًا، وسيحسب التطبيق السرعة المناسبة لهذا القارئ.',
     sync_speed_note: 'لو كان تمييز الآية يتأخر عن صوت القارئ ارفع القيمة، ولو كان يسبقه خفّضها. يُحفظ الضبط لكل قارئ على حدة.',
     ayah_autoscroll_label: 'تمرير الشاشة تلقائيًا إلى الآية التي تُتلى',
     ayah_hl_label: 'تلوين الآية التي تُتلى',
@@ -12652,6 +12748,8 @@ const I18N_STRINGS = {
     wbw_highlight_label: 'Highlight the word being recited (estimated)',
     sync_speed_label: 'Ayah-following speed during recitation',
     sync_speed_reset: 'Reset',
+    sync_calib_btn: '🎯 Auto-calibrate by listening',
+    sync_calib_note: 'Press “Listen”, and after about 30 seconds open calibration and tap the ayah you are actually hearing; the app will work out the right speed for this reciter.',
     sync_speed_note: 'If the highlighted ayah lags behind the reciter, raise the value; if it runs ahead, lower it. Saved separately for each reciter.',
     ayah_autoscroll_label: 'Auto-scroll to the ayah being recited',
     ayah_hl_label: 'Color the ayah being recited',
@@ -13774,6 +13872,10 @@ if('serviceWorker' in navigator){
           </div>
           <div class="sync-speed-for" id="sync-speed-for"></div>
           <div class="share-photo-note" data-i18n="sync_speed_note">لو كان تمييز الآية يتأخر عن صوت القارئ ارفع القيمة، ولو كان يسبقه خفّضها. يُحفظ الضبط لكل قارئ على حدة.</div>
+          <div class="sync-speed-row">
+            <button type="button" class="sync-speed-reset" id="sync-calib-btn" onclick="startSyncCalibration()" data-i18n="sync_calib_btn">🎯 معايرة تلقائية بالاستماع</button>
+          </div>
+          <div class="share-photo-note" data-i18n="sync_calib_note">اضغط «استماع»، وبعد نحو 30 ثانية افتح المعايرة ثم اضغط على الآية التي تسمعها فعلًا، وسيحسب التطبيق السرعة المناسبة لهذا القارئ.</div>
         </div>
         <div data-tab="audio" class="control-group">
           <label class="test-mode-toggle-row">
