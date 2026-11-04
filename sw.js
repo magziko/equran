@@ -27,6 +27,20 @@ const PHOTO_CACHE = 'quran-share-photos-v1';
 // الصفحة هي التي تملؤه (زر "تحميل التلاوة" في الإعدادات)، والـ SW يقرأ منه فقط.
 const AUDIO_CACHE = 'quran-audio-offline-v1';
 
+// كاش المصحف للأوفلاين: صفحات تقسيم مصحف المدينة (604 صفحة JSON) + خطوط عثمان طه + خطوط Google.
+// ⚠️ اسمه عمدًا لا يبدأ بـ CACHE_PREFIX فلا يُحذف عند تغيير رقم الإصدار أعلاه.
+// يُملأ مرة واحدة بالكامل عند وصول رسالة PRECACHE_MUSHAF (من التطبيق أو من موقع الراديو)،
+// ويُقرأ منه أولًا لأى طلب لهذه الملفات، فتعمل كل صفحات المصحف بدون إنترنت.
+const MUSHAF_CACHE = 'quran-mushaf-offline-v1';
+const MUSHAF_PAGE_COUNT = 604;
+const MUSHAF_PAGE_BASE = 'https://raw.githubusercontent.com/zonetecde/mushaf-layout/refs/heads/main/mushaf/';
+const MUSHAF_FONT_URLS = [
+  'https://raw.githubusercontent.com/mustafa0x/qpc-fonts/f93bf5f3/various-woff2/UthmanTN1%20Ver10.woff2',
+  'https://raw.githubusercontent.com/mustafa0x/qpc-fonts/f93bf5f3/various-woff2/UthmanTN1B%20Ver10.woff2'
+];
+// نفس رابط خطوط Google فى index.html بالظبط (Amiri Quran + Cairo)
+const GOOGLE_FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Amiri+Quran&family=Cairo:wght@400;500;600;700;800&display=swap';
+
 // فهرس بعناوين الملفات المحمّلة، نحتفظ به في الذاكرة لنعرف بشكل فوري (بدون انتظار)
 // هل نتدخل في الطلب أم نتركه للمتصفح. يُبنى من الكاش عند تشغيل الـ SW ويُحدَّث بطلب من الصفحة.
 let audioIndex = null;
@@ -51,7 +65,68 @@ self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'AUDIO_INDEX_REFRESH') {
     event.waitUntil(loadAudioIndex(true));
   }
+  // تحميل كل صفحات المصحف والخطوط للأوفلاين (آمن للتكرار: يحمّل الناقص فقط)
+  if (event.data && event.data.type === 'PRECACHE_MUSHAF') {
+    event.waitUntil(precacheMushaf());
+  }
 });
+
+let mushafJob = null;
+async function precacheMushaf() {
+  if (mushafJob) return mushafJob;
+  mushafJob = (async () => {
+    const cache = await caches.open(MUSHAF_CACHE);
+    const urls = [];
+    for (let n = 1; n <= MUSHAF_PAGE_COUNT; n++) {
+      urls.push(MUSHAF_PAGE_BASE + 'page-' + String(n).padStart(3, '0') + '.json');
+    }
+    MUSHAF_FONT_URLS.forEach((u) => urls.push(u));
+
+    const have = new Set((await cache.keys()).map((r) => r.url));
+    const todo = urls.filter((u) => !have.has(u));
+    const total = urls.length;
+    let done = total - todo.length, failed = 0;
+    await notifyClients({ type: 'MUSHAF_PRECACHE_PROGRESS', done, total });
+
+    let i = 0;
+    async function worker() {
+      while (i < todo.length) {
+        const url = todo[i++];
+        try {
+          const res = await fetch(url, { mode: 'cors' });
+          if (res && res.ok) await cache.put(url, res);
+          else failed++;
+        } catch (e) { failed++; }
+        done++;
+        if (done % 25 === 0) await notifyClients({ type: 'MUSHAF_PRECACHE_PROGRESS', done, total });
+      }
+    }
+    await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+
+    // خطوط Google (Amiri Quran + Cairo): نخزّن ملف الـ CSS وملفات الخطوط التى يشير إليها
+    try {
+      if (!(await cache.match(GOOGLE_FONTS_CSS, { ignoreVary: true }))) {
+        const cssRes = await fetch(GOOGLE_FONTS_CSS, { mode: 'cors' });
+        if (cssRes && cssRes.ok) {
+          const css = await cssRes.clone().text();
+          const files = Array.from(new Set(css.match(/https:\/\/fonts\.gstatic\.com\/[^)'"\s]+/g) || []));
+          await Promise.all(files.map(async (f) => {
+            try {
+              if (await cache.match(f)) return;
+              const r = await fetch(f, { mode: 'cors' });
+              if (r && r.ok) await cache.put(f, r);
+              else failed++;
+            } catch (e) { failed++; }
+          }));
+          await cache.put(GOOGLE_FONTS_CSS, cssRes);
+        } else { failed++; }
+      }
+    } catch (e) { failed++; }
+
+    await notifyClients({ type: 'MUSHAF_PRECACHE_DONE', done, total, failed });
+  })().finally(() => { mushafJob = null; });
+  return mushafJob;
+}
 
 // الأساسي: لازم يتخزن، ولو فشل تخزينه يفشل الـ install كله
 // فتفضل النسخة القديمة الشغالة ولا تتحذف.
@@ -195,6 +270,37 @@ function isPhotoRequest(url) {
   return false;
 }
 
+// هل الطلب لملفات المصحف (صفحات تقسيم الأسطر أو خطوط عثمان طه أو خطوط Google)؟
+function isMushafAssetRequest(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname === 'raw.githubusercontent.com') {
+      return u.pathname.startsWith('/zonetecde/mushaf-layout/') ||
+             u.pathname.startsWith('/mustafa0x/qpc-fonts/');
+    }
+    return u.hostname === 'fonts.googleapis.com' || u.hostname === 'fonts.gstatic.com';
+  } catch (e) { /* تجاهل */ }
+  return false;
+}
+
+// كاش المصحف أولًا، ثم النسخة القديمة المخزّنة تلقائيًا فى الكاش الرئيسى (للمستخدمين الحاليين)، ثم الشبكة مع التخزين
+async function handleMushafAsset(event, req) {
+  const cache = await caches.open(MUSHAF_CACHE);
+  const hit = await cache.match(req, { ignoreVary: true });
+  if (hit) return hit;
+  const old = await (await caches.open(CACHE_NAME)).match(req, { ignoreVary: true });
+  if (old) return old;
+  try {
+    const res = await fetch(req);
+    if (res && res.status === 200 && (res.type === 'cors' || res.type === 'basic')) {
+      event.waitUntil(cache.put(req, res.clone()).catch(() => {}));
+    }
+    return res;
+  } catch (err) {
+    return new Response('', { status: 408, statusText: 'Offline' });
+  }
+}
+
 // ── الجلب: الكاش أولًا (يشتغل فورًا أوفلاين) + تحديث في الخلفية ──
 self.addEventListener('fetch', (event) => {
   const req = event.request;
@@ -223,6 +329,12 @@ self.addEventListener('fetch', (event) => {
   // صور خلفيات المشاركة: نفس الأسلوب (من الكاش أولًا بدون إعادة تحميل)
   if (isPhotoRequest(req.url)) {
     event.respondWith(handleCacheFirst(event, req, PHOTO_CACHE));
+    return;
+  }
+
+  // المصحف (صفحات + خطوط): من كاش الأوفلاين أولًا
+  if (isMushafAssetRequest(req.url)) {
+    event.respondWith(handleMushafAsset(event, req));
     return;
   }
 
