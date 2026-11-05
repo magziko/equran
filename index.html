@@ -1398,7 +1398,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .offline-dl-info.small{ font-size:11.5px; opacity:.85; }
   .offline-dl-info.ok{ color:#3fb27f; }
   .offline-dl-info.err{ color:#e0707a; }
-  #offline-dl-progress{ width:100%; height:8px; accent-color:var(--accent); }
+  #offline-dl-progress, #mushaf-dl-progress{ width:100%; height:8px; accent-color:var(--accent); }
   /* تنبيه "يوجد تحديث" */
   .update-toast{
     position:fixed; left:50%; bottom:22px; transform:translate(-50%, 24px); z-index:100000;
@@ -6797,8 +6797,124 @@ function attachModalFocusTrap(){
   });
 }
 
+/* ---------- تحميل المصحف كاملًا للأوفلاين (604 صفحة + الخطوط) ----------
+   التحميل نفسه يتم داخل sw.js (رسالة PRECACHE_MUSHAF) فى كاش مستقل لا يُحذف مع تحديثات التطبيق؛
+   هنا واجهة الزر وشريط التقدم وحالة التحميل فقط. نفس الرسالة يرسلها موقع الراديو تلقائيًا. */
+const MUSHAF_OFFLINE_CACHE = 'quran-mushaf-offline-v1';
+let mushafDlRunning = false, mushafDlStartTimer = null;
+function mushafDlEl(id){ return document.getElementById(id); }
+function mushafDlSupported(){ return !!(window.caches && 'serviceWorker' in navigator); }
+async function mushafCachedPageCount(){
+  try{
+    const c = await caches.open(MUSHAF_OFFLINE_CACHE);
+    return (await c.keys()).filter(r => r.url.indexOf('/zonetecde/mushaf-layout/') !== -1).length;
+  } catch(e){ return 0; }
+}
+function mushafDlSetStatus(text, cls){
+  const el = mushafDlEl('mushaf-dl-status');
+  if(!el) return;
+  el.textContent = text || '';
+  el.classList.remove('ok', 'err');
+  if(cls) el.classList.add(cls);
+}
+async function refreshMushafOfflineStatus(){
+  const startBtn = mushafDlEl('mushaf-dl-start');
+  if(!startBtn) return;
+  const title = mushafDlEl('mushaf-dl-title'), note = mushafDlEl('mushaf-dl-note'), clearBtn = mushafDlEl('mushaf-dl-clear');
+  if(title) title.textContent = offT('تحميل المصحف للأوفلاين', 'Download the Mushaf for offline reading');
+  if(note) note.textContent = offT(
+    'يحمّل كل صفحات المصحف (604 صفحة بتقسيم مصحف المدينة) والخطوط لتقرأ بدون إنترنت. حجم التحميل نحو 3 م.ب، ويشغل نحو 14 م.ب على جهازك.',
+    'Downloads all 604 Madinah-layout pages and the fonts so you can read without internet. About 3 MB to download, ~14 MB of storage.');
+  startBtn.textContent = offT('تحميل', 'Download');
+  if(clearBtn) clearBtn.textContent = offT('حذف المصحف المحمّل', 'Remove downloaded Mushaf');
+  if(!mushafDlSupported()){
+    startBtn.disabled = true;
+    mushafDlSetStatus(offT('المتصفح لا يدعم التخزين للأوفلاين.', 'This browser does not support offline storage.'), 'err');
+    return;
+  }
+  if(mushafDlRunning) return;
+  const n = await mushafCachedPageCount();
+  const full = n >= MUSHAF_PAGE_COUNT;
+  startBtn.disabled = false;
+  startBtn.style.display = full ? 'none' : '';
+  if(clearBtn) clearBtn.style.display = n > 0 ? '' : 'none';
+  if(full) mushafDlSetStatus(offT('✓ المصحف كامل (' + n + ' صفحة) متاح للقراءة بدون إنترنت.', '✓ The full Mushaf (' + n + ' pages) is available offline.'), 'ok');
+  else if(n > 0) mushafDlSetStatus(offT('محمّل ' + n + ' من ' + MUSHAF_PAGE_COUNT + ' صفحة — اضغط تحميل لإكمال الباقي.', n + ' of ' + MUSHAF_PAGE_COUNT + ' pages downloaded — tap Download to finish the rest.'));
+  else mushafDlSetStatus(offT('لم يُحمَّل بعد.', 'Not downloaded yet.'));
+}
+async function startMushafOfflineDownload(){
+  if(mushafDlRunning) return;
+  const startBtn = mushafDlEl('mushaf-dl-start'), bar = mushafDlEl('mushaf-dl-progress');
+  if(navigator.onLine === false){
+    mushafDlSetStatus(offT('لا يوجد اتصال بالإنترنت. اتصل ثم حاول مرة أخرى.', 'You are offline. Connect and try again.'), 'err');
+    return;
+  }
+  mushafDlRunning = true;
+  if(startBtn) startBtn.disabled = true;
+  if(bar){ bar.max = 1; bar.value = 0; bar.style.display = ''; }
+  mushafDlSetStatus(offT('جارٍ بدء التحميل...', 'Starting the download...'));
+  try{
+    // ننتظر الـ service worker (حد أقصى 6 ثوانٍ) ثم نرسل له الأمر
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise((_, rej) => setTimeout(() => rej(new Error('sw-timeout')), 6000))
+    ]);
+    if(!reg.active) throw new Error('no-active-sw');
+    // لو ما وصلش أى تقدّم خلال 10 ثوانٍ فغالبًا الـ service worker قديم: نطلب تحديث الصفحة
+    clearTimeout(mushafDlStartTimer);
+    mushafDlStartTimer = setTimeout(() => {
+      if(!mushafDlRunning) return;
+      mushafDlRunning = false;
+      if(bar) bar.style.display = 'none';
+      if(startBtn) startBtn.disabled = false;
+      mushafDlSetStatus(offT('تعذّر بدء التحميل. أعد تحميل الصفحة ثم حاول مرة أخرى.', 'Could not start the download. Reload the page and try again.'), 'err');
+    }, 10000);
+    reg.active.postMessage({ type: 'PRECACHE_MUSHAF' });
+  } catch(e){
+    mushafDlRunning = false;
+    if(bar) bar.style.display = 'none';
+    if(startBtn) startBtn.disabled = false;
+    mushafDlSetStatus(offT('تعذّر بدء التحميل. أعد تحميل الصفحة ثم حاول مرة أخرى.', 'Could not start the download. Reload the page and try again.'), 'err');
+  }
+}
+async function clearMushafOffline(){
+  if(mushafDlRunning) return;
+  if(!confirm(offT('حذف المصحف المحمّل من جهازك؟ ستحتاج إنترنت لقراءة الصفحات التي لم تفتحها.', 'Remove the downloaded Mushaf? You will need internet for pages you have not opened.'))) return;
+  try{ await caches.delete(MUSHAF_OFFLINE_CACHE); } catch(e){}
+  refreshMushafOfflineStatus();
+}
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.addEventListener('message', function(ev){
+    const d = ev && ev.data;
+    if(!d || (d.type !== 'MUSHAF_PRECACHE_PROGRESS' && d.type !== 'MUSHAF_PRECACHE_DONE')) return;
+    clearTimeout(mushafDlStartTimer);
+    const bar = mushafDlEl('mushaf-dl-progress'), startBtn = mushafDlEl('mushaf-dl-start');
+    if(d.type === 'MUSHAF_PRECACHE_PROGRESS'){
+      mushafDlRunning = true;           // قد يبدأ التحميل من موقع الراديو: نعرض تقدّمه هنا أيضًا
+      if(bar){ bar.style.display = ''; bar.max = d.total || 1; bar.value = d.done || 0; }
+      if(startBtn) startBtn.disabled = true;
+      mushafDlSetStatus(offT('جارٍ التحميل: ' + d.done + ' من ' + d.total, 'Downloading: ' + d.done + ' of ' + d.total));
+      return;
+    }
+    mushafDlRunning = false;
+    if(bar) bar.style.display = 'none';
+    if(startBtn) startBtn.disabled = false;
+    if(d.failed === 0){
+      // نفس علامة موقع الراديو، فلا يكرر التحميل التلقائى
+      try{ localStorage.setItem('eqEmbed:warmed:v1', String(Date.now())); }catch(e){}
+      if(typeof showShortcutToast === 'function') showShortcutToast(offT('✓ تم تحميل المصحف للأوفلاين', '✓ Mushaf downloaded for offline reading'));
+      refreshMushafOfflineStatus();
+    } else {
+      refreshMushafOfflineStatus().then(function(){
+        mushafDlSetStatus(offT('اكتمل التحميل مع ' + d.failed + ' ملف ناقص. تأكد من الاتصال واضغط تحميل مرة أخرى.', 'Finished with ' + d.failed + ' missing file(s). Check your connection and tap Download again.'), 'err');
+      });
+    }
+  });
+}
+
 function openSettingsModal(){
   try{ fillAudioOfflineSelect(); refreshAudioOfflineStatus(); } catch(e){}
+  try{ refreshMushafOfflineStatus(); } catch(e){}
   try{ updateInstallUI(); } catch(e){}
   try{ renderReadingBgPanel(); } catch(e){}
   const hasActiveReading = currentMode === 'surah' && !!currentSurahId && currentVerseList.length > 0;
@@ -13789,6 +13905,16 @@ if('serviceWorker' in navigator){
             <option value="madinah" data-i18n="font_madinah">خط مصحف المدينة (عثمان طه)</option>
             <option value="uthman-naskh" data-i18n="font_uthman_naskh">النسخي العثماني (عثمان طه)</option>
           </select>
+        </div>
+        <div data-tab="reading" class="control-group offline-dl-group" id="mushaf-offline-group">
+          <span class="label" id="mushaf-dl-title">تحميل المصحف للأوفلاين</span>
+          <div class="offline-dl-info small" id="mushaf-dl-note"></div>
+          <div class="offline-dl-row">
+            <button type="button" id="mushaf-dl-start" class="offline-dl-btn primary" onclick="startMushafOfflineDownload()">تحميل</button>
+            <button type="button" id="mushaf-dl-clear" class="offline-dl-btn danger" style="display:none;" onclick="clearMushafOffline()">حذف</button>
+          </div>
+          <progress id="mushaf-dl-progress" value="0" max="1" style="display:none;"></progress>
+          <div class="offline-dl-info" id="mushaf-dl-status" role="status" aria-live="polite"></div>
         </div>
         <div data-tab="audio" class="control-group">
           <span class="label" data-i18n="reciter_label">القارئ</span>
