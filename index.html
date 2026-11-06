@@ -4741,6 +4741,7 @@ function renderShareTafsirSources(){
     input.type = 'checkbox';
     input.setAttribute('data-slug', slug);
     input.checked = excluded.indexOf(slug) === -1;
+    input.addEventListener('change', persistShareTafsirChoices); // نحفظ كل تغيير فورًا حتى لا يضيع عند إعادة رسم القائمة
     const span = document.createElement('span');
     span.textContent = isEn ? (info.nameEn || info.name) : info.name;
     label.appendChild(input);
@@ -4748,6 +4749,18 @@ function renderShareTafsirSources(){
     box.appendChild(label);
   });
   box.style.display = '';
+}
+// يحفظ المصادر المستبعدة فورًا (بدون إطفاء الخيار الرئيسي لو الكل اتشال — ده يتعامل معه زر الإنشاء)
+function persistShareTafsirChoices(){
+  const box = document.getElementById('share-tafsir-sources');
+  if(!box) return;
+  const inputs = Array.prototype.slice.call(box.querySelectorAll('input[data-slug]'));
+  if(!inputs.length) return;
+  const shown = inputs.map(i => i.getAttribute('data-slug'));
+  const checked = inputs.filter(i => i.checked).map(i => i.getAttribute('data-slug'));
+  if(!checked.length) return;
+  const keepOthers = getShareImageTafsirExcluded().filter(s => shown.indexOf(s) === -1);
+  setShareImageTafsirExcluded(keepOthers.concat(shown.filter(s => checked.indexOf(s) === -1)));
 }
 function saveShareTafsirSelection(){
   const main = document.getElementById('share-range-tafsir');
