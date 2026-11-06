@@ -10346,9 +10346,118 @@ function renderAyahSearchResults(query, dropdownId, includeApprox){
   dropdown.style.display = 'block';
 }
 
+// ===== الاحتفاظ بنص البحث بعد الانتقال لآية، مع زر للرجوع لنتائج البحث =====
+function keepAyahSearchAfterJump(){
+  const q = lastAyahSearch && lastAyahSearch.query;
+  document.querySelectorAll('.ayah-search-dropdown').forEach(d => { d.style.display = 'none'; });
+  if(!q) return;
+  saveSearchHistory(q);
+  document.querySelectorAll('.ayah-search-box input').forEach(i => { i.value = q; });
+  showBackToSearchBtn();
+}
+function showBackToSearchBtn(){
+  let b = document.getElementById('back-to-search-btn');
+  if(!b){
+    b = document.createElement('button');
+    b.id = 'back-to-search-btn';
+    b.type = 'button';
+    b.style.cssText = 'position:fixed;bottom:90px;inset-inline-start:16px;z-index:900;padding:10px 14px;border-radius:999px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;font-size:14px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.25);';
+    b.onclick = backToAyahSearchResults;
+    document.body.appendChild(b);
+  }
+  b.textContent = '↩ ' + offT('نتائج البحث', 'Search results');
+  b.style.display = 'block';
+}
+function hideBackToSearchBtn(){
+  const b = document.getElementById('back-to-search-btn');
+  if(b) b.style.display = 'none';
+}
+function backToAyahSearchResults(){
+  if(!lastAyahSearch) return;
+  const rv = document.getElementById('read-view');
+  const inRead = rv && rv.style.display !== 'none';
+  const inputId = inRead ? 'ayah-search-input-read' : 'ayah-search-input';
+  const ddId = inRead ? 'ayah-search-dropdown-read' : 'ayah-search-dropdown';
+  const input = document.getElementById(inputId);
+  if(!input) return;
+  input.value = lastAyahSearch.query;
+  const sec = input.closest('.ayah-search-section') || input;
+  sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  renderAyahSearchResults(lastAyahSearch.query, ddId);
+  try{ input.focus({ preventScroll: true }); }catch(e){}
+}
+// عند الضغط على خانة البحث وفيها نص محفوظ: أعد عرض النتائج بدل ما تضطر تعيد البحث
+document.addEventListener('focusin', function(e){
+  const el = e.target;
+  if(!el || !el.matches || !el.matches('.ayah-search-box input')) return;
+  const q = el.value.trim();
+  const dd = el.closest('.ayah-search-box').querySelector('.ayah-search-dropdown');
+  if(!dd) return;
+  if(!q){ renderSearchHistory(el.id, dd.id); return; }
+  if(!lastAyahSearch || q !== lastAyahSearch.query) return;
+  if(dd.style.display === 'none') renderAyahSearchResults(q, dd.id);
+});
+
+// ===== سجل عمليات البحث (آخر 15 بحث، محفوظ على الجهاز) =====
+const AYAH_SEARCH_HISTORY_KEY = 'ayahSearchHistory';
+const AYAH_SEARCH_HISTORY_MAX = 15;
+function getSearchHistory(){
+  try{
+    const a = JSON.parse(localStorage.getItem(AYAH_SEARCH_HISTORY_KEY) || '[]');
+    return Array.isArray(a) ? a.filter(x => typeof x === 'string' && x.trim()) : [];
+  }catch(e){ return []; }
+}
+function setSearchHistory(arr){
+  try{ localStorage.setItem(AYAH_SEARCH_HISTORY_KEY, JSON.stringify(arr.slice(0, AYAH_SEARCH_HISTORY_MAX))); }catch(e){}
+}
+function saveSearchHistory(q){
+  q = (q || '').trim();
+  if(!q || /^[\d\s:\-\/.،,]+$/.test(toLatinDigits(q))) return; // لا نحفظ أرقام الانتقال
+  const arr = getSearchHistory().filter(x => x !== q);
+  arr.unshift(q);
+  setSearchHistory(arr);
+}
+function escHtmlHist(str){
+  return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function renderSearchHistory(inputId, dropdownId){
+  const dd = document.getElementById(dropdownId);
+  if(!dd) return;
+  const arr = getSearchHistory();
+  if(!arr.length){ return; }
+  dd.innerHTML = '<div class="ayah-search-more" style="display:flex;justify-content:space-between;align-items:center;">'
+    + '<span>' + offT('عمليات البحث السابقة', 'Recent searches') + '</span>'
+    + '<span role="button" tabindex="0" style="cursor:pointer;color:var(--accent);" onmousedown="event.preventDefault()" onclick="event.stopPropagation(); clearSearchHistory(\'' + inputId + '\',\'' + dropdownId + '\')">' + offT('مسح الكل', 'Clear all') + '</span></div>'
+    + arr.map((q, i) => '<div class="ayah-search-result" style="display:flex;justify-content:space-between;align-items:center;gap:8px;" onmousedown="event.preventDefault()" onclick="useSearchHistory(' + i + ',\'' + inputId + '\',\'' + dropdownId + '\')">'
+      + '<div class="ayah-search-snippet" style="flex:1;">🕘 ' + escHtmlHist(q) + '</div>'
+      + '<span role="button" aria-label="delete" style="padding:4px 8px;cursor:pointer;opacity:.7;" onclick="event.stopPropagation(); deleteSearchHistoryItem(' + i + ',\'' + inputId + '\',\'' + dropdownId + '\')">✕</span></div>').join('');
+  dd.style.display = 'block';
+}
+function useSearchHistory(i, inputId, dropdownId){
+  const q = getSearchHistory()[i];
+  const input = document.getElementById(inputId);
+  if(!q || !input) return;
+  input.value = q;
+  renderAyahSearchResults(q, dropdownId);
+  try{ input.focus({ preventScroll: true }); }catch(e){}
+}
+function deleteSearchHistoryItem(i, inputId, dropdownId){
+  const arr = getSearchHistory(); arr.splice(i, 1); setSearchHistory(arr);
+  if(arr.length) renderSearchHistory(inputId, dropdownId);
+  else { const dd = document.getElementById(dropdownId); if(dd){ dd.style.display = 'none'; dd.innerHTML = ''; } }
+}
+function clearSearchHistory(inputId, dropdownId){
+  setSearchHistory([]);
+  const dd = document.getElementById(dropdownId);
+  if(dd){ dd.style.display = 'none'; dd.innerHTML = ''; }
+}
+document.addEventListener('input', function(e){
+  const el = e.target;
+  if(el && el.matches && el.matches('.ayah-search-box input') && !el.value.trim()) hideBackToSearchBtn();
+});
+
 function jumpToAyah(surahId, ayahId){
-  document.querySelectorAll('.ayah-search-dropdown').forEach(d => { d.style.display = 'none'; d.innerHTML = ''; });
-  document.querySelectorAll('.ayah-search-box input').forEach(i => { i.value = ''; });
+  keepAyahSearchAfterJump();
   openSurah(surahId, ayahId);
   setTimeout(() => {
     const el = document.getElementById('ayah-' + surahId + '-' + ayahId);
@@ -10374,6 +10483,7 @@ function onAyahSearchKeydown(e){
     if(dropdown) dropdown.style.display = 'none';
     e.target.value = '';
     e.target.blur();
+    hideBackToSearchBtn();
   }
 }
 
