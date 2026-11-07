@@ -6416,6 +6416,13 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   const surah = QURAN.find(x => x.id === surahId);
   if(!surah) return;
   shareRangeCtx = { surahId, surahName, from: ayahId, to: ayahId, total: surah.total_verses, anchor: ayahId };
+  // نستعيد آخر نطاق اخترته لو الآية المفتوحة تقع داخله (نفس السورة)
+  try{
+    const lr = JSON.parse(localStorage.getItem('shareImageLastRange') || 'null');
+    if(lr && lr.s === surahId && ayahId >= lr.f && ayahId <= lr.t && lr.t <= surah.total_verses){
+      shareRangeCtx.from = lr.f; shareRangeCtx.to = lr.t;
+    }
+  }catch(e){}
   const isEn = document.documentElement.getAttribute('data-lang') === 'en';
   const set = (id, txt) => { const el = document.getElementById(id); if(el) el.textContent = txt; };
   set('share-range-title', offT('مشاركة كصورة', 'Share as image'));
@@ -6526,6 +6533,9 @@ function selectShareDesign(d){
   }
 }
 function closeShareRangeDialog(){
+  if(shareRangeCtx){
+    try{ localStorage.setItem('shareImageLastRange', JSON.stringify({ s: shareRangeCtx.surahId, f: shareRangeCtx.from, t: shareRangeCtx.to })); }catch(e){}
+  }
   const ov = document.getElementById('share-range-overlay');
   if(ov) ov.classList.remove('open');
 }
