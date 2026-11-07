@@ -6454,6 +6454,7 @@ function openShareRangeDialog(surahId, ayahId, surahName){
   if(basChk) basChk.checked = isShareImageBasmalaEnabled();
   shareRangePhoto = getShareImagePhoto();
   selectShareDesign(getShareImageDesign());
+  renderShareTemplatesRow();
   document.getElementById('share-range-overlay').classList.add('open');
   renderShareRange();
   requestAnimationFrame(() => {
@@ -6608,6 +6609,95 @@ function extendShareRange(dir){
   else if(dir > 0 && c.to < c.total) c.to++;
   renderShareRange();
 }
+// ===== قوالب المشاركة: حفظ تركيبة (تصميم + تفاسير + استعاذة...) باسم واستعادتها بضغطة =====
+const SHARE_TEMPLATES_KEY = 'shareImageTemplates';
+const SHARE_TEMPLATES_MAX = 8;
+function getShareTemplates(){
+  try{
+    const a = JSON.parse(localStorage.getItem(SHARE_TEMPLATES_KEY) || '[]');
+    return Array.isArray(a) ? a.filter(t => t && typeof t.name === 'string' && t.name) : [];
+  }catch(e){ return []; }
+}
+function setShareTemplates(arr){
+  try{ localStorage.setItem(SHARE_TEMPLATES_KEY, JSON.stringify(arr.slice(0, SHARE_TEMPLATES_MAX))); }catch(e){}
+}
+function captureShareTemplate(name){
+  const q = id => document.getElementById(id);
+  const basRow = q('share-range-basmala-row');
+  const box = q('share-tafsir-sources');
+  const checked = box ? Array.prototype.slice.call(box.querySelectorAll('input[data-slug]:checked')).map(i => i.getAttribute('data-slug')) : [];
+  return {
+    name,
+    design: shareRangeDesign,
+    photo: shareRangeDesign === 'photo' ? shareRangePhoto : null,
+    tafsir: !!(q('share-range-tafsir') && q('share-range-tafsir').checked),
+    checked,
+    istiadha: !!(q('share-range-istiadha') && q('share-range-istiadha').checked),
+    basmala: (basRow && basRow.style.display !== 'none' && q('share-range-basmala')) ? q('share-range-basmala').checked : null
+  };
+}
+function saveCurrentShareTemplate(){
+  const name = (window.prompt(offT('اسم القالب (مثلاً: واتساب)', 'Template name (e.g. WhatsApp)')) || '').trim().slice(0, 24);
+  if(!name) return;
+  const arr = getShareTemplates();
+  const i = arr.findIndex(t => t.name === name);
+  const tpl = captureShareTemplate(name);
+  if(i !== -1) arr[i] = tpl;
+  else {
+    if(arr.length >= SHARE_TEMPLATES_MAX){ alert(offT('وصلت للحد الأقصى من القوالب، احذف قالبًا أولًا.', 'Template limit reached. Delete one first.')); return; }
+    arr.push(tpl);
+  }
+  setShareTemplates(arr);
+  renderShareTemplatesRow();
+}
+function applyShareTemplate(i){
+  const t = getShareTemplates()[i];
+  if(!t) return;
+  const q = id => document.getElementById(id);
+  // المصادر: نحدّد المستبعد من المصادر المختارة حاليًا حسب القالب (ولو مفيش تطابق نبقيها كلها)
+  const selected = getSelectedTafsirSlugs();
+  const tplChecked = Array.isArray(t.checked) ? t.checked : [];
+  const hasMatch = selected.some(sl => tplChecked.indexOf(sl) !== -1);
+  const keepOthers = getShareImageTafsirExcluded().filter(sl => selected.indexOf(sl) === -1);
+  setShareImageTafsirExcluded(keepOthers.concat(hasMatch ? selected.filter(sl => tplChecked.indexOf(sl) === -1) : []));
+  const main = q('share-range-tafsir');
+  if(main){ main.checked = !!t.tafsir; main.dispatchEvent(new Event('change')); }
+  const ist = q('share-range-istiadha'); if(ist) ist.checked = !!t.istiadha;
+  const basRow = q('share-range-basmala-row'), bas = q('share-range-basmala');
+  if(bas && basRow && basRow.style.display !== 'none' && t.basmala !== null && t.basmala !== undefined) bas.checked = !!t.basmala;
+  if(t.design === 'photo' && t.photo) shareRangePhoto = t.photo;
+  selectShareDesign(t.design);
+  renderShareTemplatesRow(i);
+}
+function deleteShareTemplate(i){
+  const arr = getShareTemplates();
+  const t = arr[i];
+  if(!t) return;
+  if(!window.confirm(offT('حذف القالب «' + t.name + '»؟', 'Delete template "' + t.name + '"?'))) return;
+  arr.splice(i, 1);
+  setShareTemplates(arr);
+  renderShareTemplatesRow();
+}
+function renderShareTemplatesRow(activeIdx){
+  let row = document.getElementById('share-templates-row');
+  if(!row){
+    const anchor = document.getElementById('share-range-tafsir');
+    const lbl = anchor && anchor.closest('label');
+    if(!lbl) return;
+    row = document.createElement('div');
+    row.id = 'share-templates-row';
+    row.style.cssText = 'margin:6px 0 10px;';
+    lbl.parentNode.insertBefore(row, lbl);
+  }
+  const arr = getShareTemplates();
+  const chip = 'display:inline-flex;align-items:center;gap:6px;padding:6px 12px;margin:3px;border-radius:999px;border:1px solid var(--accent);background:transparent;color:inherit;font:inherit;font-size:13px;cursor:pointer;';
+  row.innerHTML = '<div style="font-size:13px;opacity:.8;margin-bottom:4px;">' + offT('القوالب', 'Templates') + '</div>'
+    + arr.map((t, i) => '<span style="' + chip + (i === activeIdx ? 'background:var(--accent);color:#fff;' : '') + '" role="button" tabindex="0" onclick="applyShareTemplate(' + i + ')">'
+      + escHtmlHist(t.name)
+      + '<span aria-label="delete" style="opacity:.7;padding:0 2px;" onclick="event.stopPropagation(); deleteShareTemplate(' + i + ')">✕</span></span>').join('')
+    + '<button type="button" style="' + chip + 'border-style:dashed;" onclick="saveCurrentShareTemplate()">💾 ' + offT('حفظ الإعدادات كقالب', 'Save as template') + '</button>';
+}
+
 function confirmShareRange(){
   const c = shareRangeCtx;
   if(!c) return;
@@ -10182,7 +10272,13 @@ function onSideNavSearchInput(value){
   else renderJuzSideNav(value);
 }
 
+// حروف فارسية/أردية شائعة من بعض الكيبوردات → ما يقابلها بالعربية (ک→ك، ی→ي، ھ/ہ→ه ...)
+function mapForeignArabicLetters(q){
+  return String(q || '').replace(/[\u06A9\u06AA]/g, '\u0643').replace(/[\u06CC\u06D2\u06D0]/g, '\u064A')
+    .replace(/[\u06BE\u06C1\u06C2\u06C0\u06D5]/g, '\u0647').replace(/\u06C7/g, '\u0648');
+}
 function searchAyahs(query, includeApprox){
+  query = mapForeignArabicLetters(query);
   const qNorm = normalizeArabicText(query).trim();
   if(!qNorm) return { results: [], truncated: false };
   const qLoose = qNorm.replace(/[اء ]/g, '');
