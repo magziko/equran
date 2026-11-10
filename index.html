@@ -10660,7 +10660,7 @@ function instantScrollBy(delta){
 function pinAyahInView(elId, opts){
   unpinAyah();
   opts = opts || {};
-  const quietMs = opts.quietMs || 2500, maxMs = opts.maxMs || 12000;
+  const quietMs = opts.quietMs || 1800, maxMs = opts.maxMs || 15000;
   const list = document.getElementById('ayat-list') || document.getElementById('read-view');
   if(!list) return;
   const st = { start: Date.now(), last: Date.now(), ro: null, timer: null };
@@ -10684,7 +10684,10 @@ function pinAyahInView(elId, opts){
     const now = Date.now();
     // نعيد التثبيت دوريًا كمان (يغطي تغيّر خط/صور) وننهي بعد هدوء أو حد أقصى
     recenter();
-    if(now - st.last > quietMs || now - st.start > maxMs) unpinAyah();
+    // ننهي التثبيت فقط لما يهدى الارتفاع ومفيش أي تفسير/ترجمة لسه بيتحمّل (هيكل التحميل ظاهر)،
+    // أو بعد الحد الأقصى كحماية لو طلب علّق
+    const stillLoading = !!document.querySelector('#ayat-list .inline-tafsir-loading');
+    if((!stillLoading && now - st.last > quietMs) || now - st.start > maxMs) unpinAyah();
   }, 400);
   ayahPinState = st;
   recenter();
