@@ -10641,6 +10641,55 @@ document.addEventListener('input', function(e){
   if(el && el.matches && el.matches('.ayah-search-box input') && !el.value.trim()) hideBackToSearchBtn();
 });
 
+// ===== تثبيت الآية الهدف في منتصف الشاشة أثناء تحميل التفسير المضمّن =====
+// المشكلة: بعد القفز للآية (من البحث مثلاً) بيتحمّل التفسير لبطاقات الآيات اللي فوقها
+// فيزيد ارتفاعها وتتزحلق الآية الهدف لتحت. الحل: نراقب تغيّر ارتفاع القائمة ونرجّع
+// الآية للمنتصف فورًا (من غير سكرول ناعم) لحد ما التحميل يهدى أو المستخدم يمرّر بنفسه.
+let ayahPinState = null;
+function unpinAyah(){
+  if(!ayahPinState) return;
+  try{ ayahPinState.ro && ayahPinState.ro.disconnect(); }catch(e){}
+  clearInterval(ayahPinState.timer);
+  ayahPinState.events.forEach(ev => window.removeEventListener(ev, ayahPinState.stop, true));
+  ayahPinState = null;
+}
+function instantScrollBy(delta){
+  try{ window.scrollBy({ top: delta, left: 0, behavior: 'instant' }); }
+  catch(e){ window.scrollBy(0, delta); }
+}
+function pinAyahInView(elId, opts){
+  unpinAyah();
+  opts = opts || {};
+  const quietMs = opts.quietMs || 2500, maxMs = opts.maxMs || 12000;
+  const list = document.getElementById('ayat-list') || document.getElementById('read-view');
+  if(!list) return;
+  const st = { start: Date.now(), last: Date.now(), ro: null, timer: null };
+  const recenter = () => {
+    const el = document.getElementById(elId);
+    if(!el) return;
+    const r = el.getBoundingClientRect();
+    const vh = window.innerHeight;
+    const desired = r.height > vh * 0.8 ? 90 : (vh - r.height) / 2;
+    const delta = r.top - desired;
+    if(Math.abs(delta) > 3) instantScrollBy(delta);
+  };
+  st.stop = () => unpinAyah();
+  st.events = ['wheel','touchstart','keydown','pointerdown'];
+  st.events.forEach(ev => window.addEventListener(ev, st.stop, { capture:true, passive:true }));
+  if(typeof ResizeObserver !== 'undefined'){
+    st.ro = new ResizeObserver(() => { st.last = Date.now(); recenter(); });
+    st.ro.observe(list);
+  }
+  st.timer = setInterval(() => {
+    const now = Date.now();
+    // نعيد التثبيت دوريًا كمان (يغطي تغيّر خط/صور) وننهي بعد هدوء أو حد أقصى
+    recenter();
+    if(now - st.last > quietMs || now - st.start > maxMs) unpinAyah();
+  }, 400);
+  ayahPinState = st;
+  recenter();
+}
+
 function jumpToAyah(surahId, ayahId){
   keepAyahSearchAfterJump();
   openSurah(surahId, ayahId);
@@ -11147,6 +11196,7 @@ function showList(){
 }
 
 function openSurah(id, scrollToAyah){
+  unpinAyah();
   if(!listenState.suppressAutoStop) trailSessionReset();
   const surah = QURAN.find(s => s.id === id);
   if(!surah) return;
@@ -11247,7 +11297,7 @@ function openSurah(id, scrollToAyah){
     const targetElId = 'ayah-' + id + '-' + target;
     const scrollToTargetAyah = () => {
       const el = document.getElementById(targetElId);
-      if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+      if(el){ el.scrollIntoView({ behavior:'instant', block:'center' }); pinAyahInView(targetElId); }
     };
     // ننتظر تحميل خط القرآن قبل أول سكرول، لأنه لو اتحمّل بعد اللحظة دي
     // هيغيّر ارتفاع البطاقات ويحرّف موضع الآية الهدف عن مكانها الصحيح
@@ -11262,8 +11312,8 @@ function openSurah(id, scrollToAyah){
     // سكرول تصحيحي نهائي، وبعده بنرجّع تفعيل تحميل التفسير المضمّن تلقائيًا
     // (لو كان مفعّلاً) بعد ما يكون السكرول استقرّ فعلاً على الآية الصحيحة
     setTimeout(() => {
-      scrollToTargetAyah();
       if(tafsirWasEnabled && currentSurahId === id) setupInlineTafsirObserver();
+      scrollToTargetAyah();
     }, 700);
   } else if(typeof isInlineTafsirEnabled === 'function' && isInlineTafsirEnabled() && typeof setupInlineTafsirObserver === 'function'){
     // مفيش آية هدف نتنقل لها: التفسير المضمّن يشتغل عادي من غير تأجيل
@@ -11274,6 +11324,7 @@ function openSurah(id, scrollToAyah){
 }
 
 function openJuz(juzNum, scrollToSurahAyah){
+  unpinAyah();
   trailSessionReset();
   const verses = getJuzVerses(juzNum);
   if(!verses.length) return;
@@ -11357,14 +11408,16 @@ function openJuz(juzNum, scrollToSurahAyah){
     const jSurah = QURAN.find(s => s.id === scrollToSurahAyah.surahId);
     if(jSurah) lockAndSaveTargetPosition(scrollToSurahAyah.surahId, scrollToSurahAyah.ayahId, jSurah.name);
     setTimeout(() => {
-      const el = document.getElementById('jayah-' + scrollToSurahAyah.surahId + '-' + scrollToSurahAyah.ayahId);
-      if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+      const elId = 'jayah-' + scrollToSurahAyah.surahId + '-' + scrollToSurahAyah.ayahId;
+      const el = document.getElementById(elId);
+      if(el){ el.scrollIntoView({ behavior:'instant', block:'center' }); pinAyahInView(elId); }
     }, 60);
   }
   setTimeout(saveCurrentReadingPositionNow, 1500);
 }
 
 function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
+  unpinAyah();
   trailSessionReset();
   const verses = getHizbVerses(hizbNum);
   if(!verses.length) return;
@@ -11455,14 +11508,16 @@ function openHizb(hizbNum, scrollToSurahAyah, jumpToQuarter){
     const hSurah = QURAN.find(s => s.id === scrollToSurahAyah.surahId);
     if(hSurah) lockAndSaveTargetPosition(scrollToSurahAyah.surahId, scrollToSurahAyah.ayahId, hSurah.name);
     setTimeout(() => {
-      const el = document.getElementById('hayah-' + scrollToSurahAyah.surahId + '-' + scrollToSurahAyah.ayahId);
-      if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+      const elId = 'hayah-' + scrollToSurahAyah.surahId + '-' + scrollToSurahAyah.ayahId;
+      const el = document.getElementById(elId);
+      if(el){ el.scrollIntoView({ behavior:'instant', block:'center' }); pinAyahInView(elId); }
     }, 60);
   }
   setTimeout(saveCurrentReadingPositionNow, 1500);
 }
 
 function openRub(hizbNum, quarter, scrollToSurahAyah){
+  unpinAyah();
   trailSessionReset();
   const verses = getRubVerses(hizbNum, quarter);
   if(!verses.length) return;
@@ -11564,8 +11619,9 @@ function openRub(hizbNum, quarter, scrollToSurahAyah){
     const rSurah = QURAN.find(s => s.id === scrollToSurahAyah.surahId);
     if(rSurah) lockAndSaveTargetPosition(scrollToSurahAyah.surahId, scrollToSurahAyah.ayahId, rSurah.name);
     setTimeout(() => {
-      const el = document.getElementById('rayah-' + scrollToSurahAyah.surahId + '-' + scrollToSurahAyah.ayahId);
-      if(el) el.scrollIntoView({ behavior:'smooth', block:'center' });
+      const elId = 'rayah-' + scrollToSurahAyah.surahId + '-' + scrollToSurahAyah.ayahId;
+      const el = document.getElementById(elId);
+      if(el){ el.scrollIntoView({ behavior:'instant', block:'center' }); pinAyahInView(elId); }
     }, 60);
   }
   setTimeout(saveCurrentReadingPositionNow, 1500);
