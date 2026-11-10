@@ -4279,6 +4279,50 @@ function escapeHtml(str){
   return div.innerHTML;
 }
 
+// قراءة/كتابة localStorage بأمان: في بعض المتصفحات وWebViews (وضع التصفح الخاص، حجب الكوكيز) الوصول للتخزين يرمي خطأ،
+// ولو حصل هذا أثناء تحميل السكربت يتوقف التطبيق كله. هذه الدوال تتجاهل الخطأ وتكمل.
+function lsGet(key){
+  try{ return localStorage.getItem(key); }catch(e){ return null; }
+}
+function lsSet(key, value){
+  try{ localStorage.setItem(key, value); return true; }catch(e){ return false; }
+}
+
+// تنقية نص التفسير/الترجمة القادم من مصادر خارجية قبل عرضه كـ HTML (حماية من XSS):
+// نسمح بوسوم تنسيق بسيطة فقط، ونحذف كل الخصائص (onerror / onclick / href ...) والوسوم الخطرة بمحتواها.
+const TAFSIR_ALLOWED_TAGS = new Set(['P','BR','B','STRONG','I','EM','U','SPAN','DIV','UL','OL','LI','BLOCKQUOTE','SUP','SUB','H1','H2','H3','H4','H5','H6']);
+const TAFSIR_DROP_TAGS = new Set(['SCRIPT','STYLE','IFRAME','FRAME','FRAMESET','OBJECT','EMBED','APPLET','LINK','META','BASE','SVG','MATH','TEMPLATE','NOSCRIPT','FORM','INPUT','BUTTON','TEXTAREA','SELECT','OPTION','IMG','PICTURE','AUDIO','VIDEO','SOURCE','TRACK','CANVAS','TITLE','HEAD']);
+function sanitizeTafsirHtml(input){
+  const s = String(input == null ? '' : input);
+  // بدون علامة "<" لا يمكن أن ينشأ أي وسم، فنتركه كما هو
+  if(s.indexOf('<') === -1) return s;
+  try{
+    // DOMParser ينتج مستندًا معزولًا: لا ينفّذ سكربتات ولا يحمّل صورًا أثناء التحليل
+    const doc = new DOMParser().parseFromString('<!doctype html><body>' + s, 'text/html');
+    const walk = (node) => {
+      let out = '';
+      node.childNodes.forEach(n => {
+        if(n.nodeType === 3){ out += escapeHtml(n.nodeValue); return; }
+        if(n.nodeType !== 1) return;
+        const tag = String(n.localName || '').toUpperCase();
+        if(TAFSIR_DROP_TAGS.has(tag)) return;
+        if(tag === 'BR'){ out += '<br>'; return; }
+        const inner = walk(n);
+        if(TAFSIR_ALLOWED_TAGS.has(tag)){
+          const lt = tag.toLowerCase();
+          out += '<' + lt + '>' + inner + '</' + lt + '>';
+        } else {
+          out += inner; // وسم غير معروف: نُبقي نصه فقط
+        }
+      });
+      return out;
+    };
+    return walk(doc.body);
+  }catch(e){
+    return escapeHtml(s); // عند أي فشل نعرضه كنص عادي بالكامل
+  }
+}
+
 // يبني سطور Skeleton نبضية بعروض متفاوتة (تحاكي شكل فقرة نص) بدل شاشة تحميل فاضية
 // label: نص للقارئ الصوتي بس (aria) عشان الـ skeleton نفسه بصري فقط
 function skeletonLinesHtml(count, opts){
@@ -5532,20 +5576,42 @@ function changeTafsirFont(step){
   try{ localStorage.setItem('tafsirFontDelta', String(tafsirFontDeltaCache)); } catch(e){}
   applyTafsirFontSize();
 }
-function getStoredTafsir(slug, surahId, ayahId){
+// كاش التفسير في localStorage: يُحمَّل مرة واحدة في الذاكرة (بدل قراءة وتحليل كل المخزَّن في كل استدعاء)،
+// وله حد أقصى لعدد الآيات حتى لا يمتلئ التخزين المشترك مع باقي تطبيقات الموقع. الأقدم يُحذف أولًا.
+const TAFSIR_STORE_MAX = 200;
+let tafsirStoreMem = null;
+function loadTafsirStore(){
+  if(tafsirStoreMem) return tafsirStoreMem;
+  let store = {};
   try{
     const raw = localStorage.getItem('tafsirCache');
-    const store = raw ? JSON.parse(raw) : {};
-    return store[getTafsirCacheKey(slug, surahId, ayahId)] || null;
-  } catch(e){ return null; }
+    const parsed = raw ? JSON.parse(raw) : {};
+    if(parsed && typeof parsed === 'object' && !Array.isArray(parsed)) store = parsed;
+  } catch(e){ store = {}; }
+  tafsirStoreMem = store;
+  return store;
+}
+function getStoredTafsir(slug, surahId, ayahId){
+  const v = loadTafsirStore()[getTafsirCacheKey(slug, surahId, ayahId)];
+  return (typeof v === 'string' && v) ? v : null;
 }
 function setStoredTafsir(slug, surahId, ayahId, text){
+  const store = loadTafsirStore();
+  const key = getTafsirCacheKey(slug, surahId, ayahId);
+  delete store[key];       // نعيد إدراجه ليصبح الأحدث
+  store[key] = text;
+  let keys = Object.keys(store);
+  while(keys.length > TAFSIR_STORE_MAX){ delete store[keys.shift()]; }
   try{
-    const raw = localStorage.getItem('tafsirCache');
-    const store = raw ? JSON.parse(raw) : {};
-    store[getTafsirCacheKey(slug, surahId, ayahId)] = text;
     localStorage.setItem('tafsirCache', JSON.stringify(store));
-  } catch(e){ /* تجاهل أخطاء التخزين */ }
+  } catch(e){
+    // امتلأ التخزين: نُبقي النصف الأحدث فقط ونحاول مرة أخيرة، وإلا نكتفي بالذاكرة
+    try{
+      keys = Object.keys(store);
+      keys.slice(0, Math.floor(keys.length / 2)).forEach(k => { delete store[k]; });
+      localStorage.setItem('tafsirCache', JSON.stringify(store));
+    } catch(e2){ /* تجاهل */ }
+  }
 }
 
 function showTafsir(surahId, ayahId, surahName){
@@ -5814,7 +5880,7 @@ function loadTafsirSourceBlock(slug, surahId, ayahId, block){
   const headingWithActions = `<div class="tafsir-source-heading" onclick="toggleTafsirBlockCollapse(this)" role="button" tabindex="0" aria-expanded="true" onkeydown="tafsirHeadingKey(event, this)"><span>${sourceLabel}</span>${actionsHtml}${TAFSIR_CHEVRON_SVG}</div>`;
   function renderBody(text){
     if(!stillValid()) return;
-    block.innerHTML = `${headingWithActions}<div class="tafsir-modal-body" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
+    block.innerHTML = `${headingWithActions}<div class="tafsir-modal-body" style="font-size:${getTafsirFontSize()}px;">${sanitizeTafsirHtml(text)}</div>`;
     syncTafsirAria();
     reapplyTafsirSearch();
   }
@@ -7146,7 +7212,7 @@ function loadInlineTafsirSourceBlock(slug, surahId, ayahId, block, containerEl, 
   function stillValid(){ return block.isConnected && containerEl.dataset.loadedSlugs === slugsKey; }
   function render(text){
     if(!stillValid()) return;
-    block.innerHTML = `${labelHtml}<div class="inline-tafsir-text" style="font-size:${getTafsirFontSize()}px;">${text}</div>`;
+    block.innerHTML = `${labelHtml}<div class="inline-tafsir-text" style="font-size:${getTafsirFontSize()}px;">${sanitizeTafsirHtml(text)}</div>`;
     syncTafsirAria();
   }
   function renderError(){
@@ -7871,19 +7937,19 @@ const RECITERS = {
   balayev_az: { name: 'تلاوة مع ترجمة أذرية — بالايف', type: 'ayah', folder: 'translations/azerbaijani/balayev', translation: true },
   korkut_bs: { name: 'تلاوة مع ترجمة بوسنية — بسيم كوركوت', type: 'ayah', folder: 'translations/besim_korkut_ajet_po_ajet', translation: true }
 };
-let selectedReciter = localStorage.getItem('selectedReciter') || 'husary';
+let selectedReciter = lsGet('selectedReciter') || 'husary';
 if(!RECITERS[selectedReciter]) selectedReciter = 'husary';
 
 /* ---------- سرعة تشغيل التلاوة ---------- */
 const VALID_PLAYBACK_SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-let playbackSpeed = parseFloat(localStorage.getItem('playbackSpeed')) || 1;
+let playbackSpeed = parseFloat(lsGet('playbackSpeed')) || 1;
 if(!VALID_PLAYBACK_SPEEDS.includes(playbackSpeed)) playbackSpeed = 1;
 
 function changePlaybackSpeed(value){
   const speed = parseFloat(value);
   if(!VALID_PLAYBACK_SPEEDS.includes(speed)) return;
   playbackSpeed = speed;
-  localStorage.setItem('playbackSpeed', speed);
+  lsSet('playbackSpeed', speed);
   if(ayahAudioPlayer) ayahAudioPlayer.playbackRate = speed;
 }
 
@@ -7964,7 +8030,7 @@ function pickFirstReciterMatch(){
 function changeReciter(value){
   if(!RECITERS[value]) return;
   selectedReciter = value;
-  localStorage.setItem('selectedReciter', value);
+  lsSet('selectedReciter', value);
   // أوقف أي تشغيل حالي حتى لا يستمر الصوت بصوت القارئ القديم بعد التبديل
   if(repeatState.active) stopAyahRepeat();
   else if(listenState.active) stopFullSurahListen();
@@ -9646,7 +9712,7 @@ const AUTO_SCROLL_SPEEDS = [
 let autoScrollActive = false;
 let autoScrollRafId = null;
 let autoScrollAccumulator = 0;
-let autoScrollSpeedIndex = parseInt(localStorage.getItem('autoScrollSpeedIndex') || '1', 10);
+let autoScrollSpeedIndex = parseInt(lsGet('autoScrollSpeedIndex') || '1', 10);
 if(isNaN(autoScrollSpeedIndex) || autoScrollSpeedIndex < 0 || autoScrollSpeedIndex >= AUTO_SCROLL_SPEEDS.length){
   autoScrollSpeedIndex = 1;
 }
@@ -9811,7 +9877,7 @@ function stopAutoScroll(){
 
 function cycleAutoScrollSpeed(){
   autoScrollSpeedIndex = (autoScrollSpeedIndex + 1) % AUTO_SCROLL_SPEEDS.length;
-  localStorage.setItem('autoScrollSpeedIndex', String(autoScrollSpeedIndex));
+  lsSet('autoScrollSpeedIndex', String(autoScrollSpeedIndex));
   updateAutoScrollSpeedLabel();
 }
 
@@ -10335,7 +10401,7 @@ function searchAyahs(query, includeApprox){
 }
 
 /* ---------- وضع اختبار الحفظ: إخفاء نص الآية وإظهار أول كلمة فقط ---------- */
-let testModeActive = localStorage.getItem('testModeActive') === '1';
+let testModeActive = lsGet('testModeActive') === '1';
 
 function renderAyahTextSpans(text){
   const trimmed = (text || '').trim();
@@ -10352,7 +10418,7 @@ function renderAyahTextSpans(text){
 
 function toggleTestMode(checked){
   testModeActive = !!checked;
-  localStorage.setItem('testModeActive', testModeActive ? '1' : '0');
+  lsSet('testModeActive', testModeActive ? '1' : '0');
   document.documentElement.setAttribute('data-test-mode', testModeActive ? 'on' : 'off');
   // أي آيات كانت مكشوفة يدويًا ترجع تتخفي تاني عند تفعيل الوضع من جديد
   if(testModeActive){
@@ -11994,7 +12060,7 @@ function maybeShowBackupReminder(){
     if(!count) return;
     const now = Date.now();
     const ref = parseInt(localStorage.getItem('quran-backup-ref') || '0', 10);
-    if(!ref){ localStorage.setItem('quran-backup-ref', String(now)); return; }
+    if(!ref){ lsSet('quran-backup-ref', String(now)); return; }
     const snooze = parseInt(localStorage.getItem('quran-backup-snooze-until') || '0', 10);
     if(now < snooze) return;
     if(now - ref < BACKUP_REMIND_DAYS * 86400000) return;
