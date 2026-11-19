@@ -12582,6 +12582,8 @@ function updateInstallUI(){
   }
   if(btn) btn.style.display = mode === 'prompt' ? '' : 'none';
   if(note) note.style.display = mode === 'prompt' ? '' : 'none';
+  const kbdHint = document.getElementById('install-kbd-hint');
+  if(kbdHint) kbdHint.style.display = mode === 'prompt' ? '' : 'none';
   if(iosNote) iosNote.style.display = mode === 'ios' ? '' : 'none';
   group.style.display = mode === 'none' ? 'none' : '';
 }
@@ -12600,6 +12602,33 @@ async function promptInstall(){
   deferredInstallPrompt = null;     // لا يمكن استخدام نفس الطلب مرتين
   try{ p.prompt(); await p.userChoice; }catch(e){}
   updateInstallUI();
+}
+
+/* ---------- تثبيت التطبيق بالكيبورد (Alt+Shift+I) وتثبيت الراديو (Alt+Shift+R) ----------
+   يعمل من أي مكان حتى لو نافذة الإعدادات مغلقة. لو المتصفح لم يجهّز نافذة التثبيت تظهر رسالة بالخطوات اليدوية. */
+function installAppByKeyboard(){
+  if(isStandaloneMode()){ showShortcutToast(t('install_already'), 3000); return; }
+  if(deferredInstallPrompt){ promptInstall(); return; }
+  showShortcutToast(isIOSDevice() ? t('install_ios_note') : t('sister_manual'), 7000);
+}
+document.addEventListener('keydown', function(e){
+  if(!(e.altKey && e.shiftKey) || e.ctrlKey || e.metaKey || e.repeat) return;
+  if(e.code !== 'KeyI' && e.code !== 'KeyE' && e.code !== 'KeyR' && e.code !== 'KeyW') return;
+  const el = e.target, tag = (el && el.tagName) || '';
+  if(tag === 'INPUT' || tag === 'TEXTAREA' || (el && el.isContentEditable)) return;
+  e.preventDefault();
+  if(e.code === 'KeyI' || e.code === 'KeyE') installAppByKeyboard();   // تثبيت تطبيق المصحف (هذا التطبيق)
+  else if(e.code === 'KeyW') startupByKeyboard();         // تشغيل التطبيق مع الويندوز
+  else openSisterAppInstall();                            // تثبيت تطبيق الراديو (تبويب جديد مع زر التثبيت)
+});
+
+// تشغيل التطبيق مع الويندوز بالكيبورد (Alt+Shift+W): ينسخ عنوان صفحة التطبيقات ويعرض الخطوات
+function startupByKeyboard(){
+  const addr = getAppsAddress();
+  if(!addr){ showShortcutToast(offT('هذه الميزة تعمل في متصفح Chrome أو Edge على الكمبيوتر فقط.', 'This feature works only in Chrome or Edge on a computer.'), 5000); return; }
+  copyTextToClipboard(addr).then(ok => {
+    showShortcutToast(ok ? t(addr.indexOf('edge') === 0 ? 'startup_steps_edge' : 'startup_steps_chrome') : t('startup_copy_failed'), 10000);
+  });
 }
 
 /* ---------- تشغيل التطبيق مع الويندوز ----------
@@ -12709,6 +12738,7 @@ function openSisterAppInstall(){
 
     const msg = bar.querySelector('#sister-arrive-msg');
     const btn = bar.querySelector('#sister-arrive-install');
+    try{ btn.focus(); }catch(err){}   // Enter يثبّت مباشرة من الكيبورد
     const hide = () => { if(bar.parentNode) bar.parentNode.removeChild(bar); };
     bar.querySelector('#sister-arrive-close').onclick = hide;
 
@@ -13006,6 +13036,10 @@ const I18N_STRINGS = {
     shortcut_ayah_step: 'الآية السابقة / التالية في التلاوة (داخل السورة)',
     shortcut_tafsir_open: 'فتح تفسير الآية الحالية (داخل السورة)',
     shortcut_help: 'فتح/إغلاق قائمة الاختصارات',
+    shortcut_install: 'تثبيت تطبيق المصحف (هذا التطبيق)',
+    shortcut_startup: 'تشغيل التطبيق مع الويندوز (ينسخ عنوان صفحة التطبيقات ويعرض الخطوات)',
+    shortcut_install_radio: 'تثبيت تطبيق إذاعة القرآن الكريم (يفتح فى تبويب جديد)',
+    install_already: 'التطبيق مثبّت بالفعل ✅',
     kbd_long_press: 'ضغطة طويلة',
     gesture_long_num: 'على رقم الآية: تكرار السورة كاملة بإعدادات التكرار',
     gesture_long_text: 'على نص الآية: تكرار هذه الآية وحدها',
@@ -13409,6 +13443,10 @@ const I18N_STRINGS = {
     shortcut_ayah_step: 'Previous / next ayah in the recitation (while reading)',
     shortcut_tafsir_open: 'Open tafsir of the current ayah (while reading)',
     shortcut_help: 'Open/close the shortcuts list',
+    shortcut_install: 'Install the eQuran app (this app)',
+    shortcut_startup: 'Launch the app with Windows (copies the apps page address and shows the steps)',
+    shortcut_install_radio: 'Install the Quran Radio app (opens in a new tab)',
+    install_already: 'The app is already installed ✅',
     kbd_long_press: 'Long press',
     gesture_long_num: 'On the ayah number: repeat the whole surah using the repeat settings',
     gesture_long_text: 'On the ayah text: repeat just this ayah',
@@ -14600,6 +14638,7 @@ if('serviceWorker' in navigator){
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="install_btn">تثبيت التطبيق</span>
           </button>
           <div class="settings-modal-note" id="install-note" style="display:none;" data-i18n="install_note">يفتح أسرع ويعمل بدون إنترنت مثل أي تطبيق على جهازك.</div>
+          <div class="settings-modal-note" id="install-kbd-hint" dir="ltr" style="display:none;">⌨️ Alt + Shift + E / I</div>
           <div class="settings-modal-note" id="install-ios-note" style="display:none;" data-i18n="install_ios_note">لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».</div>
         </div>
         <div data-tab="more" class="control-group" id="startup-group" style="display:none;">
@@ -14608,12 +14647,14 @@ if('serviceWorker' in navigator){
           </button>
           <div style="margin:8px 0 2px;text-align:center;"><code id="startup-url" dir="ltr" style="display:inline-block;padding:3px 12px;border-radius:8px;background:rgba(127,127,127,0.18);font-family:Consolas,Menlo,monospace;font-size:13px;user-select:all;-webkit-user-select:all;">chrome://apps</code></div>
           <div class="settings-modal-note" id="startup-note" data-i18n="startup_note">لتشغيل التطبيق مع الويندوز: المتصفح لا يسمح لأي موقع بفتح صفحة التطبيقات مباشرة، فاضغط الزر لنسخ العنوان ثم الصقه في تبويب جديد. (يجب تثبيت التطبيق أولًا)</div>
+          <div class="settings-modal-note" dir="ltr">⌨️ Alt + Shift + W</div>
         </div>
         <div data-tab="more" class="control-group" id="sister-group">
           <button type="button" class="offline-dl-btn primary" onclick="openSisterAppInstall()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="sister_btn">تثبيت تطبيق الراديو</span>
           </button>
           <div class="settings-modal-note" data-i18n="sister_note">ثبّت تطبيق إذاعة القرآن الكريم أيضًا على جهازك. سيُفتح في تبويب جديد مع زر التثبيت.</div>
+          <div class="settings-modal-note" dir="ltr">⌨️ Alt + Shift + R</div>
         </div>
         <div data-tab="more" class="control-group" id="print-group">
           <button type="button" class="offline-dl-btn primary" onclick="printCurrentView()">
@@ -14674,6 +14715,9 @@ if('serviceWorker' in navigator){
             <tr><td><kbd data-i18n="kbd_long_press">ضغطة طويلة</kbd></td><td data-i18n="gesture_long_text">على نص الآية: تكرار هذه الآية وحدها</td></tr>
             <tr><td><kbd data-i18n="kbd_long_press">ضغطة طويلة</kbd></td><td data-i18n="gesture_long_listen">على زر «استماع»: تكرار السورة المفتوحة بلا نهاية (ضغطة طويلة أخرى تلغيه)</td></tr>
             <tr><td><kbd>?</kbd></td><td data-i18n="shortcut_help">فتح/إغلاق قائمة الاختصارات</td></tr>
+            <tr><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd></td><td data-i18n="shortcut_install">تثبيت تطبيق المصحف (هذا التطبيق)</td></tr>
+            <tr><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd></td><td data-i18n="shortcut_install_radio">تثبيت تطبيق إذاعة القرآن الكريم (يفتح فى تبويب جديد)</td></tr>
+            <tr><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>W</kbd></td><td data-i18n="shortcut_startup">تشغيل التطبيق مع الويندوز (ينسخ عنوان صفحة التطبيقات ويعرض الخطوات)</td></tr>
             <tr><td><kbd>R</kbd> / <kbd>ق</kbd></td><td data-i18n="shortcut_repeat">تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)</td></tr>
             <tr><td><kbd>Y</kbd> / <kbd>غ</kbd></td><td data-i18n="shortcut_sync_calib">معايرة مزامنة تمييز الآيات: اضغط أثناء أي تشغيل ثم اضغط على الآية التي تسمعها (داخل السورة)</td></tr>
             <tr><td><kbd>B</kbd></td><td data-i18n="shortcut_bookmark">إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)</td></tr>
