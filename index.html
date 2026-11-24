@@ -2564,6 +2564,24 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   select:not([multiple]):not([size]):hover{ box-shadow:0 0 0 3px var(--accent-bg); }
   select:not([multiple]):not([size]):focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-bg); }
   select:not([multiple]):not([size]):disabled{ opacity:.5; cursor:not-allowed; box-shadow:none; }
+  /* نافذة التكرار عند الضغط المطوّل على الآية */
+  .repeat-dialog-overlay{ position:fixed; top:0; right:0; bottom:0; left:0; inset:0; z-index:1300; background:rgba(0,0,0,.55);
+    display:flex; align-items:center; justify-content:center; padding:16px; }
+  .repeat-dialog{ width:100%; max-width:380px; background:var(--bg-elev); color:var(--text); border:1px solid var(--border);
+    border-radius:var(--radius-lg); box-shadow:var(--shadow); padding:18px; }
+  .repeat-dialog h3{ margin:0 0 14px; font-size:16px; color:var(--accent-soft); }
+  .repeat-dialog .rd-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .repeat-dialog label{ display:flex; flex-direction:column; gap:5px; font-size:12.5px; color:var(--text-muted); font-weight:700; }
+  .repeat-dialog input{ width:100%; box-sizing:border-box; background:var(--surface); color:var(--text); border:1px solid var(--border);
+    border-radius:10px; padding:9px 10px; font-size:16px; font-weight:700; text-align:center; }
+  .repeat-dialog input:focus{ outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--ring); }
+  .repeat-dialog small{ font-size:11px; color:var(--text-faint); font-weight:600; min-height:14px; }
+  .repeat-dialog .rd-summary{ margin:12px 0; padding:8px 10px; background:var(--accent-bg); color:var(--accent-soft);
+    border-radius:10px; font-size:12.5px; font-weight:700; text-align:center; }
+  .repeat-dialog .rd-actions{ display:flex; gap:8px; }
+  .repeat-dialog .rd-actions button{ flex:1; padding:10px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .repeat-dialog .rd-start{ background:var(--accent); color:#fff; border:none; }
+  .repeat-dialog .rd-cancel{ background:transparent; color:var(--text-muted); border:1px solid var(--border); }
 </style>
 </head>
 <body>
@@ -9341,6 +9359,101 @@ function repeatSingleAyahFromGesture(surahId, ayahId){
     showShortcutToast(offT(`↻ تكرار الآية ${ayahId} — ${repeatState.timesEach} مرات`, `↻ Repeating ayah ${ayahId} — ${repeatState.timesEach}×`));
   }
 }
+/* ---------- نافذة التكرار عند الضغط المطوّل ----------
+   تفتح نافذة صغيرة لتحديد: من أي ترتيب لأي ترتيب، وعدد تكرار كل آية، وعدد تكرار المقطع كاملاً */
+function openRepeatDialog(mode, surahId, ayahId){
+  const reciter = RECITERS[selectedReciter] || RECITERS.husary;
+  if(reciter.type === 'surah'){ showShortcutToast(t('repeat_unsupported_reciter')); return; }
+  if(!currentVerseList.length){ showShortcutToast(t('no_ayat_to_repeat')); return; }
+  const total = currentVerseList.length;
+  const idx = Math.max(1, currentVerseList.findIndex(v => v.surahId === surahId && v.ayahId === ayahId) + 1);
+  const panelTimes = parseInt((document.getElementById('repeat-times') || {}).value, 10) || 3;
+  const panelSeg = parseInt((document.getElementById('repeat-segment-times') || {}).value, 10) || 1;
+  const initFrom = mode === 'single' ? idx : 1;
+  const initTo = mode === 'single' ? idx : total;
+
+  const old = document.getElementById('repeat-dialog-overlay');
+  if(old) old.remove();
+  const openedAt = Date.now();
+  const overlay = document.createElement('div');
+  overlay.id = 'repeat-dialog-overlay';
+  overlay.className = 'repeat-dialog-overlay';
+  overlay.innerHTML =
+    '<div class="repeat-dialog" role="dialog" aria-modal="true" aria-labelledby="repeat-dialog-title">' +
+      '<h3 id="repeat-dialog-title">' + offT('تكرار للحفظ', 'Repeat for memorizing') + '</h3>' +
+      '<div class="rd-grid">' +
+        '<label>' + offT('من آية (الترتيب)', 'From ayah (position)') +
+          '<input type="number" id="rd-from" inputmode="numeric" min="1" max="' + total + '" value="' + initFrom + '">' +
+          '<small id="rd-from-lbl"></small></label>' +
+        '<label>' + offT('إلى آية (الترتيب)', 'To ayah (position)') +
+          '<input type="number" id="rd-to" inputmode="numeric" min="1" max="' + total + '" value="' + initTo + '">' +
+          '<small id="rd-to-lbl"></small></label>' +
+        '<label>' + offT('تكرار كل آية', 'Repeats per ayah') +
+          '<input type="number" id="rd-times" inputmode="numeric" min="1" max="50" value="' + panelTimes + '"></label>' +
+        '<label>' + offT('تكرار الفقرة كاملة', 'Repeats of the whole passage') +
+          '<input type="number" id="rd-seg" inputmode="numeric" min="1" max="50" value="' + panelSeg + '"></label>' +
+      '</div>' +
+      '<div class="rd-summary" id="rd-summary"></div>' +
+      '<div class="rd-actions">' +
+        '<button type="button" class="rd-start" id="rd-start">▶ ' + offT('ابدأ التكرار', 'Start') + '</button>' +
+        '<button type="button" class="rd-cancel" id="rd-cancel">' + offT('إلغاء', 'Cancel') + '</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(overlay);
+
+  const $ = id => overlay.querySelector('#' + id);
+  const fromEl = $('rd-from'), toEl = $('rd-to'), timesEl = $('rd-times'), segEl = $('rd-seg');
+  const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+  const label = i => {
+    const it = currentVerseList[i - 1];
+    if(!it) return '';
+    const sur = (typeof QURAN !== 'undefined' && QURAN) ? QURAN.find(x => x.id === it.surahId) : null;
+    return (sur ? sur.name + ' — ' : '') + offT('آية ', 'ayah ') + it.ayahId;
+  };
+  const read = () => {
+    const from = clamp(parseInt(fromEl.value, 10) || 1, 1, total);
+    const to = clamp(parseInt(toEl.value, 10) || from, from, total);
+    const times = clamp(parseInt(timesEl.value, 10) || 1, 1, 50);
+    const seg = clamp(parseInt(segEl.value, 10) || 1, 1, 50);
+    return { from, to, times, seg };
+  };
+  const refresh = () => {
+    const r = read();
+    $('rd-from-lbl').textContent = label(r.from);
+    $('rd-to-lbl').textContent = label(r.to);
+    const n = r.to - r.from + 1;
+    $('rd-summary').textContent = offT(
+      `${n} آية × ${r.times} مرات، والفقرة ${r.seg} مرة ← إجمالي ${n * r.times * r.seg} تشغيلة`,
+      `${n} ayah(s) × ${r.times}, passage ${r.seg}× → ${n * r.times * r.seg} plays in total`);
+  };
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey, true); };
+  const onKey = e => {
+    if(e.key === 'Escape'){ e.preventDefault(); close(); }
+    else if(e.key === 'Enter'){ e.preventDefault(); go(); }
+  };
+  const go = () => {
+    const r = read();
+    const tEl = document.getElementById('repeat-times');
+    const sEl = document.getElementById('repeat-segment-times');
+    if(tEl) tEl.value = r.times;
+    if(sEl) sEl.value = r.seg;
+    close();
+    if(startRepeatForRange(r.from, r.to)){
+      showShortcutToast(offT(
+        `↻ تكرار من ${r.from} إلى ${r.to} — كل آية ${r.times} مرات، والفقرة ${r.seg} مرة`,
+        `↻ Repeating ${r.from}–${r.to} — each ayah ${r.times}×, passage ${r.seg}×`));
+    }
+  };
+  [fromEl, toEl, timesEl, segEl].forEach(el => { el.addEventListener('input', refresh); el.addEventListener('focus', () => el.select()); });
+  $('rd-start').addEventListener('click', go);
+  $('rd-cancel').addEventListener('click', close);
+  // نتجاهل النقرة التي تلي رفع الإصبع من الضغطة الطويلة مباشرة حتى لا تغلق النافذة
+  overlay.addEventListener('click', e => { if(e.target === overlay && Date.now() - openedAt > 700) close(); });
+  document.addEventListener('keydown', onKey, true);
+  refresh();
+  setTimeout(() => { try{ fromEl.focus(); fromEl.select(); }catch(e){} }, 0);
+}
+
 (function setupAyahLongPress(){
   const LONG_MS = 550, MOVE_PX = 10;
   const SEL = '.ayah-card .ayah-num-badge, .ayah-card .ayah-text';
@@ -9360,8 +9473,7 @@ function repeatSingleAyahFromGesture(surahId, ayahId){
       firedAt = Date.now();
       try{ if(navigator.vibrate) navigator.vibrate(18); } catch(err){}
       const surahId = Number(card.dataset.surah), ayahId = Number(card.dataset.ayah);
-      if(el.classList.contains('ayah-num-badge')) repeatWholeSurahFromGesture();
-      else repeatSingleAyahFromGesture(surahId, ayahId);
+      openRepeatDialog(el.classList.contains('ayah-num-badge') ? 'all' : 'single', surahId, ayahId);
     }, LONG_MS);
   }, true);
   document.addEventListener('pointermove', function(e){
