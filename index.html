@@ -2421,6 +2421,21 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   }
 
   .app-toast-btn.primary{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .surah-latin{ display:inline-block; margin:0 .45em; font-size:.78em; font-weight:500; opacity:.7; letter-spacing:.2px; }
+  /* تلميحات أول استخدام: مدمجة وفوق شريط الصوت ولا تحجب القراءة */
+  .app-toast.app-toast-hint{ bottom:calc(112px + env(safe-area-inset-bottom, 0px)); width:min(86vw, 320px); padding:8px 12px; border-radius:14px; font-size:12px; line-height:1.5; pointer-events:none; }
+  .app-toast.app-toast-hint .app-toast-title{ font-size:12.5px; margin-bottom:2px; }
+  .app-toast.app-toast-hint .app-toast-line{ margin:2px 0; gap:8px; }
+  .app-toast.app-toast-hint .app-toast-line svg{ flex-basis:14px; width:14px; height:14px; margin-top:3px; }
+  .app-toast.app-toast-hint .app-toast-actions{ margin:0; }
+  .app-toast.app-toast-hint{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:4px 10px; padding:6px 10px; }
+  .app-toast.app-toast-hint .app-toast-title{ margin:0; cursor:pointer; pointer-events:auto; }
+  .app-toast.app-toast-hint .app-toast-title::after{ content:' ▾'; }
+  .app-toast.app-toast-hint.expanded .app-toast-title::after{ content:' ▴'; }
+  .app-toast.app-toast-hint .app-toast-line{ display:none; flex:0 0 100%; }
+  .app-toast.app-toast-hint.expanded .app-toast-line{ display:flex; }
+  .app-toast.app-toast-hint.expanded .app-toast-actions{ flex:0 0 100%; justify-content:flex-end; }
+  .app-toast.app-toast-hint .app-toast-btn{ pointer-events:auto; padding:4px 12px; font-size:12px; border-radius:8px; }
 
   /* ---------- زر الاستماع في رأس السورة ---------- */
 
@@ -2669,7 +2684,27 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     #settings-overlay .controls-body{ grid-area:body; }
     #settings-overlay .controls-body{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
   }
-</style>
+
+  /* أهداف لمس أكبر على الموبايل (~44px فعليًا) بدون تغيير شكل التصميم كثيرًا */
+  @media (max-width:768px){
+    .ayah-meta{ gap:8px; }
+    .ayah-bookmark-btn, .ayah-more-btn{ width:34px; height:34px; position:relative; }
+    .ayah-num-badge{ min-width:34px; height:34px; overflow:visible; }
+    .ayah-bookmark-btn::after, .ayah-more-btn::after, .ayah-num-badge::after,
+    .header-actions > button::after, .header-actions > a::after{
+      content:''; position:absolute; top:-6px; right:-6px; bottom:-6px; left:-6px;
+    }
+    .header-actions > button, .header-actions > a{ position:relative; }
+    .header-actions{ gap:8px; }
+    .header-actions .favorites-toggle,
+    .header-actions .theme-toggle,
+    .header-actions .khatma-toggle,
+    .header-actions .lang-toggle,
+    .header-actions .settings-toggle{ width:34px; height:34px; }
+    .ayat-list.continuous-mode .ayah-bookmark-btn{ width:28px; height:28px; }
+    .ayat-list.continuous-mode .ayah-meta{ gap:6px; }
+  }
+  </style>
 </head>
 <body>
 
@@ -6306,6 +6341,7 @@ function attachTafsirSearchInput(){
 const OFFLINE_TAFSIR_CACHE = 'quran-tafsir-offline-v1';
 let offlineDlRunning = false;
 let offlineDlCancel = false;
+function surahTitleHtml(s){ return t('surah_word') + ' ' + s.name + '<span class="surah-latin" dir="ltr">' + s.transliteration + '</span>'; }
 function offT(ar, en){ return document.documentElement.getAttribute('data-lang') === 'en' ? en : ar; }
 function buildTafsirUrls(slug, surahId, ayahId){
   const info = getSourceInfo(slug);
@@ -10819,7 +10855,7 @@ function renderGrid(query){
   grid.innerHTML = filtered.map(s => `
     <a class="surah-card" href="#" onclick="openSurah(${s.id}); return false;">
       <div class="info">
-        <div class="name">${t('surah_word')} ${s.name}-${s.transliteration}</div>
+        <div class="name">${surahTitleHtml(s)}</div>
         <div class="meta">${s.total_verses} ${t('ayahs_word')}</div>
       </div>
       <div class="num">${s.id}</div>
@@ -11652,7 +11688,7 @@ function renderVoiceSurahSuggestions(suggestions, ayahNum, isPlay, dropdownId){
     `<div class="ayah-search-empty">${t('voice_did_you_mean')}</div>` +
     suggestions.map(s => `
       <div class="ayah-search-result" onclick="applyVoiceSurahSuggestion(${s.id}, ${ayahNum || 'null'}, ${isPlay ? 'true' : 'false'})">
-        <div class="ayah-search-meta">${t('surah_word')} ${s.name}-${s.transliteration}</div>
+        <div class="ayah-search-meta">${surahTitleHtml(s)}</div>
       </div>
     `).join('');
   dropdown.style.display = 'block';
@@ -11794,7 +11830,7 @@ function openSurah(id, scrollToAyah){
   window.scrollTo(0,0);
   updateReadingProgress();
 
-  document.getElementById('surah-title').textContent = `${t('surah_word')} ${surah.name}-${surah.transliteration}`;
+  document.getElementById('surah-title').innerHTML = surahTitleHtml(surah);
   document.getElementById('surah-sub').innerHTML =
     `${t('reading_surah_prefix')} ${surah.name} <b>${t('from_ayah')} 1 ${t('to_ayah')} ${surah.total_verses}</b> — ${typeLabel(surah.type)}${t('reading_font_hint')}`;
 
@@ -12669,7 +12705,8 @@ function maybeShowFirstHint(){
     }
     html += '<div class="app-toast-line">' + ico('<path d="M7 8l5 5 5-5"></path><path d="M7 15l5 5 5-5"></path>') + '<span>' + t('hint_autoscroll') + '</span></div>';
     html += '<div class="app-toast-line">' + ico('<path d="M18 15l-6-6-6 6"></path>') + '<span>' + t('hint_scrolltop') + '</span></div>';
-    showAppToast({ html: html, actions: [{ label: t('hint_ok'), primary: true }] });
+    showAppToast({ html: html, actions: [{ label: t('hint_ok'), primary: true }], timeout: 9000 });
+    const ht = document.getElementById('app-toast'); if(ht){ ht.classList.add('app-toast-hint'); const hti = ht.querySelector('.app-toast-title'); if(hti) hti.addEventListener('click', () => { ht.classList.toggle('expanded'); clearTimeout(ht._t); }); }
   }, 1800);
 }
 
@@ -13350,6 +13387,7 @@ const I18N_STRINGS = {
     browse_hizb_short: 'الأحزاب',
     search_surah: 'ابحث عن سورة...',
     search_ayah: 'ابحث في نص الآيات، أو اكتب رقم الآية (14 أو 18:14) ثم Enter',
+    search_ayah_short: 'ابحث في الآيات أو اكتب رقم آية',
     voice_search: 'بحث صوتي',
     voice_note: 'إملاء صوتي',
     voice_did_you_mean: 'لم أتعرّف على اسم السورة بدقة، هل تقصد:',
@@ -13660,7 +13698,7 @@ const I18N_STRINGS = {
     from_ayah: 'من الآية',
     to_ayah: 'إلى الآية',
     reading_surah_prefix: 'قراءة سورة',
-    reading_font_hint: '، اضغط على أيقونة الحجم للتحكم في حجم خط القراءة.',
+    reading_font_hint: '، ويمكنك تغيير حجم الخط من «خيارات القراءة والتحكم».',
     of_hizb: 'من الحزب',
     quarter_ordinal_1: 'الربع الأول',
     quarter_ordinal_2: 'الربع الثاني',
@@ -13759,6 +13797,7 @@ const I18N_STRINGS = {
     browse_hizb_short: 'Hizb',
     search_surah: 'Search for a surah...',
     search_ayah: 'Search ayah text, or type an ayah number (14 or 18:14) then Enter',
+    search_ayah_short: 'Search ayahs or enter a number',
     voice_search: 'Voice search',
     voice_note: 'Voice dictation',
     voice_did_you_mean: "Couldn't recognize the surah name exactly, did you mean:",
@@ -14069,7 +14108,7 @@ const I18N_STRINGS = {
     from_ayah: 'from Ayah',
     to_ayah: 'to Ayah',
     reading_surah_prefix: 'Reading Surah',
-    reading_font_hint: ' — tap the size icon to control the reading font size.',
+    reading_font_hint: ' — change the font size from "Reading & display options".',
     of_hizb: 'of Hizb',
     quarter_ordinal_1: 'First Quarter',
     quarter_ordinal_2: 'Second Quarter',
@@ -14236,7 +14275,7 @@ function refreshDynamicContent(){
     if(currentMode === 'surah' && currentSurahId){
       const surah = QURAN.find(s => s.id === currentSurahId);
       if(surah){
-        titleEl.textContent = `${t('surah_word')} ${surah.name}-${surah.transliteration}`;
+        titleEl.innerHTML = surahTitleHtml(surah);
         subEl.innerHTML = `${t('reading_surah_prefix')} ${surah.name} <b>${t('from_ayah')} 1 ${t('to_ayah')} ${surah.total_verses}</b> — ${typeLabel(surah.type)}${t('reading_font_hint')}`;
       }
     } else if(currentMode === 'juz' && currentJuzId){
@@ -14344,7 +14383,21 @@ function applyLanguage(lang){
   if(typeof QURAN !== 'undefined' && QURAN && QURAN.length){
     refreshDynamicContent();
   }
+
+  // أعد صياغة النصوص التي تُبنى بالجافاسكربت (حالات التحميل، المؤقت...) حسب اللغة الجديدة
+  ['updateSyncSpeedUI','refreshMushafOfflineStatus','refreshOfflineTafsirStatus','refreshOfflineStorageInfo','refreshAudioOfflineStatus','updateSleepTimerUI','updateVolumeUI','syncHeaderListenBtn','renderMemoSettingsTab'].forEach(fnName => {
+    try{ if(typeof window[fnName] === 'function'){ const r = window[fnName](); if(r && r.catch) r.catch(() => {}); } }catch(e){}
+  });
+  fitAyahSearchPlaceholder();
 }
+function fitAyahSearchPlaceholder(){
+  try{
+    const dict = I18N_STRINGS[document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar'];
+    const key = window.matchMedia('(max-width:768px)').matches ? 'search_ayah_short' : 'search_ayah';
+    document.querySelectorAll('[data-i18n-placeholder="search_ayah"]').forEach(el => el.setAttribute('placeholder', dict[key]));
+  }catch(e){}
+}
+window.addEventListener('resize', function(){ try{ fitAyahSearchPlaceholder(); }catch(e){} });
 
 function toggleLanguage(){
   const current = document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar';
@@ -15503,6 +15556,19 @@ if('serviceWorker' in navigator){
     // ملاحظة: المتصفحات الحديثة تتجاهل أي نص مخصص هنا وتعرض رسالتها العامة فقط
     window.addEventListener('beforeunload', function(e){
       if (exitConfirmed) return;
+      // حذّر فقط لو فيه شيء فعلي يضيع: تكرار/استماع شغال، تحميل صوت جارٍ، أو ملاحظة غير محفوظة
+      var risky = false;
+      try{ if (typeof repeatState !== 'undefined' && repeatState.active) risky = true; }catch(_){}
+      try{ if (typeof listenState !== 'undefined' && listenState.active && !listenState.paused) risky = true; }catch(_){}
+      try{ if (typeof audioDlAbort !== 'undefined' && audioDlAbort) risky = true; }catch(_){}
+      try{
+        var ov = document.getElementById('note-overlay'), ta = document.getElementById('note-modal-textarea');
+        if (ov && ov.classList.contains('open') && ta && ta.value.trim()){
+          var ex = (typeof currentNoteContext !== 'undefined' && currentNoteContext && !currentNoteContext.isNew) ? getNote(currentNoteContext.surahId, currentNoteContext.ayahId) : null;
+          if (!ex || ex.text !== ta.value.trim()) risky = true;
+        }
+      }catch(_){}
+      if (!risky) return;
       e.preventDefault();
       e.returnValue = '';
     });
