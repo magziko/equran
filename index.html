@@ -11,7 +11,7 @@
   if (typeof Promise === 'undefined') unsupported = true;
   if (!unsupported) return;
   function show() {
-    if (document.getElementById('legacy-browser-notice')) return;
+    if (document.getElementById('legacy-browser-notice')) return;a
     var d = document.createElement('div');
     d.id = 'legacy-browser-notice';
     d.setAttribute('style', 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483647;background:#0f4c3a;color:#fff;padding:28px 20px;overflow:auto;text-align:center;line-height:1.9;font-family:Tahoma,Arial,sans-serif;');
@@ -2686,6 +2686,26 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     background:var(--surface-2); color:var(--text); border:1px solid var(--border); }
   .memo-entry-actions button.danger{ color:#c0392b; }
   .memo-empty{ font-size:13px; color:var(--text-muted); font-weight:600; margin-top:8px; }
+  /* ---------- تبويب البيانات والتخزين: أقسام وبطاقات متوازنة ---------- */
+  #settings-overlay .controls-body > .settings-more-heading{ grid-column:1 / -1; padding-top:14px; margin-top:6px; border-top:1px solid var(--border); }
+  #settings-overlay .controls-body > #backup-section-heading{ border-top:none; margin-top:0; padding-top:4px; }
+  #settings-overlay .controls-body > #offline-section-heading ~ #backup-section-heading{ border-top:1px solid var(--border); margin-top:6px; padding-top:14px; }
+  #settings-overlay .settings-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:14px 16px; align-items:stretch; gap:10px; width:100%;
+  }
+  #settings-overlay .settings-card .offline-dl-btn{ width:100%; display:flex; align-items:center; justify-content:center; }
+  #settings-overlay .settings-card .settings-modal-note{ border:none; background:transparent; padding:0; margin:0; }
+  #settings-overlay .settings-card .settings-modal-note.kbd-chip{
+    align-self:flex-start; border:1px solid var(--border); background:var(--surface-2); border-radius:8px; padding:3px 10px; font-size:11.5px; line-height:1.6;
+  }
+  #settings-overlay .settings-card .repeat-actions{ width:100%; }
+  #settings-overlay .settings-card .repeat-actions .repeat-btn{ flex:1 1 180px; justify-content:center; }
+  #settings-overlay #data-backup-group, #settings-overlay #reset-settings-group{ grid-column:1 / -1; }
+  #settings-overlay #reset-settings-group .offline-dl-btn{ width:auto; align-self:flex-start; }
+  .startup-url-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+  .startup-url-row code{ padding:3px 12px; border-radius:8px; background:rgba(127,127,127,0.18); font-family:Consolas,Menlo,monospace; font-size:13px; user-select:all; -webkit-user-select:all; }
+  .startup-copy-only{ background:transparent; border:none; color:var(--accent-soft); font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; text-decoration:underline; padding:4px 2px; }
   /* ---------- Settings reorganization ---------- */
   .settings-section-heading{ padding-bottom:0; }
   .settings-section-heading .label{ font-size:14px; font-weight:800; color:var(--accent-soft); }
@@ -13459,7 +13479,7 @@ document.addEventListener('keydown', function(e){
 // تشغيل التطبيق عند بدء تشغيل ويندوز بالكيبورد (Alt+Shift+W): ينسخ عنوان صفحة التطبيقات ويعرض الخطوات
 function startupByKeyboard(){
   const addr = getAppsAddress();
-  if(!addr){ showShortcutToast(offT('هذه الميزة تعمل في متصفح Chrome أو Edge على الكمبيوتر فقط.', 'This feature works only in Chrome or Edge on a computer.'), 5000); return; }
+  if(!addr){ showShortcutToast(offT('هذه الميزة تعمل في متصفح Chrome أو Edge أو Brave على الكمبيوتر فقط.', 'This feature works only in Chrome, Edge or Brave on a computer.'), 5000); return; }
   copyTextToClipboard(addr).then(ok => {
     showShortcutToast(ok ? t(addr.indexOf('edge') === 0 ? 'startup_steps_edge' : 'startup_steps_chrome') : t('startup_copy_failed'), 10000);
   });
@@ -13468,21 +13488,36 @@ function startupByKeyboard(){
 /* ---------- تشغيل التطبيق عند بدء تشغيل ويندوز ----------
    المتصفح يمنع أي موقع من فتح chrome://apps أو edge://apps، لذلك يكتفي الزر بنسخ العنوان
    ويلصقه العميل في تبويب جديد ثم يفعّل «تشغيل التطبيق عند تسجيل الدخول» من هناك. */
-function getAppsAddress(){
+// يحدد المتصفح الحالي وعنوان صفحة التطبيقات فيه (لو وُجد)
+function getAppsBrowser(){
   const ua = navigator.userAgent || '';
-  if(/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return null;     // الموبايل: لا توجد صفحة تطبيقات
-  if(/Firefox\//.test(ua) || /OPR\/|Opera/.test(ua) || navigator.brave) return null;
-  if(/Edg\//.test(ua)) return 'edge://apps';
-  if(/Chrome\//.test(ua)) return 'chrome://apps';
-  return null;
+  if(/Android|iPhone|iPad|iPod|Mobile/i.test(ua)) return { id: 'mobile', addr: null };
+  if(/Firefox\//.test(ua)) return { id: 'firefox', addr: null };
+  if(/OPR\/|Opera/.test(ua)) return { id: 'opera', addr: null };
+  if(/Edg\//.test(ua)) return { id: 'edge', addr: 'edge://apps' };
+  if(navigator.brave) return { id: 'brave', addr: 'brave://apps' };
+  if(/Chrome\//.test(ua) || /Chromium\//.test(ua)) return { id: 'chrome', addr: 'chrome://apps' };
+  if(/Safari\//.test(ua)) return { id: 'safari', addr: null };
+  return { id: 'other', addr: null };
 }
+function getAppsAddress(){ return getAppsBrowser().addr; }
 function updateStartupUI(){
   const group = document.getElementById('startup-group');
   if(!group) return;
-  const addr = getAppsAddress();
+  const br = getAppsBrowser();
+  const addr = br.addr;
   const urlEl = document.getElementById('startup-url');
   if(addr && urlEl) urlEl.textContent = addr;
-  group.style.display = addr ? '' : 'none';
+  const btn = document.getElementById('startup-copy-btn');
+  const row = document.getElementById('startup-url-row');
+  const note = document.getElementById('startup-note');
+  if(btn) btn.style.display = addr ? '' : 'none';
+  if(row) row.style.display = addr ? '' : 'none';
+  if(note){
+    const key = addr ? 'startup_note' : 'startup_unsup_' + br.id;
+    note.setAttribute('data-i18n', key); note.textContent = t(key);
+  }
+  group.style.display = '';
 }
 function copyTextToClipboard(text){
   const legacy = () => {
@@ -13504,16 +13539,23 @@ function copyTextToClipboard(text){
   return Promise.resolve(legacy());
 }
 let startupBtnTimer = null;
-function copyAppsAddress(){
-  const addr = getAppsAddress();
+function copyAppsAddress(copyOnly){
+  const br = getAppsBrowser();
+  const addr = br.addr;
   if(!addr) return;
   const note = document.getElementById('startup-note');
   const btnText = document.getElementById('startup-btn-text');
   // نغيّر مفتاح الترجمة نفسه كي يبقى النص صحيحًا لو بدّل المستخدم اللغة بعد النسخ
   const setKey = (el, key) => { if(!el) return; el.setAttribute('data-i18n', key); el.textContent = t(key); };
+  // المتصفحات تمنع المواقع من فتح صفحاتها الداخلية؛ نحاول الفتح ثم نعتمد على النسخ عند الفشل
+  let opened = false;
+  if(!copyOnly){
+    try{ const w = window.open(addr, '_blank'); opened = !!(w && !w.closed); }catch(e){ opened = false; }
+  }
   copyTextToClipboard(addr).then(ok => {
+    if(opened){ setKey(note, 'startup_opened'); return; }
     if(ok){
-      setKey(note, addr.indexOf('edge') === 0 ? 'startup_steps_edge' : 'startup_steps_chrome');
+      setKey(note, br.id === 'edge' ? 'startup_blocked_edge' : 'startup_blocked_chrome');
       setKey(btnText, 'startup_btn_done');
       clearTimeout(startupBtnTimer);
       startupBtnTimer = setTimeout(() => setKey(btnText, 'startup_btn'), 2500);
@@ -13776,9 +13818,23 @@ const I18N_STRINGS = {
     install_btn: 'تثبيت التطبيق',
     install_note: 'يفتح أسرع ويعمل بدون إنترنت مثل أي تطبيق على جهازك.',
     install_ios_note: 'لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».',
-    startup_btn: 'نسخ عنوان صفحة التطبيقات',
-    startup_btn_done: 'تم النسخ ✓',
-    startup_note: 'لتشغيل التطبيق عند بدء تشغيل ويندوز: المتصفح لا يسمح لأي موقع بفتح صفحة التطبيقات مباشرة، فاضغط الزر لنسخ العنوان ثم الصقه في تبويب جديد. (يجب تثبيت التطبيق أولًا)',
+    startup_btn: 'فتح صفحة التطبيقات',
+    settings_sec_backup: 'النسخ الاحتياطي والبيانات',
+    settings_sec_install: 'التثبيت والتطبيقات',
+    settings_sec_tools: 'الطباعة والاختصارات',
+    settings_sec_reset: 'الاستعادة',
+    startup_label: 'تشغيل التطبيق عند بدء تشغيل ويندوز',
+    startup_copy_only: 'نسخ العنوان فقط',
+    startup_opened: 'فُتحت صفحة التطبيقات في تبويب جديد.',
+    startup_blocked_chrome: 'لا يسمح المتصفح للمواقع بفتح صفحة التطبيقات مباشرة، لذلك نُسخ العنوان. افتح تبويبًا جديدًا (Ctrl+T) والصقه (Ctrl+V) ثم Enter. بعدها انقر بزر الفأرة الأيمن على أيقونة التطبيق واختر «تشغيل التطبيق عند تسجيل الدخول».',
+    startup_blocked_edge: 'لا يسمح المتصفح للمواقع بفتح صفحة التطبيقات مباشرة، لذلك نُسخ العنوان. افتح تبويبًا جديدًا (Ctrl+T) والصقه (Ctrl+V) ثم Enter. بعدها اضغط «التفاصيل» تحت التطبيق وفعّل «بدء التطبيق عند تسجيل الدخول للجهاز».',
+    startup_unsup_firefox: 'متصفح Firefox لا يوفّر صفحة للتطبيقات المثبّتة، لذلك لا يوجد عنوان لفتحه. استخدم Chrome أو Edge أو Brave لهذه الميزة.',
+    startup_unsup_safari: 'متصفح Safari لا يوفّر صفحة للتطبيقات المثبّتة، لذلك لا يوجد عنوان لفتحه. استخدم Chrome أو Edge أو Brave لهذه الميزة.',
+    startup_unsup_opera: 'متصفح Opera لا يوفّر صفحة للتطبيقات المثبّتة على الكمبيوتر، لذلك لا يوجد عنوان لفتحه. استخدم Chrome أو Edge أو Brave لهذه الميزة.',
+    startup_unsup_mobile: 'لا توجد صفحة للتطبيقات في متصفحات الهاتف. هذه الميزة متاحة على الكمبيوتر فقط.',
+    startup_unsup_other: 'لم نتمكن من التعرف على متصفحك، ولا نعرف عنوان صفحة التطبيقات فيه. هذه الميزة تعمل في Chrome وEdge وBrave.',
+    startup_btn_done: 'تم نسخ العنوان ✓',
+    startup_note: 'لتشغيل التطبيق عند بدء تشغيل ويندوز، افتح صفحة التطبيقات في تبويب جديد. لا تسمح المتصفحات للمواقع بفتح صفحاتها الداخلية، لذلك سيُنسخ العنوان لتلصقه في شريط العنوان. (يجب تثبيت التطبيق أولًا)',
     startup_steps_chrome: 'تم نسخ العنوان. افتح تبويبًا جديدًا (Ctrl+T) والصقه (Ctrl+V) ثم Enter. بعدها انقر بزر الفأرة الأيمن على أيقونة التطبيق واختر «تشغيل التطبيق عند تسجيل الدخول».',
     startup_steps_edge: 'تم نسخ العنوان. افتح تبويبًا جديدًا (Ctrl+T) والصقه (Ctrl+V) ثم Enter. بعدها اضغط «التفاصيل» تحت التطبيق وفعّل «بدء التطبيق عند تسجيل الدخول للجهاز».',
     startup_copy_failed: 'تعذّر النسخ تلقائيًا. انسخ العنوان الظاهر أعلاه يدويًا والصقه في تبويب جديد.',
@@ -14219,9 +14275,23 @@ const I18N_STRINGS = {
     install_btn: 'Install the app',
     install_note: 'Opens faster and works offline like any app on your device.',
     install_ios_note: 'To install: tap the Share button in Safari, then "Add to Home Screen".',
-    startup_btn: 'Copy apps page address',
-    startup_btn_done: 'Copied ✓',
-    startup_note: 'To launch the app with Windows: browsers do not allow websites to open the apps page directly. Tap the button to copy the address, then paste it in a new tab. (The app must be installed first)',
+    startup_btn: 'Open apps page',
+    settings_sec_backup: 'Backup and data',
+    settings_sec_install: 'Install and apps',
+    settings_sec_tools: 'Print and shortcuts',
+    settings_sec_reset: 'Reset',
+    startup_label: 'Start the app when Windows starts',
+    startup_copy_only: 'Copy address only',
+    startup_opened: 'The apps page was opened in a new tab.',
+    startup_blocked_chrome: 'The browser does not let websites open the apps page directly, so the address was copied. Open a new tab (Ctrl+T), paste it (Ctrl+V) and press Enter. Then right-click the app icon and choose "Start app when you sign in".',
+    startup_blocked_edge: 'The browser does not let websites open the apps page directly, so the address was copied. Open a new tab (Ctrl+T), paste it (Ctrl+V) and press Enter. Then click "Details" under the app and turn on "Start app on device sign-in".',
+    startup_unsup_firefox: 'Firefox has no page for installed apps, so there is no address to open. Use Chrome, Edge or Brave for this feature.',
+    startup_unsup_safari: 'Safari has no page for installed apps, so there is no address to open. Use Chrome, Edge or Brave for this feature.',
+    startup_unsup_opera: 'Opera has no page for installed apps on desktop, so there is no address to open. Use Chrome, Edge or Brave for this feature.',
+    startup_unsup_mobile: 'Phone browsers have no apps page. This feature is available on computers only.',
+    startup_unsup_other: 'We could not recognize your browser and do not know its apps page address. This feature works in Chrome, Edge and Brave.',
+    startup_btn_done: 'Address copied ✓',
+    startup_note: 'To start the app when Windows starts, open the apps page in a new tab. Browsers do not let websites open their internal pages, so the address will be copied for you to paste into the address bar. (Install the app first)',
     startup_steps_chrome: 'Address copied. Open a new tab (Ctrl+T), paste it (Ctrl+V) and press Enter. Then right-click the app icon and choose "Start app when you sign in".',
     startup_steps_edge: 'Address copied. Open a new tab (Ctrl+T), paste it (Ctrl+V) and press Enter. Then click "Details" under the app and turn on "Start app on device sign-in".',
     startup_copy_failed: 'Automatic copy failed. Copy the address shown above manually and paste it in a new tab.',
@@ -15555,7 +15625,8 @@ if('serviceWorker' in navigator){
           <div class="offline-dl-info small" id="offline-dl-storage"></div>
           <button type="button" id="offline-dl-clear" class="offline-dl-btn danger" onclick="clearOfflineTafsir()">حذف التفسير المحمّل</button>
         </div>
-        <div data-tab="more" class="control-group" id="data-backup-group">
+        <div data-tab="more" class="control-group settings-section-heading settings-more-heading" id="backup-section-heading"><span class="label" data-i18n="settings_sec_backup">النسخ الاحتياطي والبيانات</span></div>
+        <div data-tab="more" class="control-group settings-card" id="data-backup-group">
           <span class="label" data-i18n="data_backup_label">نسخ احتياطي للبيانات (المفضلة، الملاحظات، خطط الختم)</span>
           <div class="repeat-actions">
             <button class="repeat-btn" onclick="exportUserData()">
@@ -15570,40 +15641,39 @@ if('serviceWorker' in navigator){
           </div>
           <div class="settings-modal-note" id="data-backup-status" style="display:none;"></div>
         </div>
-        <div data-tab="more" class="control-group" id="install-group" style="display:none;">
+        <div data-tab="more" class="control-group settings-section-heading settings-more-heading" id="install-section-heading"><span class="label" data-i18n="settings_sec_install">التثبيت والتطبيقات</span></div>
+        <div data-tab="more" class="control-group settings-card" id="install-group" style="display:none;">
           <button type="button" class="offline-dl-btn primary" id="install-app-btn" onclick="promptInstall()" style="display:none;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="install_btn">تثبيت التطبيق</span>
           </button>
           <div class="settings-modal-note" id="install-note" style="display:none;" data-i18n="install_note">يفتح أسرع ويعمل بدون إنترنت مثل أي تطبيق على جهازك.</div>
-          <div class="settings-modal-note" id="install-kbd-hint" dir="ltr" style="display:none;">⌨️ Alt + Shift + E / I</div>
+          <div class="settings-modal-note kbd-chip" id="install-kbd-hint" dir="ltr" style="display:none;">⌨️ Alt + Shift + E / I</div>
           <div class="settings-modal-note" id="install-ios-note" style="display:none;" data-i18n="install_ios_note">لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».</div>
         </div>
-        <div data-tab="more" class="control-group" id="startup-group" style="display:none;">
+        <div data-tab="more" class="control-group settings-card" id="startup-group">
+          <span class="label" data-i18n="startup_label">تشغيل التطبيق عند بدء تشغيل ويندوز</span>
           <button type="button" class="offline-dl-btn primary" id="startup-copy-btn" onclick="copyAppsAddress()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span id="startup-btn-text" data-i18n="startup_btn">نسخ عنوان صفحة التطبيقات</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg><span id="startup-btn-text" data-i18n="startup_btn">فتح صفحة التطبيقات</span>
           </button>
-          <div style="margin:8px 0 2px;text-align:center;"><code id="startup-url" dir="ltr" style="display:inline-block;padding:3px 12px;border-radius:8px;background:rgba(127,127,127,0.18);font-family:Consolas,Menlo,monospace;font-size:13px;user-select:all;-webkit-user-select:all;">chrome://apps</code></div>
-          <div class="settings-modal-note" id="startup-note" data-i18n="startup_note">لتشغيل التطبيق عند بدء تشغيل ويندوز: المتصفح لا يسمح لأي موقع بفتح صفحة التطبيقات مباشرة، فاضغط الزر لنسخ العنوان ثم الصقه في تبويب جديد. (يجب تثبيت التطبيق أولًا)</div>
-          <div class="settings-modal-note" dir="ltr">⌨️ Alt + Shift + W</div>
+          <div class="startup-url-row" id="startup-url-row"><code id="startup-url" dir="ltr">chrome://apps</code><button type="button" class="startup-copy-only" id="startup-copy-only-btn" onclick="copyAppsAddress(true)" data-i18n="startup_copy_only">نسخ العنوان فقط</button></div>
+          <div class="settings-modal-note" id="startup-note" data-i18n="startup_note">لتشغيل التطبيق عند بدء تشغيل ويندوز، افتح صفحة التطبيقات في تبويب جديد. لا تسمح المتصفحات للمواقع بفتح صفحاتها الداخلية، لذلك سيُنسخ العنوان لتلصقه في شريط العنوان. (يجب تثبيت التطبيق أولًا)</div>
+          <div class="settings-modal-note kbd-chip" dir="ltr">⌨️ Alt + Shift + W</div>
         </div>
-        <div data-tab="more" class="control-group" id="sister-group">
+        <div data-tab="more" class="control-group settings-card" id="sister-group">
           <button type="button" class="offline-dl-btn primary" onclick="openSisterAppInstall()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="sister_btn">تثبيت تطبيق الراديو</span>
           </button>
           <div class="settings-modal-note" data-i18n="sister_note">ثبّت تطبيق إذاعة القرآن الكريم أيضًا على جهازك. سيُفتح في تبويب جديد مع زر التثبيت.</div>
-          <div class="settings-modal-note" dir="ltr">⌨️ Alt + Shift + R</div>
+          <div class="settings-modal-note kbd-chip" dir="ltr">⌨️ Alt + Shift + R</div>
         </div>
-        <div data-tab="more" class="control-group" id="print-group">
+        <div data-tab="more" class="control-group settings-section-heading settings-more-heading" id="tools-section-heading"><span class="label" data-i18n="settings_sec_tools">الطباعة والاختصارات</span></div>
+        <div data-tab="more" class="control-group settings-card" id="print-group">
           <button type="button" class="offline-dl-btn primary" onclick="printCurrentView()">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span data-i18n="print_btn">طباعة السورة / حفظ PDF</span>
           </button>
           <div class="settings-modal-note" data-i18n="print_note">تُطبع الآيات فقط بدون الأزرار والقوائم. اختر «حفظ كـ PDF» من نافذة الطباعة لحفظها كملف.</div>
         </div>
-        <div data-tab="more" class="control-group" id="reset-settings-group">
-          <button type="button" class="offline-dl-btn danger" onclick="resetAllSettings()"><span data-i18n="reset_settings_btn">استعادة الإعدادات الافتراضية</span></button>
-          <div class="settings-modal-note" data-i18n="reset_settings_note">لن تُحذف المفضلة والملاحظات وخطط الختم ومواضع القراءة.</div>
-        </div>
-        <div data-tab="more" class="control-group" id="shortcuts-group">
+        <div data-tab="more" class="control-group settings-card" id="shortcuts-group">
           <span class="label" data-i18n="shortcuts_label">اختصارات لوحة المفاتيح</span>
           <div class="repeat-actions">
             <button class="repeat-btn" onclick="openShortcutsModal()">
@@ -15611,6 +15681,11 @@ if('serviceWorker' in navigator){
               <span data-i18n="shortcuts_button">عرض كل الاختصارات</span>
             </button>
           </div>
+        </div>
+        <div data-tab="more" class="control-group settings-section-heading settings-more-heading" id="reset-section-heading"><span class="label" data-i18n="settings_sec_reset">الاستعادة</span></div>
+        <div data-tab="more" class="control-group settings-card" id="reset-settings-group">
+          <button type="button" class="offline-dl-btn danger" onclick="resetAllSettings()"><span data-i18n="reset_settings_btn">استعادة الإعدادات الافتراضية</span></button>
+          <div class="settings-modal-note" data-i18n="reset_settings_note">لن تُحذف المفضلة والملاحظات وخطط الختم ومواضع القراءة.</div>
         </div>
       </div>
     </div>
