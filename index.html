@@ -2578,6 +2578,16 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .repeat-dialog small{ font-size:11px; color:var(--text-faint); font-weight:600; min-height:14px; }
   .repeat-dialog .rd-summary{ margin:12px 0; padding:8px 10px; background:var(--accent-bg); color:var(--accent-soft);
     border-radius:10px; font-size:12.5px; font-weight:700; text-align:center; }
+  .repeat-dialog .rd-options{ margin-top:12px; display:flex; flex-direction:column; gap:8px; }
+  /* إخفاء تدريجي أثناء التكرار (يُكشف بمرور الماوس) */
+  .ayah-card.rd-hide-partial .ayah-text .ayah-rest-text,
+  .ayah-card.rd-hide-full .ayah-text .ayah-first-word,
+  .ayah-card.rd-hide-full .ayah-text .ayah-rest-text{ visibility:hidden; }
+  .ayah-card.rd-hide-partial .ayah-text:hover .ayah-rest-text,
+  .ayah-card.rd-hide-full .ayah-text:hover .ayah-first-word,
+  .ayah-card.rd-hide-full .ayah-text:hover .ayah-rest-text{ visibility:visible; }
+  .repeat-dialog .rd-check{ flex-direction:row; align-items:flex-start; gap:8px; font-weight:600; cursor:pointer; }
+  .repeat-dialog .rd-check input{ width:auto; margin-top:2px; }
   .repeat-dialog .rd-actions{ display:flex; gap:8px; }
   .repeat-dialog .rd-actions button{ flex:1; padding:10px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
   .repeat-dialog .rd-start{ background:var(--accent); color:#fff; border:none; }
@@ -9014,6 +9024,27 @@ function startAyahRepeat(){
     segmentTimes: segmentTimes,
     currentSegment: 1
   };
+  // خطة تشغيل مخصّصة (مثل التكرار التدريجي) تضعها نافذة الضغط المطوّل
+  if(window.__rdQueue){
+    repeatState.queue = window.__rdQueue;
+    repeatState.queuePos = 0;
+    window.__rdQueue = null;
+  }
+  // خيارات اختيارية من نافذة الضغط المطوّل (وقفة الترديد / إخفاء النص تدريجيًا)
+  const rdOpts = window.__rdOpts; window.__rdOpts = null;
+  if(rdOpts){
+    repeatState.pauseRecite = !!rdOpts.pauseRecite;
+    repeatState.hideProgressive = !!rdOpts.hideProgressive;
+    if(repeatState.hideProgressive){
+      repeatState.played = {};
+      repeatState.planned = {};
+      if(repeatState.queue){
+        repeatState.queue.forEach(i => { repeatState.planned[i] = (repeatState.planned[i] || 0) + 1; });
+      } else {
+        for(let i = from; i <= to; i++) repeatState.planned[i] = times * segmentTimes;
+      }
+    }
+  }
 
   document.getElementById('repeat-start-btn').style.display = 'none';
   document.getElementById('repeat-stop-btn').style.display = '';
@@ -9021,7 +9052,26 @@ function startAyahRepeat(){
   playRepeatStep();
 }
 
+// يُخفي نص الآية تدريجيًا مع زيادة عدد مرات تشغيلها: أول ثلث ظاهر، ثم يبقى أول كلمة فقط، ثم يُخفى كله
+function applyRepeatHideLevel(idx, card){
+  const st = repeatState;
+  const planned = st.planned[idx] || 1;
+  const done = st.played[idx] || 0;
+  st.played[idx] = done + 1;
+  if(!card) return;
+  const ratio = done / planned;
+  card.classList.remove('rd-hide-partial', 'rd-hide-full');
+  if(ratio >= 0.66) card.classList.add('rd-hide-full');
+  else if(ratio >= 0.33) card.classList.add('rd-hide-partial');
+}
+function clearRepeatHideClasses(){
+  document.querySelectorAll('.ayah-card.rd-hide-partial, .ayah-card.rd-hide-full')
+    .forEach(el => el.classList.remove('rd-hide-partial', 'rd-hide-full'));
+}
+
 function stopAyahRepeat(){
+  clearTimeout(repeatState.pauseTimer);
+  clearRepeatHideClasses();
   repeatState.active = false;
   repeatState.loopForever = false;
   if(ayahAudioPlayer) ayahAudioPlayer.pause();
@@ -9037,6 +9087,10 @@ function stopAyahRepeat(){
 
 function playRepeatStep(){
   if(!repeatState.active) return;
+  if(repeatState.queue){
+    if(repeatState.queuePos >= repeatState.queue.length){ stopAyahRepeat(); return; }
+    repeatState.currentIndex = repeatState.queue[repeatState.queuePos];
+  }
   if(repeatState.currentIndex > repeatState.toIndex || repeatState.currentIndex > currentVerseList.length){
     if(repeatState.currentSegment < repeatState.segmentTimes){
       repeatState.currentSegment++;
@@ -9067,6 +9121,8 @@ function playRepeatStep(){
   }
   setupWbwForCard(cardId);
 
+  if(repeatState.hideProgressive) applyRepeatHideLevel(repeatState.currentIndex, card);
+
   const segmentInfo = repeatState.segmentTimes > 1
     ? tf('repeat_segment_round', { seg: repeatState.currentSegment, segTotal: repeatState.segmentTimes })
     : '';
@@ -9076,12 +9132,28 @@ function playRepeatStep(){
     count: repeatState.currentCount + 1,
     times: repeatState.timesEach
   }) + segmentInfo);
+  if(repeatState.queue){
+    updateRepeatStatus(offT(
+      `🧱 تكرار تدريجي — الخطوة ${repeatState.queuePos + 1} من ${repeatState.queue.length} (آية ${repeatState.currentIndex})`,
+      `🧱 Progressive repeat — step ${repeatState.queuePos + 1} of ${repeatState.queue.length} (ayah ${repeatState.currentIndex})`));
+  }
 
   ensureAyahAudioPlayer();
   loadAndPlayAyah(item.surahId, item.ayahId);
 }
 
+// وقفة للترديد: بعد كل تشغيل ننتظر بقدر مدة الآية ليردّدها المستخدم من حفظه، ثم نكمل
 function handleRepeatAdvance(){
+  if(!repeatState.pauseRecite){ handleRepeatAdvanceNow(); return; }
+  const rate = (ayahAudioPlayer && ayahAudioPlayer.playbackRate) || 1;
+  const dur = (ayahAudioPlayer && isFinite(ayahAudioPlayer.duration) && ayahAudioPlayer.duration > 0) ? ayahAudioPlayer.duration : 4;
+  const ms = Math.min(Math.max((dur / rate) * 1000 + 600, 1500), 60000);
+  updateRepeatStatus(offT('🎙 ردّد الآية الآن من حفظك…', '🎙 Recite the ayah now from memory…'));
+  clearTimeout(repeatState.pauseTimer);
+  repeatState.pauseTimer = setTimeout(() => { if(repeatState.active) handleRepeatAdvanceNow(); }, ms);
+}
+function handleRepeatAdvanceNow(){
+  if(repeatState.queue){ repeatState.queuePos++; playRepeatStep(); return; }
   repeatState.currentCount++;
   if(repeatState.currentCount < repeatState.timesEach){
     playRepeatStep();
@@ -9361,14 +9433,31 @@ function repeatSingleAyahFromGesture(surahId, ayahId){
 }
 /* ---------- نافذة التكرار عند الضغط المطوّل ----------
    تفتح نافذة صغيرة لتحديد: من أي ترتيب لأي ترتيب، وعدد تكرار كل آية، وعدد تكرار المقطع كاملاً */
+const RD_MAX_QUEUE = 3000;
+// التكرار التدريجي: لكل خطوة k تُشغَّل الآية الجديدة (times مرات)، ثم المقطع من البداية حتى k (seg مرات)
+function buildProgressiveQueue(from, to, times, seg){
+  const q = [];
+  for(let k = from; k <= to; k++){
+    for(let i = 0; i < times; i++) q.push(k);
+    if(k > from){
+      for(let r = 0; r < seg; r++){
+        for(let j = from; j <= k; j++) q.push(j);
+        if(q.length > RD_MAX_QUEUE * 2) return q;
+      }
+    }
+  }
+  return q;
+}
 function openRepeatDialog(mode, surahId, ayahId){
   const reciter = RECITERS[selectedReciter] || RECITERS.husary;
   if(reciter.type === 'surah'){ showShortcutToast(t('repeat_unsupported_reciter')); return; }
   if(!currentVerseList.length){ showShortcutToast(t('no_ayat_to_repeat')); return; }
   const total = currentVerseList.length;
   const idx = Math.max(1, currentVerseList.findIndex(v => v.surahId === surahId && v.ayahId === ayahId) + 1);
-  const panelTimes = parseInt((document.getElementById('repeat-times') || {}).value, 10) || 3;
-  const panelSeg = parseInt((document.getElementById('repeat-segment-times') || {}).value, 10) || 1;
+  let saved = {};
+  try{ saved = JSON.parse(localStorage.getItem('repeat_dialog_prefs') || '{}') || {}; }catch(e){ saved = {}; }
+  const panelTimes = parseInt(saved.times, 10) || parseInt((document.getElementById('repeat-times') || {}).value, 10) || 3;
+  const panelSeg = parseInt(saved.seg, 10) || parseInt((document.getElementById('repeat-segment-times') || {}).value, 10) || 1;
   const initFrom = mode === 'single' ? idx : 1;
   const initTo = mode === 'single' ? idx : total;
 
@@ -9393,6 +9482,14 @@ function openRepeatDialog(mode, surahId, ayahId){
         '<label>' + offT('تكرار الفقرة كاملة', 'Repeats of the whole passage') +
           '<input type="number" id="rd-seg" inputmode="numeric" min="1" max="50" value="' + panelSeg + '"></label>' +
       '</div>' +
+      '<div class="rd-options">' +
+        '<label class="rd-check"><input type="checkbox" id="rd-progressive"' + (saved.progressive ? ' checked' : '') + '>' +
+          '<span>' + offT('تكرار تدريجي (بناء الحفظ): آية، ثم آية+آية، وهكذا', 'Progressive build: ayah 1, then 1+2, then 1+2+3…') + '</span></label>' +
+        '<label class="rd-check"><input type="checkbox" id="rd-pause"' + (saved.pauseRecite ? ' checked' : '') + '>' +
+          '<span>' + offT('وقفة للترديد: يسكت القارئ بعد كل آية لتردّدها أنت', 'Recite pause: silence after each ayah so you repeat it') + '</span></label>' +
+        '<label class="rd-check"><input type="checkbox" id="rd-hide"' + (saved.hideProgressive ? ' checked' : '') + '>' +
+          '<span>' + offT('إخفاء النص تدريجيًا مع زيادة التكرار', 'Gradually hide the text as repeats increase') + '</span></label>' +
+      '</div>' +
       '<div class="rd-summary" id="rd-summary"></div>' +
       '<div class="rd-actions">' +
         '<button type="button" class="rd-start" id="rd-start">▶ ' + offT('ابدأ التكرار', 'Start') + '</button>' +
@@ -9410,6 +9507,8 @@ function openRepeatDialog(mode, surahId, ayahId){
     const sur = (typeof QURAN !== 'undefined' && QURAN) ? QURAN.find(x => x.id === it.surahId) : null;
     return (sur ? sur.name + ' — ' : '') + offT('آية ', 'ayah ') + it.ayahId;
   };
+  const progEl = $('rd-progressive');
+  const pauseEl = $('rd-pause'), hideEl = $('rd-hide');
   const read = () => {
     const from = clamp(parseInt(fromEl.value, 10) || 1, 1, total);
     const to = clamp(parseInt(toEl.value, 10) || from, from, total);
@@ -9422,6 +9521,13 @@ function openRepeatDialog(mode, surahId, ayahId){
     $('rd-from-lbl').textContent = label(r.from);
     $('rd-to-lbl').textContent = label(r.to);
     const n = r.to - r.from + 1;
+    if(progEl.checked){
+      const q = buildProgressiveQueue(r.from, r.to, r.times, r.seg);
+      $('rd-summary').textContent = offT(
+        `تدريجي: ${n} خطوة، إجمالي ${q.length} تشغيلة` + (q.length > RD_MAX_QUEUE ? ' — كبير جدًا، قلّل النطاق أو التكرار' : ''),
+        `Progressive: ${n} steps, ${q.length} plays in total` + (q.length > RD_MAX_QUEUE ? ' — too large, reduce range or repeats' : ''));
+      return;
+    }
     $('rd-summary').textContent = offT(
       `${n} آية × ${r.times} مرات، والفقرة ${r.seg} مرة ← إجمالي ${n * r.times * r.seg} تشغيلة`,
       `${n} ayah(s) × ${r.times}, passage ${r.seg}× → ${n * r.times * r.seg} plays in total`);
@@ -9437,13 +9543,31 @@ function openRepeatDialog(mode, surahId, ayahId){
     const sEl = document.getElementById('repeat-segment-times');
     if(tEl) tEl.value = r.times;
     if(sEl) sEl.value = r.seg;
+    const opts = { pauseRecite: !!pauseEl.checked, hideProgressive: !!hideEl.checked };
+    try{ localStorage.setItem('repeat_dialog_prefs', JSON.stringify({ times: r.times, seg: r.seg, progressive: !!progEl.checked, pauseRecite: opts.pauseRecite, hideProgressive: opts.hideProgressive })); }catch(e){}
+    if(progEl.checked){
+      const q = buildProgressiveQueue(r.from, r.to, r.times, r.seg);
+      if(q.length > RD_MAX_QUEUE){ showShortcutToast(offT('الخطة كبيرة جدًا — قلّل النطاق أو عدد التكرار', 'Plan too large — reduce range or repeats')); return; }
+      close();
+      window.__rdQueue = q;
+      window.__rdOpts = opts;
+      const startedQ = startRepeatForRange(r.from, r.to);
+      window.__rdOpts = null;
+      if(!startedQ) window.__rdQueue = null;
+      else showShortcutToast(offT(`🧱 تكرار تدريجي من ${r.from} إلى ${r.to}`, `🧱 Progressive repeat ${r.from}–${r.to}`));
+      return;
+    }
     close();
-    if(startRepeatForRange(r.from, r.to)){
+    window.__rdOpts = opts;
+    const started = startRepeatForRange(r.from, r.to);
+    window.__rdOpts = null;
+    if(started){
       showShortcutToast(offT(
         `↻ تكرار من ${r.from} إلى ${r.to} — كل آية ${r.times} مرات، والفقرة ${r.seg} مرة`,
         `↻ Repeating ${r.from}–${r.to} — each ayah ${r.times}×, passage ${r.seg}×`));
     }
   };
+  progEl.addEventListener('change', refresh);
   [fromEl, toEl, timesEl, segEl].forEach(el => { el.addEventListener('input', refresh); el.addEventListener('focus', () => el.select()); });
   $('rd-start').addEventListener('click', go);
   $('rd-cancel').addEventListener('click', close);
