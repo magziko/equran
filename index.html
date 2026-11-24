@@ -2647,6 +2647,28 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     background:var(--surface-2); color:var(--text); border:1px solid var(--border); }
   .memo-entry-actions button.danger{ color:#c0392b; }
   .memo-empty{ font-size:13px; color:var(--text-muted); font-weight:600; margin-top:8px; }
+  /* ---------- Settings reorganization ---------- */
+  .settings-section-heading{ padding-bottom:0; }
+  .settings-section-heading .label{ font-size:14px; font-weight:800; color:var(--accent-soft); }
+  #settings-overlay .controls-body > .settings-modal-note{ grid-column:1 / -1; margin-bottom:0; }
+  @media (min-width:768px){
+    #settings-overlay .settings-modal{
+      display:grid; grid-template-columns:210px minmax(0, 1fr); grid-template-areas:"head head" "tabs body";
+      column-gap:30px; align-content:start; align-items:start;
+    }
+    #settings-overlay .settings-modal-header{ grid-area:head; }
+    #settings-overlay .settings-tabs{
+      grid-area:tabs; flex-direction:column; gap:4px; margin:0; overflow:visible;
+      position:sticky; top:0; border-bottom:none; border-inline-end:1px solid var(--border); padding-inline-end:14px;
+    }
+    #settings-overlay .settings-tab{
+      flex:none; white-space:normal; text-align:start; border-bottom:none; margin-bottom:0; border-radius:10px;
+      padding:12px 14px; font-size:15px; border-inline-end:3px solid transparent;
+    }
+    #settings-overlay .settings-tab.active{ background:var(--accent-bg); border-inline-end-color:var(--accent); }
+    #settings-overlay .controls-body{ grid-area:body; }
+    #settings-overlay .controls-body{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+  }
 </style>
 </head>
 <body>
@@ -7271,7 +7293,6 @@ function renderMemoSettingsTab(){
   const lg = document.getElementById('memo-list-group');
   if(!pg || !lg) return;
   const p = getRepeatPrefs();
-  const speeds = VALID_PLAYBACK_SPEEDS.map(v => '<option value="' + v + '"' + (v === playbackSpeed ? ' selected' : '') + '>' + v + '×</option>').join('');
   pg.innerHTML =
     '<span class="label">' + offT('خيارات تكرار الحفظ (الافتراضية)', 'Memorization repeat defaults') + '</span>' +
     '<label class="test-mode-toggle-row"><input type="checkbox" id="mp-progressive"' + (p.progressive ? ' checked' : '') + '>' +
@@ -7280,16 +7301,9 @@ function renderMemoSettingsTab(){
       '<span>' + offT('وقفة للترديد: يسكت القارئ بعد كل آية لتردّدها أنت', 'Recite pause: silence after each ayah so you repeat it') + '</span></label>' +
     '<label class="test-mode-toggle-row"><input type="checkbox" id="mp-hide"' + (p.hideProgressive ? ' checked' : '') + '>' +
       '<span>' + offT('إخفاء النص تدريجيًا مع زيادة التكرار', 'Gradually hide the text as repeats increase') + '</span></label>' +
-    '<span class="label" style="margin-top:12px;">' + offT('سرعة التلاوة', 'Recitation speed') + '</span>' +
-    '<select id="mp-speed" class="font-select">' + speeds + '</select>' +
     '<p class="memo-tab-note">' + offT('نفس القيم في نافذة التكرار (اضغط مطوّلًا على رقم الآية): أي تغيير هنا يظهر هناك والعكس.', 'Same values as the repeat dialog (long-press an ayah number): changes here show up there and the other way around.') + '</p>';
   const bind = (id, key) => { const el = pg.querySelector('#' + id); if(el) el.addEventListener('change', () => setRepeatPref(key, !!el.checked)); };
   bind('mp-progressive', 'progressive'); bind('mp-pause', 'pauseRecite'); bind('mp-hide', 'hideProgressive');
-  const sp = pg.querySelector('#mp-speed');
-  if(sp) sp.addEventListener('change', () => {
-    changePlaybackSpeed(sp.value);
-    const gs = document.getElementById('playback-speed-select'); if(gs) gs.value = playbackSpeed;
-  });
   renderMemoList();
 }
 function renderMemoList(){
@@ -13489,7 +13503,9 @@ const I18N_STRINGS = {
     settings_tab_reading: 'القراءة والعرض',
     settings_tab_audio: 'الصوت والتلاوة',
     settings_tab_tafsir: 'التفسير والترجمة',
-    settings_tab_more: 'البيانات وأخرى',
+    settings_tab_more: 'البيانات والتخزين',
+    settings_offline_section: 'التحميل للأوفلاين',
+    settings_advanced_section: 'إعدادات متقدمة',
     repeat_section_label: 'تكرار الآيات للحفظ',
     repeat_from: 'من آية',
     repeat_to: 'إلى آية',
@@ -13896,7 +13912,9 @@ const I18N_STRINGS = {
     settings_tab_reading: 'Reading & display',
     settings_tab_audio: 'Audio & recitation',
     settings_tab_tafsir: 'Tafsir & translation',
-    settings_tab_more: 'Data & more',
+    settings_tab_more: 'Data & storage',
+    settings_offline_section: 'Offline downloads',
+    settings_advanced_section: 'Advanced',
     repeat_section_label: 'Verse repetition for memorization',
     repeat_from: 'From ayah',
     repeat_to: 'To ayah',
@@ -14817,15 +14835,15 @@ if('serviceWorker' in navigator){
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
-      <div class="settings-modal-note" id="settings-modal-note" style="display:none;" data-i18n="settings_no_surah_note">التكرار والاستماع المتواصل متاحين وأنت داخل سورة. باقي الإعدادات بتتطبق فورًا وتفضل محفوظة.</div>
       <div class="settings-tabs" id="settings-tabs" role="tablist">
         <button type="button" class="settings-tab active" role="tab" id="settings-tab-reading" aria-selected="true" aria-controls="settings-tabpanel" tabindex="0" data-tab-btn="reading" onclick="setSettingsTab('reading')"><span data-i18n="settings_tab_reading">القراءة والعرض</span></button>
         <button type="button" class="settings-tab" role="tab" id="settings-tab-audio" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="audio" onclick="setSettingsTab('audio')"><span data-i18n="settings_tab_audio">الصوت والتلاوة</span></button>
-        <button type="button" class="settings-tab" role="tab" id="settings-tab-tafsir" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="tafsir" onclick="setSettingsTab('tafsir')"><span data-i18n="settings_tab_tafsir">التفسير والترجمة</span></button>
         <button type="button" class="settings-tab" role="tab" id="settings-tab-memo" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="memo" onclick="setSettingsTab('memo')"><span id="settings-tab-memo-label">الحفظ والمراجعة</span></button>
+        <button type="button" class="settings-tab" role="tab" id="settings-tab-tafsir" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="tafsir" onclick="setSettingsTab('tafsir')"><span data-i18n="settings_tab_tafsir">التفسير والترجمة</span></button>
         <button type="button" class="settings-tab" role="tab" id="settings-tab-more" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="more" onclick="setSettingsTab('more')"><span data-i18n="settings_tab_more">البيانات وأخرى</span></button>
       </div>
       <div class="controls-body" data-active-tab="reading" id="settings-tabpanel" role="tabpanel" aria-labelledby="settings-tab-reading">
+      <div data-tab="memo" class="settings-modal-note" id="settings-modal-note" style="display:none;" data-i18n="settings_no_surah_note">التكرار والاستماع المتواصل متاحين وأنت داخل سورة. باقي الإعدادات بتتطبق فورًا وتفضل محفوظة.</div>
         <div data-tab="reading" class="control-group">
           <span class="label" data-i18n="display_mode_label">طريقة العرض</span>
           <div class="display-mode-toggle">
@@ -14863,16 +14881,6 @@ if('serviceWorker' in navigator){
             <option value="madinah" data-i18n="font_madinah">خط مصحف المدينة (عثمان طه)</option>
             <option value="uthman-naskh" data-i18n="font_uthman_naskh">النسخي العثماني (عثمان طه)</option>
           </select>
-        </div>
-        <div data-tab="reading" class="control-group offline-dl-group" id="mushaf-offline-group">
-          <span class="label" id="mushaf-dl-title">تحميل المصحف للأوفلاين</span>
-          <div class="offline-dl-info small" id="mushaf-dl-note"></div>
-          <div class="offline-dl-row">
-            <button type="button" id="mushaf-dl-start" class="offline-dl-btn primary" onclick="startMushafOfflineDownload()">تحميل</button>
-            <button type="button" id="mushaf-dl-clear" class="offline-dl-btn danger" style="display:none;" onclick="clearMushafOffline()">حذف</button>
-          </div>
-          <progress id="mushaf-dl-progress" value="0" max="1" style="display:none;"></progress>
-          <div class="offline-dl-info" id="mushaf-dl-status" role="status" aria-live="polite"></div>
         </div>
         <div data-tab="audio" class="control-group">
           <span class="label" data-i18n="reciter_label">القارئ</span>
@@ -14998,20 +15006,6 @@ if('serviceWorker' in navigator){
             <div class="share-photo-note" data-i18n="reading_bg_note">تحتاج الصورة إلى اتصال بالإنترنت أول مرة، ثم تُخزَّن للمرات القادمة. زِد التعتيم إن أردت نصًا أوضح.</div>
           </div>
         </div>
-        <div data-tab="audio" class="control-group" id="sync-speed-group">
-          <span class="label" data-i18n="sync_speed_label">سرعة تنقل الآيات مع التلاوة</span>
-          <div class="sync-speed-row">
-            <input type="range" id="sync-speed-range" min="0.7" max="1.5" step="0.05" value="1" oninput="setAyahSyncSpeed(this.value)">
-            <span class="sync-speed-val" id="sync-speed-val">1.00×</span>
-            <button type="button" class="sync-speed-reset" id="sync-speed-reset" onclick="resetAyahSyncSpeed()" data-i18n="sync_speed_reset">إعادة ضبط</button>
-          </div>
-          <div class="sync-speed-for" id="sync-speed-for"></div>
-          <div class="share-photo-note" data-i18n="sync_speed_note">لو كان تمييز الآية يتأخر عن صوت القارئ ارفع القيمة، ولو كان يسبقه خفّضها. يُحفظ الضبط لكل قارئ على حدة.</div>
-          <div class="sync-speed-row">
-            <button type="button" class="sync-speed-reset" id="sync-calib-btn" onclick="startSyncCalibration()" data-i18n="sync_calib_btn">🎯 معايرة تلقائية بالاستماع</button>
-          </div>
-          <div class="share-photo-note" data-i18n="sync_calib_note">شغّل التلاوة بأي طريقة (استماع، تكرار، آية مفردة)، وبعد نحو 30 ثانية افتح المعايرة (أو اضغط Y من لوحة المفاتيح دون فتح الإعدادات) ثم اضغط على الآية التي تسمعها فعلًا، وسيحسب التطبيق السرعة المناسبة لهذا القارئ.</div>
-        </div>
         <div data-tab="audio" class="control-group">
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="ayah-autoscroll-toggle" onchange="toggleAyahAutoScroll(this.checked)">
@@ -15048,24 +15042,6 @@ if('serviceWorker' in navigator){
           </label>
           <div class="settings-modal-note" data-i18n="listen_continuous_note">مفعّل: تُشغَّل السورة المختارة ثم التي تليها وهكذا حتى آخر المصحف، ثم تبدأ من الفاتحة من جديد. مُطفأ: تُشغَّل السورة المختارة فقط.</div>
         </div>
-        <div data-tab="audio" class="control-group offline-dl-group" id="audio-offline-group">
-          <span class="label" id="audio-dl-title" data-i18n="audio_dl_title">تحميل التلاوة للاستماع بدون إنترنت</span>
-          <div class="offline-dl-row">
-            <select id="audio-offline-surah-select" class="font-select" onchange="refreshAudioOfflineStatus()" aria-labelledby="audio-dl-title"></select>
-            <button type="button" id="audio-dl-start" class="offline-dl-btn primary" onclick="startAudioOfflineDownload()" data-i18n="audio_dl_start">تحميل</button>
-            <button type="button" id="audio-dl-cancel" class="offline-dl-btn" style="display:none;" onclick="cancelAudioOfflineDownload()" data-i18n="audio_dl_cancel">إيقاف</button>
-          </div>
-          <div class="offline-dl-info" id="audio-dl-reciter"></div>
-          <div class="offline-dl-info small" id="audio-dl-legend"></div>
-          <div class="offline-dl-info small" id="audio-dl-overview"></div>
-          <progress id="audio-dl-progress" value="0" max="1" style="display:none;"></progress>
-          <div class="offline-dl-info" id="audio-dl-status" role="status" aria-live="polite"></div>
-          <div class="offline-dl-info small" id="audio-dl-storage"></div>
-          <div class="offline-dl-row">
-            <button type="button" id="audio-dl-clear-one" class="offline-dl-btn danger" onclick="clearAudioOfflineSelection()" data-i18n="audio_dl_clear_one">حذف تلاوة هذه السورة</button>
-            <button type="button" id="audio-dl-clear-all" class="offline-dl-btn danger" onclick="clearAllAudioOffline()" data-i18n="audio_dl_clear_all">حذف كل التلاوات المحمّلة</button>
-          </div>
-        </div>
         <div data-tab="tafsir" class="control-group control-group-tafsir" id="control-group-tafsir">
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="inline-tafsir-toggle" onchange="toggleInlineTafsir(this.checked)">
@@ -15083,27 +15059,27 @@ if('serviceWorker' in navigator){
             </div>
           </div>
         </div>
-        <div data-tab="tafsir" class="control-group offline-dl-group" id="control-group-offline-tafsir">
-          <span class="label" id="offline-dl-title">التحميل للأوفلاين (التفسير والترجمات)</span>
-          <div class="offline-dl-row">
-            <select id="offline-surah-select" class="font-select" onchange="refreshOfflineTafsirStatus()" aria-labelledby="offline-dl-title"></select>
-            <button type="button" id="offline-dl-start" class="offline-dl-btn primary" onclick="startOfflineTafsirDownload()">تحميل</button>
-            <button type="button" id="offline-dl-cancel" class="offline-dl-btn" style="display:none;" onclick="cancelOfflineTafsirDownload()">إيقاف</button>
-          </div>
-          <div class="offline-dl-info" id="offline-dl-sources"></div>
-          <div class="offline-dl-info small" id="offline-dl-legend"></div>
-          <div class="offline-dl-info small" id="offline-dl-overview"></div>
-          <progress id="offline-dl-progress" value="0" max="1" style="display:none;"></progress>
-          <div class="offline-dl-info" id="offline-dl-status" role="status" aria-live="polite"></div>
-          <div class="offline-dl-info small" id="offline-dl-storage"></div>
-          <button type="button" id="offline-dl-clear" class="offline-dl-btn danger" onclick="clearOfflineTafsir()">حذف التفسير المحمّل</button>
-        </div>
         <div data-tab="tafsir" class="control-group">
           <label class="test-mode-toggle-row">
             <input type="checkbox" id="share-image-tafsir-toggle" onchange="toggleShareImageTafsir(this.checked)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
             <span data-i18n="share_image_tafsir_label">تضمين التفسير/الترجمة المختار في صورة الآية عند المشاركة</span>
           </label>
+        </div>
+        <div data-tab="audio" class="control-group settings-section-heading" id="advanced-section-heading"><span class="label" data-i18n="settings_advanced_section">إعدادات متقدمة</span></div>
+        <div data-tab="audio" class="control-group" id="sync-speed-group">
+          <span class="label" data-i18n="sync_speed_label">سرعة تنقل الآيات مع التلاوة</span>
+          <div class="sync-speed-row">
+            <input type="range" id="sync-speed-range" min="0.7" max="1.5" step="0.05" value="1" oninput="setAyahSyncSpeed(this.value)">
+            <span class="sync-speed-val" id="sync-speed-val">1.00×</span>
+            <button type="button" class="sync-speed-reset" id="sync-speed-reset" onclick="resetAyahSyncSpeed()" data-i18n="sync_speed_reset">إعادة ضبط</button>
+          </div>
+          <div class="sync-speed-for" id="sync-speed-for"></div>
+          <div class="share-photo-note" data-i18n="sync_speed_note">لو كان تمييز الآية يتأخر عن صوت القارئ ارفع القيمة، ولو كان يسبقه خفّضها. يُحفظ الضبط لكل قارئ على حدة.</div>
+          <div class="sync-speed-row">
+            <button type="button" class="sync-speed-reset" id="sync-calib-btn" onclick="startSyncCalibration()" data-i18n="sync_calib_btn">🎯 معايرة تلقائية بالاستماع</button>
+          </div>
+          <div class="share-photo-note" data-i18n="sync_calib_note">شغّل التلاوة بأي طريقة (استماع، تكرار، آية مفردة)، وبعد نحو 30 ثانية افتح المعايرة (أو اضغط Y من لوحة المفاتيح دون فتح الإعدادات) ثم اضغط على الآية التي تسمعها فعلًا، وسيحسب التطبيق السرعة المناسبة لهذا القارئ.</div>
         </div>
         <div data-tab="memo" class="control-group repeat-group" id="repeat-group">
           <span class="label" data-i18n="repeat_section_label">تكرار الآيات للحفظ</span>
@@ -15148,6 +15124,50 @@ if('serviceWorker' in navigator){
         </div>
         <div data-tab="memo" class="control-group" id="memo-prefs-group"></div>
         <div data-tab="memo" class="control-group" id="memo-list-group"></div>
+        <div data-tab="more" class="control-group settings-section-heading" id="offline-section-heading"><span class="label" data-i18n="settings_offline_section">التحميل للأوفلاين</span></div>
+        <div data-tab="more" class="control-group offline-dl-group" id="mushaf-offline-group">
+          <span class="label" id="mushaf-dl-title">تحميل المصحف للأوفلاين</span>
+          <div class="offline-dl-info small" id="mushaf-dl-note"></div>
+          <div class="offline-dl-row">
+            <button type="button" id="mushaf-dl-start" class="offline-dl-btn primary" onclick="startMushafOfflineDownload()">تحميل</button>
+            <button type="button" id="mushaf-dl-clear" class="offline-dl-btn danger" style="display:none;" onclick="clearMushafOffline()">حذف</button>
+          </div>
+          <progress id="mushaf-dl-progress" value="0" max="1" style="display:none;"></progress>
+          <div class="offline-dl-info" id="mushaf-dl-status" role="status" aria-live="polite"></div>
+        </div>
+        <div data-tab="more" class="control-group offline-dl-group" id="audio-offline-group">
+          <span class="label" id="audio-dl-title" data-i18n="audio_dl_title">تحميل التلاوة للاستماع بدون إنترنت</span>
+          <div class="offline-dl-row">
+            <select id="audio-offline-surah-select" class="font-select" onchange="refreshAudioOfflineStatus()" aria-labelledby="audio-dl-title"></select>
+            <button type="button" id="audio-dl-start" class="offline-dl-btn primary" onclick="startAudioOfflineDownload()" data-i18n="audio_dl_start">تحميل</button>
+            <button type="button" id="audio-dl-cancel" class="offline-dl-btn" style="display:none;" onclick="cancelAudioOfflineDownload()" data-i18n="audio_dl_cancel">إيقاف</button>
+          </div>
+          <div class="offline-dl-info" id="audio-dl-reciter"></div>
+          <div class="offline-dl-info small" id="audio-dl-legend"></div>
+          <div class="offline-dl-info small" id="audio-dl-overview"></div>
+          <progress id="audio-dl-progress" value="0" max="1" style="display:none;"></progress>
+          <div class="offline-dl-info" id="audio-dl-status" role="status" aria-live="polite"></div>
+          <div class="offline-dl-info small" id="audio-dl-storage"></div>
+          <div class="offline-dl-row">
+            <button type="button" id="audio-dl-clear-one" class="offline-dl-btn danger" onclick="clearAudioOfflineSelection()" data-i18n="audio_dl_clear_one">حذف تلاوة هذه السورة</button>
+            <button type="button" id="audio-dl-clear-all" class="offline-dl-btn danger" onclick="clearAllAudioOffline()" data-i18n="audio_dl_clear_all">حذف كل التلاوات المحمّلة</button>
+          </div>
+        </div>
+        <div data-tab="more" class="control-group offline-dl-group" id="control-group-offline-tafsir">
+          <span class="label" id="offline-dl-title">التحميل للأوفلاين (التفسير والترجمات)</span>
+          <div class="offline-dl-row">
+            <select id="offline-surah-select" class="font-select" onchange="refreshOfflineTafsirStatus()" aria-labelledby="offline-dl-title"></select>
+            <button type="button" id="offline-dl-start" class="offline-dl-btn primary" onclick="startOfflineTafsirDownload()">تحميل</button>
+            <button type="button" id="offline-dl-cancel" class="offline-dl-btn" style="display:none;" onclick="cancelOfflineTafsirDownload()">إيقاف</button>
+          </div>
+          <div class="offline-dl-info" id="offline-dl-sources"></div>
+          <div class="offline-dl-info small" id="offline-dl-legend"></div>
+          <div class="offline-dl-info small" id="offline-dl-overview"></div>
+          <progress id="offline-dl-progress" value="0" max="1" style="display:none;"></progress>
+          <div class="offline-dl-info" id="offline-dl-status" role="status" aria-live="polite"></div>
+          <div class="offline-dl-info small" id="offline-dl-storage"></div>
+          <button type="button" id="offline-dl-clear" class="offline-dl-btn danger" onclick="clearOfflineTafsir()">حذف التفسير المحمّل</button>
+        </div>
         <div data-tab="more" class="control-group" id="data-backup-group">
           <span class="label" data-i18n="data_backup_label">نسخ احتياطي للبيانات (المفضلة، الملاحظات، خطط الختم)</span>
           <div class="repeat-actions">
