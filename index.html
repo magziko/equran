@@ -11,7 +11,7 @@
   if (typeof Promise === 'undefined') unsupported = true;
   if (!unsupported) return;
   function show() {
-    if (document.getElementById('legacy-browser-notice')) return;a
+    if (document.getElementById('legacy-browser-notice')) return;
     var d = document.createElement('div');
     d.id = 'legacy-browser-notice';
     d.setAttribute('style', 'position:fixed;top:0;right:0;bottom:0;left:0;z-index:2147483647;background:#0f4c3a;color:#fff;padding:28px 20px;overflow:auto;text-align:center;line-height:1.9;font-family:Tahoma,Arial,sans-serif;');
@@ -2296,10 +2296,10 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .auto-scroll-btn.visible{ display:flex; }
   .auto-scroll-btn:hover{ filter:brightness(1.08); transform:translateY(-2px); }
   .auto-scroll-btn svg{ width:17px; height:17px; position:relative; z-index:1; }
-  .auto-scroll-btn.active{ background:#e0473c; }
+  .auto-scroll-btn.active{ background:var(--bg-elev); color:var(--accent); box-shadow:0 0 0 2px var(--accent), 0 6px 18px rgba(0,0,0,.25); }
   .auto-scroll-btn.active .auto-scroll-btn__pulse{
     position:absolute; top:-4px; right:-4px; bottom:-4px; left:-4px; inset:-4px; border-radius:50%;
-    border:2px solid #e0473c; opacity:.55;
+    border:2px solid var(--accent); opacity:.5;
     animation:radioFabPulse 2.4s ease-out infinite;
     pointer-events:none;
   }
@@ -2330,10 +2330,15 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     }
   }
   @media (max-width:600px){
-    .auto-scroll-group{ bottom:calc(18px + env(safe-area-inset-bottom, 0px)); right:16px; width:36px; height:36px; }
-    .auto-scroll-btn{ width:36px; height:36px; }
-    .auto-scroll-btn svg{ width:15px; height:15px; }
-    .auto-scroll-speed{ width:18px; height:18px; font-size:9.5px; top:-5px; left:-5px; }
+    .auto-scroll-group{ bottom:calc(18px + env(safe-area-inset-bottom, 0px)); right:14px; width:46px; height:46px; }
+    .auto-scroll-btn{ width:46px; height:46px; }
+    .auto-scroll-btn svg{ width:20px; height:20px; }
+    /* زر السرعة: دائرة بحجم لمس مريح (44px) على يسار الزر الرئيسي بدل الشارة الصغيرة فوقه */
+    .auto-scroll-speed{ width:44px; height:44px; font-size:18px; border-width:2px; top:1px; left:auto; right:calc(100% + 8px); }
+    /* أثناء التمرير: يخفت الزران بعد ثوانٍ حتى لا يحجبا الآيات، ويعودان واضحين بلمسة */
+    .auto-scroll-btn, .auto-scroll-speed{ transition:opacity .25s ease, filter .15s ease, transform .15s ease, background .15s ease; }
+    .auto-scroll-group.auto-scroll-dim .auto-scroll-btn,
+    .auto-scroll-group.auto-scroll-dim .auto-scroll-speed{ opacity:.32; }
   }
 
   /* ---------- نافذة الإعدادات: مقاسات أكبر للكمبيوتر والتابلت ---------- */
@@ -10540,8 +10545,23 @@ function startAutoScroll(){
   window.addEventListener('wheel', pauseAutoScrollOnManualInput, { passive:true });
   window.addEventListener('touchstart', pauseAutoScrollOnManualInput, { passive:true });
 
+  autoScrollWakeControls();
   autoScrollRafId = requestAnimationFrame(autoScrollStep);
 }
+
+// يُظهر زري التمرير التلقائي بوضوح ثم يخفتهما بعد ثوانٍ (للموبايل فقط عبر CSS) حتى لا يحجبا الآيات
+let autoScrollDimTimer = null;
+function autoScrollWakeControls(){
+  const group = document.getElementById('auto-scroll-group');
+  if(!group) return;
+  group.classList.remove('auto-scroll-dim');
+  clearTimeout(autoScrollDimTimer);
+  if(autoScrollActive) autoScrollDimTimer = setTimeout(() => group.classList.add('auto-scroll-dim'), 2500);
+}
+(function(){
+  const g = document.getElementById('auto-scroll-group');
+  if(g) g.addEventListener('pointerdown', autoScrollWakeControls, { passive:true });
+})();
 
 function stopAutoScroll(){
   autoScrollActive = false;
@@ -10559,7 +10579,8 @@ function stopAutoScroll(){
   const pauseIcon = document.getElementById('auto-scroll-icon-pause');
   if(btn) btn.classList.remove('active');
   if(speedBtn) speedBtn.classList.remove('visible');
-  if(group) group.classList.remove('auto-scroll-running');
+  if(group) group.classList.remove('auto-scroll-running', 'auto-scroll-dim');
+  clearTimeout(autoScrollDimTimer);
   if(playIcon) playIcon.style.display = '';
   if(pauseIcon) pauseIcon.style.display = 'none';
   if(btn){
@@ -10572,6 +10593,7 @@ function cycleAutoScrollSpeed(){
   autoScrollSpeedIndex = (autoScrollSpeedIndex + 1) % AUTO_SCROLL_SPEEDS.length;
   lsSet('autoScrollSpeedIndex', String(autoScrollSpeedIndex));
   updateAutoScrollSpeedLabel();
+  autoScrollWakeControls();
 }
 
 function updateAutoScrollSpeedLabel(){
