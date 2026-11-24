@@ -1053,6 +1053,25 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .khatma-toggle:hover{ border-color:var(--accent); }
   .khatma-toggle svg{ width:19px; height:19px; }
   #khatma-view{ display:none; }
+  #stats-view{ display:none; }
+  .st-section{ margin-top:22px; }
+  .st-section-title{ font-size:15px; font-weight:800; color:var(--text); margin:0 0 10px; }
+  .st-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:6px 18px; }
+  .st-row{ display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid var(--border); font-size:14px; }
+  .st-row:last-child{ border-bottom:none; }
+  .st-row .st-k{ color:var(--text-muted); font-weight:600; }
+  .st-row .st-v{ color:var(--text); font-weight:800; text-align:end; }
+  .st-row .st-v small{ display:block; color:var(--text-faint); font-weight:600; font-size:11.5px; }
+  .st-empty{ color:var(--text-muted); font-size:13.5px; padding:14px 0; line-height:1.8; }
+  .st-empty button{ margin-top:8px; }
+  .st-plan{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 18px; margin-bottom:12px; }
+  .st-plan-title{ font-weight:800; font-size:14.5px; margin-bottom:4px; }
+  .st-bars{ display:flex; gap:7px; align-items:flex-end; justify-content:space-between; height:64px; margin-top:12px; }
+  .st-bar{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; }
+  .st-bar i{ display:block; width:100%; max-width:28px; min-height:3px; border-radius:5px; background:var(--surface-2); border:1px solid var(--border); }
+  .st-bar.on i{ background:var(--accent); border-color:var(--accent); }
+  .st-bar span{ font-size:10.5px; color:var(--text-faint); font-weight:700; }
+  .stats-toggle:focus-visible, #stats-view a:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
   .khatma-type-toggle{
     display:flex; gap:3px; background:var(--surface-2); border:1px solid var(--border);
     border-radius:var(--radius-md); padding:3px; margin-bottom:14px;
@@ -2709,6 +2728,10 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     .ayat-list.continuous-mode .ayah-bookmark-btn{ width:28px; height:28px; }
     .ayat-list.continuous-mode .ayah-meta{ gap:6px; }
   }
+  @media (max-width:375px){ /* 6 header buttons must fit small phones */
+    .header-actions{ gap:3px; padding:3px; }
+    .header-actions .favorites-toggle, .header-actions .theme-toggle, .header-actions .khatma-toggle, .header-actions .lang-toggle, .header-actions .settings-toggle{ width:28px; height:28px; border-radius:7px; }
+  }
   </style>
 </head>
 <body>
@@ -2836,6 +2859,9 @@ window.quranDataPromise = new Promise(function(resolve, reject){
         </button>
         <button class="khatma-toggle" onclick="showKhatma()" title="خطة ختم القرآن" aria-label="خطة ختم القرآن" data-i18n-title="khatma_title">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/><path d="M8 14l2.5 2.5L16 11"/></svg>
+        </button>
+        <button class="khatma-toggle stats-toggle" id="stats-toggle-btn" onclick="showStats()" title="إحصائياتي" aria-label="إحصائياتي" data-i18n-title="stats_title" data-i18n-aria-label="stats_title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
         </button>
         <button class="lang-toggle" id="lang-toggle-btn-1" onclick="toggleLanguage()" title="Switch language / تبديل اللغة" aria-label="Switch language / تبديل اللغة">
           <span class="lang-toggle-text">EN</span>
@@ -3126,6 +3152,24 @@ window.quranDataPromise = new Promise(function(resolve, reject){
 
     <!-- List of active khatma plans, each tracked independently -->
     <div class="khatma-plans-list" id="khatma-plans-list" style="display:none;"></div>
+  </div>
+
+  <!-- ===================== STATS VIEW ===================== -->
+  <div id="stats-view">
+    <a href="#" class="back-link" onclick="showList(); return false;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M3 12h18"/></svg>
+      <span data-i18n="back_to_index">رجوع إلى الفهرس</span>
+    </a>
+    <div class="surah-header">
+      <h2>
+        <span class="badge-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        </span>
+        <span data-i18n="stats_title">إحصائياتي</span>
+      </h2>
+    </div>
+    <p class="surah-sub" data-i18n="stats_desc">ملخص لقراءتك وحفظك وختماتك، يُحسب من بيانات محفوظة على جهازك فقط.</p>
+    <div id="stats-content"></div>
   </div>
 
   <div class="loading" id="loading" data-i18n="loading_text">جاري تحميل بيانات القرآن الكريم...</div>
@@ -11430,6 +11474,126 @@ function onAyahSearchKeydown(e){
   });
 })();
 
+/* ===================== إحصائياتي (عرض يجمع البيانات المحفوظة فقط) ===================== */
+(function(){
+  function g(id){ return document.getElementById(id); }
+  function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+  function num(v){ return (Math.round(v * 10) / 10).toLocaleString(document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar-EG'); }
+  function dstr(d){ return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); }
+  function safe(fn, dflt){ try{ var v = fn(); return v == null ? dflt : v; }catch(e){ return dflt; } }
+  function row(k, v, sub){ return '<div class="st-row"><span class="st-k">' + esc(k) + '</span><span class="st-v">' + v + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span></div>'; }
+
+  function collect(){
+    var plans = safe(function(){ return getKhatmaPlans().filter(function(p){ return p && KHATMA_UNIT_TOTALS[p.unit] && p.log; }); }, []);
+    var days = {};
+    plans.forEach(function(p){ Object.keys(p.log).forEach(function(d){ if((p.log[d] || 0) > 0) days[d] = true; }); });
+    var today = new Date(); today = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var weekDays = 0;
+    for(var i = 0; i < 7; i++){ var d = new Date(today); d.setDate(d.getDate() - i); if(days[dstr(d)]) weekDays++; }
+    var cur = 0, c = new Date(today);
+    if(!days[dstr(c)]) c.setDate(c.getDate() - 1);
+    while(days[dstr(c)]){ cur++; c.setDate(c.getDate() - 1); }
+    var keys = Object.keys(days).sort(), best = 0, run = 0, prev = null;
+    keys.forEach(function(k){
+      var d = new Date(k + 'T00:00:00');
+      if(prev && Math.round((d - prev) / 86400000) === 1) run++; else run = 1;
+      if(run > best) best = run; prev = d;
+    });
+    best = Math.max(best, cur);
+    return { plans: plans, weekDays: weekDays, cur: cur, best: best };
+  }
+
+  window.renderStatsView = function(){
+    var box = g('stats-content'); if(!box) return;
+    var S = collect();
+    var memo = safe(getMemorized, []);
+    var now = Date.now(), revTotal = 0, revDone = 0, revDue = 0;
+    memo.forEach(function(m){ (m.rev || []).forEach(function(r){ revTotal++; if(r.done) revDone++; else if(r.due <= now) revDue++; }); });
+    var khatmasDone = S.plans.reduce(function(a, p){ return a + (p.completedKhatmas || 0); }, 0);
+    var h = '';
+    // الملخص
+    h += '<div class="khatma-stats-grid">';
+    h += '<div class="khatma-stat"><div class="khatma-stat-value">' + (S.plans.length ? esc(offT(num(S.weekDays) + ' من ' + num(7), S.weekDays + ' of 7')) : '—') + '</div><div class="khatma-stat-label">' + esc(t('stats_week_days')) + '</div></div>';
+    h += '<div class="khatma-stat"><div class="khatma-stat-value">' + (S.plans.length ? num(S.cur) : '—') + '</div><div class="khatma-stat-label">' + esc(t('stats_streak')) + '</div>' + (S.plans.length ? '<div class="khatma-stat-sub">' + esc(tf('stats_streak_best', { n: num(S.best) })) + '</div>' : '') + '</div>';
+    h += '<div class="khatma-stat"><div class="khatma-stat-value">' + num(memo.length) + '</div><div class="khatma-stat-label">' + esc(t('stats_memo')) + '</div><div class="khatma-stat-sub">' + esc(t('stats_memo_sub')) + '</div></div>';
+    h += '<div class="khatma-stat"><div class="khatma-stat-value">' + num(khatmasDone) + '</div><div class="khatma-stat-label">' + esc(t('stats_khatmas')) + '</div></div>';
+    h += '</div>';
+    // القراءة
+    var pos = safe(getSavedPosition, null);
+    var trail = safe(function(){ return getTrail().length; }, 0);
+    var favs = safe(function(){ return getBookmarks().length; }, 0);
+    var notes = safe(function(){ return getNotesList().length; }, 0);
+    var posTxt = '—', posSub = '';
+    if(pos && pos.surahId && pos.ayahId){
+      var nm = pos.surahName || safe(function(){ return QURAN.find(function(s){ return s.id === pos.surahId; }).name; }, '');
+      posTxt = esc(offT('سورة ', 'Surah ') + nm + ' — ' + offT('الآية ', 'ayah ') + pos.ayahId);
+      if(pos.ts) posSub = new Date(pos.ts).toLocaleDateString(document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar-EG', { day:'numeric', month:'long', year:'numeric' });
+    }
+    h += '<div class="st-section"><h3 class="st-section-title">' + esc(t('stats_sec_reading')) + '</h3><div class="st-card">';
+    h += row(t('stats_last_pos'), pos ? posTxt : esc(t('stats_no_pos')), posSub);
+    h += row(t('stats_trail'), num(trail));
+    h += row(t('stats_bookmarks'), num(favs));
+    h += row(t('stats_notes'), num(notes));
+    h += '</div></div>';
+    // الحفظ
+    h += '<div class="st-section"><h3 class="st-section-title">' + esc(t('stats_sec_memo')) + '</h3><div class="st-card">';
+    if(!memo.length){ h += '<div class="st-empty">' + esc(t('stats_no_memo')) + '</div>'; }
+    else {
+      h += row(t('stats_memo'), num(memo.length));
+      h += row(t('stats_reviews_done'), num(revDone) + ' / ' + num(revTotal));
+      h += row(t('stats_reviews_due'), num(revDue));
+      memo.slice().sort(function(a, b){ return (b.ts || 0) - (a.ts || 0); }).slice(0, 5).forEach(function(m, i){
+        h += row(i === 0 ? t('stats_memo_recent') : '', esc(memoLabel(m)), m.ts ? memoFmtDate(m.ts) : '');
+      });
+    }
+    h += '</div></div>';
+    // الختمات
+    h += '<div class="st-section"><h3 class="st-section-title">' + esc(t('stats_sec_khatma')) + '</h3>';
+    if(!S.plans.length){
+      h += '<div class="st-card"><div class="st-empty">' + esc(t('stats_no_khatma')) + '<br><button type="button" class="go-btn" onclick="showKhatma()">' + esc(t('stats_start_khatma')) + '</button></div></div>';
+    } else {
+      S.plans.forEach(function(p, i){
+        var total = KHATMA_UNIT_TOTALS[p.unit];
+        var pct = Math.max(0, Math.min(100, Math.round((p.completed || 0) / total * 100)));
+        var strip = khatmaComputeWeekStrip(p);
+        var weekSum = 0; strip.forEach(function(d){ weekSum += d.amount; });
+        var mx = Math.max(p.dailyAmount || 0, 0.0001); strip.forEach(function(d){ if(d.amount > mx) mx = d.amount; });
+        var st = khatmaComputeStreaks(p);
+        h += '<div class="st-plan"><div class="st-plan-title">' + esc(tf('stats_khatma_n', { n: num(i + 1) })) + ' — ' + esc(khatmaUnitLabel(p.unit)) + '</div>';
+        h += '<div class="khatma-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + pct + '" aria-label="' + esc(t('stats_completion')) + '"><div class="khatma-progress-fill" style="width:' + pct + '%"></div></div>';
+        h += '<div class="khatma-progress-label"><span>' + esc(t('stats_completion')) + '</span><span>' + num(pct) + '% (' + num(p.completed || 0) + ' / ' + num(total) + ')</span></div>';
+        h += '<div class="st-card" style="margin-top:10px;padding:0 14px;border:none;background:transparent;">';
+        h += row(t('stats_read_week'), num(weekSum) + ' ' + esc(khatmaUnitLabel(p.unit)));
+        h += row(t('stats_plan_streak'), num(st.current) + ' ' + esc(t('stats_days_unit')), tf('stats_streak_best', { n: num(st.best) }));
+        h += row(t('stats_completed_khatmas'), num(p.completedKhatmas || 0));
+        h += '</div><div class="st-bars" aria-hidden="true">';
+        strip.forEach(function(d){
+          h += '<div class="st-bar' + (d.amount > 0 ? ' on' : '') + '"><i style="height:' + Math.max(5, Math.round(d.amount / mx * 100)) + '%"></i><span>' + esc(khatmaWeekdayLabel(d.date)) + '</span></div>';
+        });
+        h += '</div></div>';
+      });
+      h += '<div class="st-empty">' + esc(t('stats_week_note')) + '</div>';
+    }
+    h += '</div>';
+    box.innerHTML = h;
+  };
+
+  window.showStats = function(){
+    try{ stopAyahRepeat(); }catch(e){}
+    ['list-view','read-view','favorites-view','khatma-view'].forEach(function(id){ var e = g(id); if(e) e.style.display = 'none'; });
+    g('stats-view').style.display = 'block';
+    var nav = g('surah-side-nav'); if(nav) nav.classList.add('side-nav-hidden');
+    window.scrollTo(0, 0);
+    try{ updateReadingProgress(); }catch(e){}
+    window.renderStatsView();
+  };
+  function hideStats(){ var e = g('stats-view'); if(e && e.style.display !== 'none') e.style.display = 'none'; }
+  ['showList','openSurah','openJuz','openHizb','openRub','showFavorites','showKhatma'].forEach(function(n){
+    var f = window[n]; if(typeof f !== 'function') return;
+    window[n] = function(){ hideStats(); return f.apply(this, arguments); };
+  });
+})();
+
 // ===== البحث الصوتي (Web Speech API) — مشترك بين البحث في الآيات والبحث بالسور =====
 const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 let activeVoiceRecognition = null;
@@ -13834,6 +13998,36 @@ const I18N_STRINGS = {
     viewing_page_prefix: 'عرض صفحة',
     of_604_madinah_layout: 'من ٦٠٤ بنفس تقسيم أسطر مصحف المدينة',
     khatma_title: 'خطة ختم القرآن',
+    stats_title: 'إحصائياتي',
+    stats_desc: 'ملخص لقراءتك وحفظك وختماتك، يُحسب من بيانات محفوظة على جهازك فقط.',
+    stats_week_days: 'أيام القراءة هذا الأسبوع',
+    stats_streak: 'التتابع الحالي',
+    stats_streak_best: 'أطول تتابع: {n}',
+    stats_memo: 'المحفوظ',
+    stats_memo_sub: 'مقاطع',
+    stats_khatmas: 'ختمات مكتملة',
+    stats_days_unit: 'يوم',
+    stats_sec_reading: 'القراءة',
+    stats_last_pos: 'آخر موضع قراءة',
+    stats_no_pos: 'لا يوجد موضع محفوظ بعد',
+    stats_trail: 'مواضع القراءة المحفوظة',
+    stats_bookmarks: 'الآيات المفضلة',
+    stats_notes: 'الملاحظات',
+    stats_sec_memo: 'الحفظ والمراجعة',
+    stats_reviews_done: 'المراجعات المنجزة',
+    stats_reviews_due: 'مراجعات مستحقة الآن',
+    stats_memo_recent: 'آخر ما حفظته',
+    stats_no_memo: 'لا توجد مقاطع محفوظة بعد. عند انتهاء تكرار مقطع من نافذة التكرار يمكنك تعليمه كمحفوظ.',
+    stats_sec_khatma: 'الختمات',
+    stats_no_khatma: 'لا توجد خطة ختم بعد. أنشئ خطة لتظهر هنا أيام قراءتك وتتابعها.',
+    stats_start_khatma: 'إنشاء خطة ختم',
+    stats_khatma_n: 'ختمة {n}',
+    stats_completion: 'نسبة الإنجاز',
+    stats_read_week: 'المقروء هذا الأسبوع',
+    stats_completed_khatmas: 'ختمات مكتملة',
+    stats_plan_streak: 'التتابع الحالي',
+    stats_week_note: 'يُحسب الأسبوع والتتابع من المقدار الذي تسجله في خطط الختم.',
+
     khatma_desc: 'حدد خطة قراءة بعدد أيام أو مقدار يومي ثابت، وتابع تقدمك يوميًا حتى تختم القرآن الكريم.',
     khatma_type_days: 'عدد أيام محدد',
     khatma_type_amount: 'مقدار يومي محدد',
@@ -14247,6 +14441,36 @@ const I18N_STRINGS = {
     viewing_page_prefix: 'Viewing page',
     of_604_madinah_layout: 'of 604, following the Madinah Mushaf line layout',
     khatma_title: 'Khatma Plan',
+    stats_title: 'My Stats',
+    stats_desc: 'A summary of your reading, memorization and khatmas, calculated from data saved on your device only.',
+    stats_week_days: 'Reading days this week',
+    stats_streak: 'Current streak',
+    stats_streak_best: 'Longest streak: {n}',
+    stats_memo: 'Memorized',
+    stats_memo_sub: 'passages',
+    stats_khatmas: 'Khatmas completed',
+    stats_days_unit: 'days',
+    stats_sec_reading: 'Reading',
+    stats_last_pos: 'Last reading position',
+    stats_no_pos: 'No saved position yet',
+    stats_trail: 'Saved reading positions',
+    stats_bookmarks: 'Favorite ayahs',
+    stats_notes: 'Notes',
+    stats_sec_memo: 'Memorization and review',
+    stats_reviews_done: 'Reviews completed',
+    stats_reviews_due: 'Reviews due now',
+    stats_memo_recent: 'Recently memorized',
+    stats_no_memo: 'Nothing memorized yet. When a repeat from the repeat dialog finishes you can mark it as memorized.',
+    stats_sec_khatma: 'Khatmas',
+    stats_no_khatma: 'No khatma plan yet. Create one and your reading days and streak will show here.',
+    stats_start_khatma: 'Create a khatma plan',
+    stats_khatma_n: 'Khatma {n}',
+    stats_completion: 'Completion',
+    stats_read_week: 'Read this week',
+    stats_completed_khatmas: 'Khatmas completed',
+    stats_plan_streak: 'Current streak',
+    stats_week_note: 'The week and the streak are calculated from the amounts you log in your khatma plans.',
+
     khatma_desc: 'Set a reading plan with a fixed number of days or a fixed daily amount, and track your progress daily until you finish the entire Quran.',
     khatma_type_days: 'Fixed number of days',
     khatma_type_amount: 'Fixed daily amount',
@@ -14375,6 +14599,8 @@ function refreshDynamicContent(){
   }
   const khatmaView = document.getElementById('khatma-view');
   if(khatmaView && khatmaView.style.display !== 'none' && typeof renderKhatmaView === 'function') renderKhatmaView();
+  const statsViewEl = document.getElementById('stats-view');
+  if(statsViewEl && statsViewEl.style.display !== 'none' && typeof renderStatsView === 'function') renderStatsView();
 
   const readView = document.getElementById('read-view');
   const titleEl = document.getElementById('surah-title');
