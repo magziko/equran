@@ -2358,6 +2358,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   #settings-overlay .controls-body[data-active-tab="reading"] > [data-tab]:not([data-tab="reading"]),
   #settings-overlay .controls-body[data-active-tab="audio"] > [data-tab]:not([data-tab="audio"]),
   #settings-overlay .controls-body[data-active-tab="tafsir"] > [data-tab]:not([data-tab="tafsir"]),
+  #settings-overlay .controls-body[data-active-tab="memo"] > [data-tab]:not([data-tab="memo"]),
   #settings-overlay .controls-body[data-active-tab="more"] > [data-tab]:not([data-tab="more"]){ display:none !important; }
   @media (min-width:768px){
     #settings-overlay .settings-modal{ min-height:min(620px, 90vh); }
@@ -2635,6 +2636,17 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     #memo-review-banner .cc-actions, #memo-review-banner .cc-row{ width:100%; }
     #memo-review-banner .cc-text .cc-label{ display:block; font-size:11.5px; }
   }
+  /* ---------- Settings: memorization tab ---------- */
+  .memo-tab-note{ font-size:12px; color:var(--text-faint); font-weight:600; margin:8px 0 0; line-height:1.7; }
+  .memo-entry{ border:1px solid var(--border); background:var(--surface); border-radius:12px; padding:10px 12px; margin-top:8px; }
+  .memo-entry-title{ font-size:14px; font-weight:800; color:var(--text); }
+  .memo-entry-meta{ font-size:12px; color:var(--text-muted); font-weight:600; margin-top:3px; line-height:1.7; }
+  .memo-entry-meta .due{ color:var(--accent); font-weight:800; }
+  .memo-entry-actions{ display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .memo-entry-actions button{ flex:1 1 auto; padding:7px 10px; border-radius:9px; font-size:12.5px; font-weight:700; cursor:pointer; font-family:inherit;
+    background:var(--surface-2); color:var(--text); border:1px solid var(--border); }
+  .memo-entry-actions button.danger{ color:#c0392b; }
+  .memo-empty{ font-size:13px; color:var(--text-muted); font-weight:600; margin-top:8px; }
 </style>
 </head>
 <body>
@@ -7210,6 +7222,7 @@ if('serviceWorker' in navigator){
 }
 
 function openSettingsModal(){
+  try{ renderMemoSettingsTab(); }catch(e){}
   try{ fillAudioOfflineSelect(); refreshAudioOfflineStatus(); } catch(e){}
   try{ refreshMushafOfflineStatus(); } catch(e){}
   try{ updateInstallUI(); } catch(e){}
@@ -7232,6 +7245,98 @@ function openSettingsModal(){
 
 function closeSettingsModal(){
   document.getElementById('settings-overlay').classList.remove('open');
+}
+
+/* ---------- تاب الإعدادات: الحفظ والمراجعة ---------- */
+function getRepeatPrefs(){
+  try{ return JSON.parse(localStorage.getItem('repeat_dialog_prefs') || '{}') || {}; }catch(e){ return {}; }
+}
+function setRepeatPref(key, value){
+  const p = getRepeatPrefs(); p[key] = value;
+  try{ localStorage.setItem('repeat_dialog_prefs', JSON.stringify(p)); }catch(e){}
+}
+function memoShareUrl(m){
+  const p = getRepeatPrefs();
+  return location.origin + location.pathname + '#rep=' + m.s1 + ':' + m.a1 + '-' + m.a2 +
+    '&t=' + (parseInt(p.times, 10) || 3) + '&g=' + (parseInt(p.seg, 10) || 1) + '&pr=' + (p.progressive ? 1 : 0) +
+    '&pa=' + (p.pauseRecite ? 1 : 0) + '&hd=' + (p.hideProgressive ? 1 : 0) + '&sp=' + playbackSpeed;
+}
+function memoFmtDate(ts){
+  return new Date(ts).toLocaleDateString(document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar-EG', { day:'numeric', month:'short' });
+}
+function renderMemoSettingsTab(){
+  const tabLbl = document.getElementById('settings-tab-memo-label');
+  if(tabLbl) tabLbl.textContent = offT('الحفظ والمراجعة', 'Memorizing');
+  const pg = document.getElementById('memo-prefs-group');
+  const lg = document.getElementById('memo-list-group');
+  if(!pg || !lg) return;
+  const p = getRepeatPrefs();
+  const speeds = VALID_PLAYBACK_SPEEDS.map(v => '<option value="' + v + '"' + (v === playbackSpeed ? ' selected' : '') + '>' + v + '×</option>').join('');
+  pg.innerHTML =
+    '<span class="label">' + offT('خيارات تكرار الحفظ (الافتراضية)', 'Memorization repeat defaults') + '</span>' +
+    '<label class="test-mode-toggle-row"><input type="checkbox" id="mp-progressive"' + (p.progressive ? ' checked' : '') + '>' +
+      '<span>' + offT('تكرار تدريجي (بناء الحفظ): آية، ثم آية+آية، وهكذا', 'Progressive build: ayah 1, then 1+2, then 1+2+3…') + '</span></label>' +
+    '<label class="test-mode-toggle-row"><input type="checkbox" id="mp-pause"' + (p.pauseRecite ? ' checked' : '') + '>' +
+      '<span>' + offT('وقفة للترديد: يسكت القارئ بعد كل آية لتردّدها أنت', 'Recite pause: silence after each ayah so you repeat it') + '</span></label>' +
+    '<label class="test-mode-toggle-row"><input type="checkbox" id="mp-hide"' + (p.hideProgressive ? ' checked' : '') + '>' +
+      '<span>' + offT('إخفاء النص تدريجيًا مع زيادة التكرار', 'Gradually hide the text as repeats increase') + '</span></label>' +
+    '<span class="label" style="margin-top:12px;">' + offT('سرعة التلاوة', 'Recitation speed') + '</span>' +
+    '<select id="mp-speed" class="font-select">' + speeds + '</select>' +
+    '<p class="memo-tab-note">' + offT('نفس القيم في نافذة التكرار (اضغط مطوّلًا على رقم الآية): أي تغيير هنا يظهر هناك والعكس.', 'Same values as the repeat dialog (long-press an ayah number): changes here show up there and the other way around.') + '</p>';
+  const bind = (id, key) => { const el = pg.querySelector('#' + id); if(el) el.addEventListener('change', () => setRepeatPref(key, !!el.checked)); };
+  bind('mp-progressive', 'progressive'); bind('mp-pause', 'pauseRecite'); bind('mp-hide', 'hideProgressive');
+  const sp = pg.querySelector('#mp-speed');
+  if(sp) sp.addEventListener('change', () => {
+    changePlaybackSpeed(sp.value);
+    const gs = document.getElementById('playback-speed-select'); if(gs) gs.value = playbackSpeed;
+  });
+  renderMemoList();
+}
+function renderMemoList(){
+  const lg = document.getElementById('memo-list-group');
+  if(!lg) return;
+  const list = getMemorized().slice().sort((a, b) => b.ts - a.ts);
+  const now = Date.now();
+  let html = '<span class="label">' + offT('المحفوظ والمراجعة', 'Memorized and reviews') + ' (' + list.length + ')</span>';
+  if(!list.length){
+    html += '<div class="memo-empty">' + offT('لسه مفيش مقاطع محفوظة. بعد ما يخلص تكرار من النافذة هيسألك تعلّمه كمحفوظ.', 'Nothing memorized yet. After a repeat from the dialog finishes, you will be asked to mark it.') + '</div>';
+  }
+  list.forEach(m => {
+    const revs = (m.rev || []).map((r, i) => {
+      const nm = i === 0 ? offT('بعد يوم', '1 day') : offT('بعد أسبوع', '1 week');
+      if(r.done) return nm + ': ✅ ' + offT('تمت', 'done');
+      if(r.due <= now) return '<span class="due">' + nm + ': ' + offT('مستحقة الآن', 'due now') + '</span>';
+      return nm + ': ' + offT('يوم ', 'on ') + memoFmtDate(r.due);
+    }).join(' · ');
+    const hasPending = (m.rev || []).some(r => !r.done);
+    html += '<div class="memo-entry"><div class="memo-entry-title">' + escapeHtml(memoLabel(m)) + '</div>' +
+      '<div class="memo-entry-meta">' + offT('اتحفظ ', 'Memorized ') + memoFmtDate(m.ts) + '<br>' + revs + '</div>' +
+      '<div class="memo-entry-actions">' +
+        '<button type="button" data-act="open" data-id="' + m.id + '">' + offT('افتح', 'Open') + '</button>' +
+        (hasPending ? '<button type="button" data-act="done" data-id="' + m.id + '">' + offT('تمت المراجعة', 'Reviewed') + '</button>' : '') +
+        '<button type="button" data-act="link" data-id="' + m.id + '">🔗 ' + offT('رابط', 'Link') + '</button>' +
+        '<button type="button" class="danger" data-act="del" data-id="' + m.id + '">' + offT('حذف', 'Remove') + '</button>' +
+      '</div></div>';
+  });
+  lg.innerHTML = html;
+  lg.querySelectorAll('button[data-act]').forEach(b => b.addEventListener('click', () => {
+    const id = b.getAttribute('data-id'), act = b.getAttribute('data-act');
+    const all = getMemorized(); const m = all.find(x => x.id === id);
+    if(!m) return;
+    if(act === 'open'){ closeSettingsModal(); openSurah(m.s1, m.a1); return; }
+    if(act === 'done'){
+      const r = (m.rev || []).find(x => !x.done);
+      if(r) r.done = true;
+      saveMemorized(all);
+    } else if(act === 'del'){
+      saveMemorized(all.filter(x => x.id !== id));
+    } else if(act === 'link'){
+      copyTextToClipboard(memoShareUrl(m)).then(ok => showShortcutToast(ok ? offT('🔗 تم نسخ الرابط', '🔗 Link copied') : memoShareUrl(m), ok ? 2500 : 9000));
+      return;
+    }
+    renderMemoList();
+    renderMemoReviewBanner();
+  }));
 }
 
 function setSettingsTab(name){
@@ -14717,6 +14822,7 @@ if('serviceWorker' in navigator){
         <button type="button" class="settings-tab active" role="tab" id="settings-tab-reading" aria-selected="true" aria-controls="settings-tabpanel" tabindex="0" data-tab-btn="reading" onclick="setSettingsTab('reading')"><span data-i18n="settings_tab_reading">القراءة والعرض</span></button>
         <button type="button" class="settings-tab" role="tab" id="settings-tab-audio" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="audio" onclick="setSettingsTab('audio')"><span data-i18n="settings_tab_audio">الصوت والتلاوة</span></button>
         <button type="button" class="settings-tab" role="tab" id="settings-tab-tafsir" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="tafsir" onclick="setSettingsTab('tafsir')"><span data-i18n="settings_tab_tafsir">التفسير والترجمة</span></button>
+        <button type="button" class="settings-tab" role="tab" id="settings-tab-memo" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="memo" onclick="setSettingsTab('memo')"><span id="settings-tab-memo-label">الحفظ والمراجعة</span></button>
         <button type="button" class="settings-tab" role="tab" id="settings-tab-more" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="more" onclick="setSettingsTab('more')"><span data-i18n="settings_tab_more">البيانات وأخرى</span></button>
       </div>
       <div class="controls-body" data-active-tab="reading" id="settings-tabpanel" role="tabpanel" aria-labelledby="settings-tab-reading">
@@ -15040,6 +15146,8 @@ if('serviceWorker' in navigator){
             <span class="repeat-status" id="repeat-status"></span>
           </div>
         </div>
+        <div data-tab="memo" class="control-group" id="memo-prefs-group"></div>
+        <div data-tab="memo" class="control-group" id="memo-list-group"></div>
         <div data-tab="more" class="control-group" id="data-backup-group">
           <span class="label" data-i18n="data_backup_label">نسخ احتياطي للبيانات (المفضلة، الملاحظات، خطط الختم)</span>
           <div class="repeat-actions">
