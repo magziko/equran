@@ -1400,7 +1400,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   @media (min-width:1100px){
     #tafsir-modal-body .tafsir-modal-body{ max-width:72ch; margin-inline:auto; }
   }
-  /* قسم التحميل للأوفلاين في الإعدادات */
+  /* قسم التحميل للاستخدام دون اتصال في الإعدادات */
   .offline-dl-group{ width:100%; gap:8px; padding-top:12px; border-top:1px solid var(--border); }
   .offline-dl-row{ display:flex; gap:8px; width:100%; align-items:center; flex-wrap:wrap; }
   .offline-dl-row select{ flex:1 1 180px; min-width:0; }
@@ -3083,7 +3083,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
         <span data-i18n="khatma_reminder_label">تذكير بالورد اليومي عند فتح التطبيق</span>
       </label>
-      <div class="khatma-reminder-note" data-i18n="khatma_reminder_note">التذكير يظهر فقط وأنت فاتح التطبيق (مش إشعار خلفية مجدول)، ولازم توافق على إذن الإشعارات من المتصفح.</div>
+      <div class="khatma-reminder-note" data-i18n="khatma_reminder_note">يظهر التذكير فقط أثناء فتح التطبيق (وليس إشعارًا خلفيًا مجدولًا)، ويلزم السماح بإذن الإشعارات من المتصفح.</div>
       <div class="khatma-reminder-status" id="khatma-reminder-status"></div>
     </div>
 
@@ -6361,7 +6361,7 @@ function attachTafsirSearchInput(){
 }
 
 
-// ---------- تحميل التفسير والترجمات للأوفلاين ----------
+// ---------- تحميل التفسير والترجمات للاستخدام دون اتصال ----------
 // يخزّن ملفات التفسير في كاش مستقل (نفس اسمه في sw.js) لا يُحذف عند تحديث التطبيق.
 const OFFLINE_TAFSIR_CACHE = 'quran-tafsir-offline-v1';
 let offlineDlRunning = false;
@@ -6422,7 +6422,7 @@ function refreshOfflineTafsirStatus(){
   if(!document.getElementById('offline-surah-select')) return;
   fillOfflineSurahSelect();
   const t1 = document.getElementById('offline-dl-title');
-  if(t1) t1.textContent = offT('التحميل للأوفلاين (التفسير والترجمات)', 'Offline download (tafsir & translations)');
+  if(t1) t1.textContent = offT('التحميل للاستخدام دون اتصال (التفسير والترجمات)', 'Offline download (tafsir & translations)');
   const startBtn = document.getElementById('offline-dl-start');
   if(startBtn) startBtn.textContent = offT('تحميل', 'Download');
   const cancelBtn = document.getElementById('offline-dl-cancel');
@@ -6544,7 +6544,7 @@ async function downloadOneTafsir(cache, job){
 }
 async function startOfflineTafsirDownload(){
   if(offlineDlRunning) return;
-  if(!('caches' in window)){ setOfflineStatus(offT('المتصفح لا يدعم التخزين للأوفلاين.', 'This browser does not support offline storage.'), 'err'); return; }
+  if(!('caches' in window)){ setOfflineStatus(offT('المتصفح لا يدعم التخزين للاستخدام دون اتصال.', 'This browser does not support offline storage.'), 'err'); return; }
   const slugs = getSelectedTafsirSlugs();
   if(!slugs.length){ setOfflineStatus(offT('اختر مصدرًا واحدًا على الأقل أولًا.', 'Pick at least one source first.'), 'err'); return; }
   const surahs = offlineSelectedSurahs();
@@ -6598,7 +6598,7 @@ async function startOfflineTafsirDownload(){
   if(startBtn) startBtn.disabled = false;
   if(cancelBtn) cancelBtn.style.display = 'none';
   if(bar){ bar.value = finished; setTimeout(() => { if(!offlineDlRunning) bar.style.display = 'none'; }, 1200); }
-  if(cancelled) setOfflineStatus(offT('تم الإيقاف. ما تم تحميله حتى الآن محفوظ ويعمل أوفلاين.', 'Stopped. What was downloaded so far is saved and works offline.'));
+  if(cancelled) setOfflineStatus(offT('تم الإيقاف. ما تم تحميله حتى الآن محفوظ ويعمل دون اتصال.', 'Stopped. What was downloaded so far is saved and works offline.'));
   else if(failed) setOfflineStatus(offT(`اكتمل مع تعذّر ${failed} ملف. تأكد من الاتصال واضغط "تحميل" لإكمال الناقص.`, `Finished, but ${failed} files failed. Check your connection and press Download to retry.`), 'err');
   else setOfflineStatus(offT('✓ اكتمل التحميل — التفسير متاح الآن بدون إنترنت.', '✓ Done — tafsir is now available offline.'), 'ok');
   try{ decorateOfflineTafsirSelect(slugs); } catch(e){}
@@ -6647,7 +6647,7 @@ function hideReadyToast(){
   const el = document.getElementById('ready-toast');
   if(el) el.classList.remove('show');
 }
-// نحمّل خطوط Google (ملف التنسيق + ملفات الخط) عبر الـ service worker كي تُخزَّن للأوفلاين
+// نحمّل خطوط Google (ملف التنسيق + ملفات الخط) عبر الـ service worker كي تُخزَّن للاستخدام دون اتصال
 // (في أول زيارة تُطلب هذه الخطوط قبل أن يتولى الـ service worker التحكم فلا تُخزَّن بمفردها)
 async function warmOfflineFonts(){
   const link = document.getElementById('google-fonts-link');
@@ -7189,7 +7189,7 @@ function attachModalFocusTrap(){
   });
 }
 
-/* ---------- تحميل المصحف كاملًا للأوفلاين (604 صفحة + الخطوط) ----------
+/* ---------- تحميل المصحف كاملًا للاستخدام دون اتصال (604 صفحة + الخطوط) ----------
    التحميل نفسه يتم داخل sw.js (رسالة PRECACHE_MUSHAF) فى كاش مستقل لا يُحذف مع تحديثات التطبيق؛
    هنا واجهة الزر وشريط التقدم وحالة التحميل فقط. نفس الرسالة يرسلها موقع الراديو تلقائيًا. */
 const MUSHAF_OFFLINE_CACHE = 'quran-mushaf-offline-v1';
@@ -7213,7 +7213,7 @@ async function refreshMushafOfflineStatus(){
   const startBtn = mushafDlEl('mushaf-dl-start');
   if(!startBtn) return;
   const title = mushafDlEl('mushaf-dl-title'), note = mushafDlEl('mushaf-dl-note'), clearBtn = mushafDlEl('mushaf-dl-clear');
-  if(title) title.textContent = offT('تحميل المصحف للأوفلاين', 'Download the Mushaf for offline reading');
+  if(title) title.textContent = offT('تحميل المصحف للاستخدام دون اتصال', 'Download the Mushaf for offline reading');
   if(note) note.textContent = offT(
     'يحمّل كل صفحات المصحف (604 صفحة بتقسيم مصحف المدينة) والخطوط لتقرأ بدون إنترنت. حجم التحميل نحو 3 م.ب، ويشغل نحو 14 م.ب على جهازك.',
     'Downloads all 604 Madinah-layout pages and the fonts so you can read without internet. About 3 MB to download, ~14 MB of storage.');
@@ -7221,7 +7221,7 @@ async function refreshMushafOfflineStatus(){
   if(clearBtn) clearBtn.textContent = offT('حذف المصحف المحمّل', 'Remove downloaded Mushaf');
   if(!mushafDlSupported()){
     startBtn.disabled = true;
-    mushafDlSetStatus(offT('المتصفح لا يدعم التخزين للأوفلاين.', 'This browser does not support offline storage.'), 'err');
+    mushafDlSetStatus(offT('المتصفح لا يدعم التخزين للاستخدام دون اتصال.', 'This browser does not support offline storage.'), 'err');
     return;
   }
   if(mushafDlRunning) return;
@@ -7294,7 +7294,7 @@ if('serviceWorker' in navigator){
     if(d.failed === 0){
       // نفس علامة موقع الراديو، فلا يكرر التحميل التلقائى
       try{ localStorage.setItem('eqEmbed:warmed:v1', String(Date.now())); }catch(e){}
-      if(typeof showShortcutToast === 'function') showShortcutToast(offT('✓ تم تحميل المصحف للأوفلاين', '✓ Mushaf downloaded for offline reading'));
+      if(typeof showShortcutToast === 'function') showShortcutToast(offT('✓ تم تحميل المصحف للاستخدام دون اتصال', '✓ Mushaf downloaded for offline reading'));
       refreshMushafOfflineStatus();
     } else {
       refreshMushafOfflineStatus().then(function(){
@@ -7374,7 +7374,7 @@ function renderMemoList(){
   const now = Date.now();
   let html = '<span class="label">' + offT('المحفوظ والمراجعة', 'Memorized and reviews') + ' (' + list.length + ')</span>';
   if(!list.length){
-    html += '<div class="memo-empty">' + offT('لسه مفيش مقاطع محفوظة. بعد ما يخلص تكرار من النافذة هيسألك تعلّمه كمحفوظ.', 'Nothing memorized yet. After a repeat from the dialog finishes, you will be asked to mark it.') + '</div>';
+    html += '<div class="memo-empty">' + offT('لا توجد مقاطع محفوظة بعد. عند انتهاء التكرار من النافذة سيُسأل: هل تريد تعليمه كمحفوظ؟', 'Nothing memorized yet. After a repeat from the dialog finishes, you will be asked to mark it.') + '</div>';
   }
   list.forEach(m => {
     const revs = (m.rev || []).map((r, i) => {
@@ -7385,7 +7385,7 @@ function renderMemoList(){
     }).join(' · ');
     const hasPending = (m.rev || []).some(r => !r.done);
     html += '<div class="memo-entry"><div class="memo-entry-title">' + escapeHtml(memoLabel(m)) + '</div>' +
-      '<div class="memo-entry-meta">' + offT('اتحفظ ', 'Memorized ') + memoFmtDate(m.ts) + '<br>' + revs + '</div>' +
+      '<div class="memo-entry-meta">' + offT('حُفظ ', 'Memorized ') + memoFmtDate(m.ts) + '<br>' + revs + '</div>' +
       '<div class="memo-entry-actions">' +
         '<button type="button" data-act="open" data-id="' + m.id + '">' + offT('افتح', 'Open') + '</button>' +
         (hasPending ? '<button type="button" data-act="done" data-id="' + m.id + '">' + offT('تمت المراجعة', 'Reviewed') + '</button>' : '') +
@@ -9426,9 +9426,9 @@ function showMemorizedPrompt(info){
   overlay.className = 'repeat-dialog-overlay';
   overlay.innerHTML =
     '<div class="repeat-dialog" role="dialog" aria-modal="true">' +
-      '<h3>🎉 ' + offT('خلّصت التكرار', 'Repetition finished') + '</h3>' +
+      '<h3>🎉 ' + offT('انتهى التكرار', 'Repetition finished') + '</h3>' +
       '<p class="rd-memo-text">' + escapeHtml(memoLabel(info)) + '<br>' +
-        offT('تعلّمه كمحفوظ؟ هنقترح عليك مراجعته بعد يوم وبعد أسبوع.', 'Mark it as memorized? We will suggest reviewing it after one day and after one week.') + '</p>' +
+        offT('هل تريد تعليمه كمحفوظ؟ سنقترح عليك مراجعته بعد يوم وبعد أسبوع.', 'Mark it as memorized? We will suggest reviewing it after one day and after one week.') + '</p>' +
       '<div class="rd-actions">' +
         '<button type="button" class="rd-start" id="memo-yes">✅ ' + offT('تم حفظه', 'Memorized') + '</button>' +
         '<button type="button" class="rd-cancel" id="memo-no">' + offT('لاحقًا', 'Not yet') + '</button>' +
@@ -13288,11 +13288,11 @@ document.addEventListener('keydown', function(e){
   if(tag === 'INPUT' || tag === 'TEXTAREA' || (el && el.isContentEditable)) return;
   e.preventDefault();
   if(e.code === 'KeyI' || e.code === 'KeyE') installAppByKeyboard();   // تثبيت تطبيق المصحف (هذا التطبيق)
-  else if(e.code === 'KeyW') startupByKeyboard();         // تشغيل التطبيق مع الويندوز
+  else if(e.code === 'KeyW') startupByKeyboard();         // تشغيل التطبيق عند بدء تشغيل ويندوز
   else openSisterAppInstall();                            // تثبيت تطبيق الراديو (تبويب جديد مع زر التثبيت)
 });
 
-// تشغيل التطبيق مع الويندوز بالكيبورد (Alt+Shift+W): ينسخ عنوان صفحة التطبيقات ويعرض الخطوات
+// تشغيل التطبيق عند بدء تشغيل ويندوز بالكيبورد (Alt+Shift+W): ينسخ عنوان صفحة التطبيقات ويعرض الخطوات
 function startupByKeyboard(){
   const addr = getAppsAddress();
   if(!addr){ showShortcutToast(offT('هذه الميزة تعمل في متصفح Chrome أو Edge على الكمبيوتر فقط.', 'This feature works only in Chrome or Edge on a computer.'), 5000); return; }
@@ -13301,7 +13301,7 @@ function startupByKeyboard(){
   });
 }
 
-/* ---------- تشغيل التطبيق مع الويندوز ----------
+/* ---------- تشغيل التطبيق عند بدء تشغيل ويندوز ----------
    المتصفح يمنع أي موقع من فتح chrome://apps أو edge://apps، لذلك يكتفي الزر بنسخ العنوان
    ويلصقه العميل في تبويب جديد ثم يفعّل «تشغيل التطبيق عند تسجيل الدخول» من هناك. */
 function getAppsAddress(){
@@ -13515,7 +13515,7 @@ const I18N_STRINGS = {
     page_number: 'رقم الصفحة',
     reading_controls: 'خيارات القراءة والتحكم',
     settings_title: 'الإعدادات',
-    settings_no_surah_note: 'التكرار والاستماع المتواصل متاحين وأنت داخل سورة. باقي الإعدادات بتتطبق فورًا وتفضل محفوظة.',
+    settings_no_surah_note: 'التكرار والاستماع المتواصل متاحين وأنت داخل سورة. وتُطبَّق باقي الإعدادات فورًا وتبقى محفوظة.',
     display_mode_label: 'طريقة العرض',
     mode_cards: 'آيات منفصلة',
     mode_continuous: 'آيات متتالية (كالمصحف)',
@@ -13614,8 +13614,8 @@ const I18N_STRINGS = {
     install_ios_note: 'لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».',
     startup_btn: 'نسخ عنوان صفحة التطبيقات',
     startup_btn_done: 'تم النسخ ✓',
-    startup_note: 'لتشغيل التطبيق مع الويندوز: المتصفح لا يسمح لأي موقع بفتح صفحة التطبيقات مباشرة، فاضغط الزر لنسخ العنوان ثم الصقه في تبويب جديد. (يجب تثبيت التطبيق أولًا)',
-    startup_steps_chrome: 'تم نسخ العنوان. افتح تبويبًا جديدًا (Ctrl+T) والصقه (Ctrl+V) ثم Enter. بعدها اضغط كليك يمين على أيقونة التطبيق واختر «تشغيل التطبيق عند تسجيل الدخول».',
+    startup_note: 'لتشغيل التطبيق عند بدء تشغيل ويندوز: المتصفح لا يسمح لأي موقع بفتح صفحة التطبيقات مباشرة، فاضغط الزر لنسخ العنوان ثم الصقه في تبويب جديد. (يجب تثبيت التطبيق أولًا)',
+    startup_steps_chrome: 'تم نسخ العنوان. افتح تبويبًا جديدًا (Ctrl+T) والصقه (Ctrl+V) ثم Enter. بعدها انقر بزر الفأرة الأيمن على أيقونة التطبيق واختر «تشغيل التطبيق عند تسجيل الدخول».',
     startup_steps_edge: 'تم نسخ العنوان. افتح تبويبًا جديدًا (Ctrl+T) والصقه (Ctrl+V) ثم Enter. بعدها اضغط «التفاصيل» تحت التطبيق وفعّل «بدء التطبيق عند تسجيل الدخول للجهاز».',
     startup_copy_failed: 'تعذّر النسخ تلقائيًا. انسخ العنوان الظاهر أعلاه يدويًا والصقه في تبويب جديد.',
     sister_btn: 'تثبيت تطبيق الراديو',
@@ -13633,9 +13633,9 @@ const I18N_STRINGS = {
     reset_settings_note: 'لن تُحذف المفضلة والملاحظات وخطط الختم ومواضع القراءة.',
     reset_settings_confirm: 'هل تريد استعادة جميع الإعدادات إلى قيمها الافتراضية؟ لن تتأثر المفضلة والملاحظات وخطط الختم ومواضع القراءة.',
     hint_title: 'نصائح سريعة',
-    hint_trail: 'مواضع القراءة السابقة: ارجع لأي موضع قرأت فيه من قبل.',
+    hint_trail: 'مواضع القراءة السابقة: ارجع إلى أي موضع قرأت فيه من قبل.',
     hint_autoscroll: 'التمرير التلقائي: تنزل الصفحة وحدها لتقرأ دون لمس الشاشة، وتتحكم في السرعة من الزر نفسه.',
-    hint_scrolltop: 'السهم لأعلى: يرجعك إلى أول السورة.',
+    hint_scrolltop: 'السهم لأعلى: يعيدك إلى أول السورة.',
     hint_ok: 'فهمت',
     backup_reminder_text: 'مرّ وقت على آخر نسخة احتياطية لمفضلتك وملاحظاتك وخطط ختمك. احفظ نسخة الآن حتى لا تضيع إن مُسحت بيانات المتصفح.',
     backup_now: 'نسخ احتياطي الآن',
@@ -13644,7 +13644,7 @@ const I18N_STRINGS = {
     settings_tab_audio: 'الصوت والتلاوة',
     settings_tab_tafsir: 'التفسير والترجمة',
     settings_tab_more: 'البيانات والتخزين',
-    settings_offline_section: 'التحميل للأوفلاين',
+    settings_offline_section: 'التحميل للاستخدام دون اتصال',
     settings_advanced_section: 'إعدادات متقدمة',
     repeat_section_label: 'تكرار الآيات للحفظ',
     repeat_from: 'من آية',
@@ -13710,8 +13710,8 @@ const I18N_STRINGS = {
     shortcut_tafsir_open: 'فتح تفسير الآية الحالية (داخل السورة)',
     shortcut_help: 'فتح/إغلاق قائمة الاختصارات',
     shortcut_install: 'تثبيت تطبيق المصحف (هذا التطبيق)',
-    shortcut_startup: 'تشغيل التطبيق مع الويندوز (ينسخ عنوان صفحة التطبيقات ويعرض الخطوات)',
-    shortcut_install_radio: 'تثبيت تطبيق إذاعة القرآن الكريم (يفتح فى تبويب جديد)',
+    shortcut_startup: 'تشغيل التطبيق عند بدء تشغيل ويندوز (ينسخ عنوان صفحة التطبيقات ويعرض الخطوات)',
+    shortcut_install_radio: 'تثبيت تطبيق إذاعة القرآن الكريم (يفتح في تبويب جديد)',
     install_already: 'التطبيق مثبّت بالفعل ✅',
     kbd_long_press: 'ضغطة طويلة',
     gesture_long_num: 'على رقم الآية: تكرار السورة كاملة بإعدادات التكرار',
@@ -13859,11 +13859,11 @@ const I18N_STRINGS = {
     khatma_reset_btn: 'حذف الختمة',
     khatma_reset_confirm: 'هل أنت متأكد من حذف هذه الختمة؟ سيتم حذف تقدمها نهائيًا.',
     khatma_reminder_label: 'تذكير بالورد اليومي عند فتح التطبيق',
-    khatma_reminder_note: 'التذكير يظهر فقط وأنت فاتح التطبيق (مش إشعار خلفية مجدول)، ولازم توافق على إذن الإشعارات من المتصفح.',
-    khatma_reminder_denied: 'تم رفض إذن الإشعارات من المتصفح. فعّله من إعدادات المتصفح لو حبيت تجرب تاني.',
+    khatma_reminder_note: 'يظهر التذكير فقط أثناء فتح التطبيق (وليس إشعارًا خلفيًا مجدولًا)، ويلزم السماح بإذن الإشعارات من المتصفح.',
+    khatma_reminder_denied: 'تم رفض إذن الإشعارات من المتصفح. فعّله من إعدادات المتصفح إن أردت المحاولة مرة أخرى.',
     khatma_reminder_unsupported: 'متصفحك لا يدعم الإشعارات.',
     khatma_reminder_notification_title: 'وردك اليومي في انتظارك 🌙',
-    khatma_reminder_notification_body: 'باقي عليك {amount} {unit} في ختمتك النهاردة.',
+    khatma_reminder_notification_body: 'المتبقي عليك {amount} {unit} في ختمتك اليوم.',
     khatma_logged_msg: 'تم تسجيل قراءتك، بارك الله فيك 🌙',
     khatma_completed_msg: 'الحمد لله، لقد ختمت القرآن الكريم! تم بدء ختمة جديدة تلقائيًا 🎉',
     khatma_add_new_btn: 'إضافة ختمة جديدة',
@@ -13871,15 +13871,15 @@ const I18N_STRINGS = {
     khatma_plan_label: 'الختمة',
     khatma_custom_placeholder: 'مقدار مخصص',
     khatma_edit_btn: 'تعديل الخطة',
-    khatma_edit_days_label: 'كام يوم عايز تختم فيه من دلوقتي',
+    khatma_edit_days_label: 'في كم يومًا تريد أن تختم من الآن',
     khatma_edit_save_btn: 'حفظ التعديل',
     khatma_autocatchup_title: 'تعويض المتأخر تلقائيًا',
-    khatma_autocatchup_desc: 'لو فاتتك أيام، يُعاد توزيع الباقي تلقائيًا على الأيام المتبقية عشان تلحق موعد ختمتك.',
+    khatma_autocatchup_desc: 'إن فاتتك أيام يُعاد توزيع الباقي تلقائيًا على الأيام المتبقية لتدرك موعد ختمتك.',
     khatma_autocatchup_note: 'تم تعديل مقدار اليوم تلقائيًا لتعويض الأيام الفائتة ✨',
     khatma_stat_streak: 'أيام متتالية',
     khatma_stat_best_streak: 'أفضل تتابع: {best} يوم',
     khatma_week_title: 'نشاط آخر ٧ أيام',
-    khatma_behind_alert_text: 'إنت متأخر {amount} {unit} عن خطتك',
+    khatma_behind_alert_text: 'أنت متأخر {amount} {unit} عن خطتك',
     khatma_behind_alert_btn: 'فعّل التعويض التلقائي',
     exit_confirm_title: 'هل تريد الخروج من التطبيق؟',
     exit_confirm_body: 'سيتم إغلاق التطبيق.',
@@ -15004,7 +15004,7 @@ if('serviceWorker' in navigator){
         <button type="button" class="settings-tab" role="tab" id="settings-tab-more" aria-selected="false" aria-controls="settings-tabpanel" tabindex="-1" data-tab-btn="more" onclick="setSettingsTab('more')"><span data-i18n="settings_tab_more">البيانات وأخرى</span></button>
       </div>
       <div class="controls-body" data-active-tab="reading" id="settings-tabpanel" role="tabpanel" aria-labelledby="settings-tab-reading">
-      <div data-tab="memo" class="settings-modal-note" id="settings-modal-note" style="display:none;" data-i18n="settings_no_surah_note">التكرار والاستماع المتواصل متاحين وأنت داخل سورة. باقي الإعدادات بتتطبق فورًا وتفضل محفوظة.</div>
+      <div data-tab="memo" class="settings-modal-note" id="settings-modal-note" style="display:none;" data-i18n="settings_no_surah_note">التكرار والاستماع المتواصل متاحين وأنت داخل سورة. وتُطبَّق باقي الإعدادات فورًا وتبقى محفوظة.</div>
         <div data-tab="reading" class="control-group">
           <span class="label" data-i18n="display_mode_label">طريقة العرض</span>
           <div class="display-mode-toggle">
@@ -15285,9 +15285,9 @@ if('serviceWorker' in navigator){
         </div>
         <div data-tab="memo" class="control-group" id="memo-prefs-group"></div>
         <div data-tab="memo" class="control-group" id="memo-list-group"></div>
-        <div data-tab="more" class="control-group settings-section-heading" id="offline-section-heading"><span class="label" data-i18n="settings_offline_section">التحميل للأوفلاين</span></div>
+        <div data-tab="more" class="control-group settings-section-heading" id="offline-section-heading"><span class="label" data-i18n="settings_offline_section">التحميل للاستخدام دون اتصال</span></div>
         <div data-tab="more" class="control-group offline-dl-group" id="mushaf-offline-group">
-          <span class="label" id="mushaf-dl-title">تحميل المصحف للأوفلاين</span>
+          <span class="label" id="mushaf-dl-title">تحميل المصحف للاستخدام دون اتصال</span>
           <div class="offline-dl-info small" id="mushaf-dl-note"></div>
           <div class="offline-dl-row">
             <button type="button" id="mushaf-dl-start" class="offline-dl-btn primary" onclick="startMushafOfflineDownload()">تحميل</button>
@@ -15315,7 +15315,7 @@ if('serviceWorker' in navigator){
           </div>
         </div>
         <div data-tab="more" class="control-group offline-dl-group" id="control-group-offline-tafsir">
-          <span class="label" id="offline-dl-title">التحميل للأوفلاين (التفسير والترجمات)</span>
+          <span class="label" id="offline-dl-title">التحميل للاستخدام دون اتصال (التفسير والترجمات)</span>
           <div class="offline-dl-row">
             <select id="offline-surah-select" class="font-select" onchange="refreshOfflineTafsirStatus()" aria-labelledby="offline-dl-title"></select>
             <button type="button" id="offline-dl-start" class="offline-dl-btn primary" onclick="startOfflineTafsirDownload()">تحميل</button>
@@ -15357,7 +15357,7 @@ if('serviceWorker' in navigator){
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span id="startup-btn-text" data-i18n="startup_btn">نسخ عنوان صفحة التطبيقات</span>
           </button>
           <div style="margin:8px 0 2px;text-align:center;"><code id="startup-url" dir="ltr" style="display:inline-block;padding:3px 12px;border-radius:8px;background:rgba(127,127,127,0.18);font-family:Consolas,Menlo,monospace;font-size:13px;user-select:all;-webkit-user-select:all;">chrome://apps</code></div>
-          <div class="settings-modal-note" id="startup-note" data-i18n="startup_note">لتشغيل التطبيق مع الويندوز: المتصفح لا يسمح لأي موقع بفتح صفحة التطبيقات مباشرة، فاضغط الزر لنسخ العنوان ثم الصقه في تبويب جديد. (يجب تثبيت التطبيق أولًا)</div>
+          <div class="settings-modal-note" id="startup-note" data-i18n="startup_note">لتشغيل التطبيق عند بدء تشغيل ويندوز: المتصفح لا يسمح لأي موقع بفتح صفحة التطبيقات مباشرة، فاضغط الزر لنسخ العنوان ثم الصقه في تبويب جديد. (يجب تثبيت التطبيق أولًا)</div>
           <div class="settings-modal-note" dir="ltr">⌨️ Alt + Shift + W</div>
         </div>
         <div data-tab="more" class="control-group" id="sister-group">
@@ -15427,8 +15427,8 @@ if('serviceWorker' in navigator){
             <tr><td><kbd data-i18n="kbd_long_press">ضغطة طويلة</kbd></td><td data-i18n="gesture_long_listen">على زر «استماع»: تكرار السورة المفتوحة بلا نهاية (ضغطة طويلة أخرى تلغيه)</td></tr>
             <tr><td><kbd>?</kbd></td><td data-i18n="shortcut_help">فتح/إغلاق قائمة الاختصارات</td></tr>
             <tr><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd></td><td data-i18n="shortcut_install">تثبيت تطبيق المصحف (هذا التطبيق)</td></tr>
-            <tr><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd></td><td data-i18n="shortcut_install_radio">تثبيت تطبيق إذاعة القرآن الكريم (يفتح فى تبويب جديد)</td></tr>
-            <tr><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>W</kbd></td><td data-i18n="shortcut_startup">تشغيل التطبيق مع الويندوز (ينسخ عنوان صفحة التطبيقات ويعرض الخطوات)</td></tr>
+            <tr><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd></td><td data-i18n="shortcut_install_radio">تثبيت تطبيق إذاعة القرآن الكريم (يفتح في تبويب جديد)</td></tr>
+            <tr><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>W</kbd></td><td data-i18n="shortcut_startup">تشغيل التطبيق عند بدء تشغيل ويندوز (ينسخ عنوان صفحة التطبيقات ويعرض الخطوات)</td></tr>
             <tr><td><kbd>R</kbd> / <kbd>ق</kbd></td><td data-i18n="shortcut_repeat">تشغيل/إيقاف تكرار الآيات بإعدادات التكرار، وللآية الحالية إن لم تغيّر النطاق (داخل السورة)</td></tr>
             <tr><td><kbd>Y</kbd> / <kbd>غ</kbd></td><td data-i18n="shortcut_sync_calib">معايرة مزامنة تمييز الآيات: اضغط أثناء أي تشغيل ثم اضغط على الآية التي تسمعها (داخل السورة)</td></tr>
             <tr><td><kbd>B</kbd></td><td data-i18n="shortcut_bookmark">إضافة/إزالة إشارة مرجعية للآية الحالية (داخل السورة)</td></tr>
