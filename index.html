@@ -2592,6 +2592,26 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .repeat-dialog .rd-actions button{ flex:1; padding:10px; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit; }
   .repeat-dialog .rd-start{ background:var(--accent); color:#fff; border:none; }
   .repeat-dialog .rd-cancel{ background:transparent; color:var(--text-muted); border:1px solid var(--border); }
+  /* ---------- Mobile first-screen order ---------- */
+  #ayah-of-day-card{ margin-top:14px; }
+  #ayah-of-day-card:empty{ display:none; margin:0; }
+  @media (max-width:768px){
+    .home-cards-stack{ gap:8px; margin-bottom:8px; }
+    .continue-card{ padding:8px 12px; gap:8px; flex-wrap:nowrap; }
+    .continue-card .cc-info{ gap:10px; min-width:0; }
+    .continue-card .cc-icon{ width:30px; height:30px; flex-shrink:0; }
+    .continue-card .cc-text{ min-width:0; }
+    .continue-card .cc-text .cc-label{ display:none; }
+    .continue-card .cc-text .cc-title{ font-size:13px; line-height:1.4; }
+    .continue-card .cc-actions{ flex-direction:row; flex-shrink:0; }
+    .continue-card .cc-more{ display:none; }
+    .continue-card .cc-go{ padding:8px 10px; white-space:nowrap; font-size:13px; }
+    .aod-card{ padding:10px 12px; }
+    .aod-head{ margin-bottom:4px; }
+    .aod-text{ line-height:2; padding:2px 2px 8px; }
+    .aod-text.ayah-text{ font-size:20px !important; }
+    .aod-footer{ padding-top:6px; }
+  }
 </style>
 </head>
 <body>
@@ -2731,20 +2751,6 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     </div>
 
     <div class="home-cards-stack">
-      <div id="ayah-of-day-card"></div>
-
-      <div class="radio-promo-banner" id="radio-promo-banner">
-        <div class="radio-promo-banner__icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></svg>
-        </div>
-        <div class="radio-promo-banner__text">
-          <strong data-i18n="radio_banner_title">استمتع بإذاعة القرآن الكريم المباشرة 🎧</strong>
-          <span data-i18n="radio_banner_subtitle">بث مباشر بأصوات نخبة القراء، وأذكار وتلاوات على مدار الساعة</span>
-        </div>
-        <a class="radio-promo-banner__btn" href="https://magziko.github.io/Radio/" target="_blank" rel="noopener" onclick="dismissRadioPromoBanner()" data-i18n="listen_now">استمع الآن</a>
-        <button class="radio-promo-banner__close" onclick="dismissRadioPromoBanner()" title="إغلاق" aria-label="إغلاق" data-i18n-title="close">×</button>
-      </div>
-
       <div id="continue-banner" style="display:none;"></div>
     </div>
 
@@ -2779,6 +2785,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     <div class="surah-grid" id="surah-grid"></div>
     <div class="surah-grid" id="juz-grid" style="display:none;"></div>
     <div class="surah-grid" id="hizb-grid" style="display:none;"></div>
+    <div id="ayah-of-day-card"></div>
     <div class="no-results" id="no-results" style="display:none;" data-i18n="no_results">لا توجد نتائج مطابقة.</div>
   </div>
 
