@@ -2595,11 +2595,11 @@ window.quranDataPromise = new Promise(function(resolve, reject){
 
   /* ---------- Mobile-only first-screen order ---------- */
   @media (max-width:768px){
-    #list-view{ display:flex; flex-direction:column; }
+    #list-view:not([style*="none"]){ display:flex !important; flex-direction:column; }
     #list-view > .top-header{ order:0; }
     .home-cards-stack{ display:contents; }
     #ayah-of-day-card{ order:1; margin-bottom:8px; }
-    #continue-banner{ order:2; margin-bottom:8px; }
+    #continue-banner, #memo-review-banner{ order:2; margin-bottom:8px; }
     #list-view > .toolbar{ order:3; }
     #list-view > .ayah-search-section{ order:4; }
     #surah-grid, #juz-grid, #hizb-grid{ order:5; }
@@ -2620,6 +2620,20 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     .aod-text{ line-height:2; padding:2px 2px 8px; }
     .aod-text.ayah-text{ font-size:20px !important; line-height:2 !important; }
     .aod-footer{ padding-top:6px; }
+  }
+  /* ---------- Repeat dialog: speed, share, memorized prompt ---------- */
+  .repeat-dialog select{ width:100%; box-sizing:border-box; background:var(--surface); color:var(--text); border:1px solid var(--border);
+    border-radius:10px; padding:9px 10px; font-size:14px; font-family:inherit; }
+  .repeat-dialog .rd-speed{ margin-top:12px; }
+  .repeat-dialog .rd-share{ width:100%; margin:12px 0 0; padding:9px; border-radius:10px; font-size:13.5px; font-weight:700; cursor:pointer;
+    font-family:inherit; background:transparent; color:var(--accent-soft); border:1px dashed var(--ring); }
+  .repeat-dialog .rd-memo-text{ font-size:14px; line-height:1.8; margin:0 0 12px; }
+  #memo-review-banner:empty{ display:none; }
+  #memo-review-banner .continue-card + .continue-card{ margin-top:8px; }
+  @media (max-width:768px){
+    #memo-review-banner .continue-card{ flex-wrap:wrap; }
+    #memo-review-banner .cc-actions, #memo-review-banner .cc-row{ width:100%; }
+    #memo-review-banner .cc-text .cc-label{ display:block; font-size:11.5px; }
   }
 </style>
 </head>
@@ -2775,6 +2789,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
       </div>
 
       <div id="continue-banner" style="display:none;"></div>
+      <div id="memo-review-banner" style="display:none;"></div>
     </div>
 
     <div class="toolbar">
@@ -3418,6 +3433,7 @@ async function init(){
   document.documentElement.setAttribute('data-test-mode', testModeActive ? 'on' : 'off');
   migrateOldSavedPosition();
   renderGrid('');
+  renderMemoReviewBanner();
   renderJuzGrid('');
   renderHizbGrid('');
   document.getElementById('count-pill').textContent = browseMode === 'juz' ? '1-30' : (browseMode === 'hizb' ? '1-60' : '1-114');
@@ -5312,7 +5328,8 @@ function exportUserData(){
     favorites: getBookmarks(),
     notes: getNotesMap(),
     khatmaPlans: getKhatmaPlans(),
-    readingTrail: getTrail()
+    readingTrail: getTrail(),
+    memorized: getMemorized()
   };
   try{
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -5363,6 +5380,12 @@ function importUserData(file){
         }
       });
       saveBookmarksList(current);
+    }
+
+    if(Array.isArray(data.memorized)){
+      const curM = getMemorized();
+      data.memorized.forEach(m => { if(m && typeof m.s1 === 'number' && !curM.some(c => c.id === m.id)) curM.push(m); });
+      saveMemorized(curM);
     }
 
     // دمج مواضع القراءة المتعددة
@@ -9062,6 +9085,7 @@ function startAyahRepeat(){
   // خيارات اختيارية من نافذة الضغط المطوّل (وقفة الترديد / إخفاء النص تدريجيًا)
   const rdOpts = window.__rdOpts; window.__rdOpts = null;
   if(rdOpts){
+    repeatState.fromDialog = true;
     repeatState.pauseRecite = !!rdOpts.pauseRecite;
     repeatState.hideProgressive = !!rdOpts.hideProgressive;
     if(repeatState.hideProgressive){
@@ -9117,7 +9141,7 @@ function stopAyahRepeat(){
 function playRepeatStep(){
   if(!repeatState.active) return;
   if(repeatState.queue){
-    if(repeatState.queuePos >= repeatState.queue.length){ stopAyahRepeat(); return; }
+    if(repeatState.queuePos >= repeatState.queue.length){ finishRepeatNaturally(); return; }
     repeatState.currentIndex = repeatState.queue[repeatState.queuePos];
   }
   if(repeatState.currentIndex > repeatState.toIndex || repeatState.currentIndex > currentVerseList.length){
@@ -9132,7 +9156,7 @@ function playRepeatStep(){
       repeatState.currentCount = 0;
       playRepeatStep();
     } else {
-      stopAyahRepeat();
+      finishRepeatNaturally();
     }
     return;
   }
@@ -9191,6 +9215,90 @@ function handleRepeatAdvanceNow(){
     repeatState.currentIndex++;
     playRepeatStep();
   }
+}
+
+/* ---------- تعليم المقطع كمحفوظ + مراجعة بعد يوم وأسبوع ---------- */
+const MEMO_KEY = 'quran-memorized';
+function getMemorized(){
+  try{ const v = JSON.parse(localStorage.getItem(MEMO_KEY) || '[]'); return Array.isArray(v) ? v : []; }catch(e){ return []; }
+}
+function saveMemorized(list){ try{ localStorage.setItem(MEMO_KEY, JSON.stringify(list)); }catch(e){} }
+function memoLabel(m){
+  return offT('سورة ', 'Surah ') + (m.name || m.s1) + ' — ' + offT('آيات ', 'ayahs ') + m.a1 + (m.a2 !== m.a1 ? '–' + m.a2 : '');
+}
+function finishRepeatNaturally(){
+  const st = repeatState;
+  let info = null;
+  if(st.fromDialog && !st.loopForever){
+    const a = currentVerseList[st.fromIndex - 1], b = currentVerseList[st.toIndex - 1];
+    if(a && b && a.surahId === b.surahId){
+      const sur = (typeof QURAN !== 'undefined' && QURAN) ? QURAN.find(x => x.id === a.surahId) : null;
+      info = { s1: a.surahId, a1: a.ayahId, a2: b.ayahId, name: sur ? sur.name : '' };
+    }
+  }
+  stopAyahRepeat();
+  if(info) setTimeout(() => showMemorizedPrompt(info), 400);
+}
+function showMemorizedPrompt(info){
+  const old = document.getElementById('memo-prompt-overlay'); if(old) old.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'memo-prompt-overlay';
+  overlay.className = 'repeat-dialog-overlay';
+  overlay.innerHTML =
+    '<div class="repeat-dialog" role="dialog" aria-modal="true">' +
+      '<h3>🎉 ' + offT('خلّصت التكرار', 'Repetition finished') + '</h3>' +
+      '<p class="rd-memo-text">' + escapeHtml(memoLabel(info)) + '<br>' +
+        offT('تعلّمه كمحفوظ؟ هنقترح عليك مراجعته بعد يوم وبعد أسبوع.', 'Mark it as memorized? We will suggest reviewing it after one day and after one week.') + '</p>' +
+      '<div class="rd-actions">' +
+        '<button type="button" class="rd-start" id="memo-yes">✅ ' + offT('تم حفظه', 'Memorized') + '</button>' +
+        '<button type="button" class="rd-cancel" id="memo-no">' + offT('لاحقًا', 'Not yet') + '</button>' +
+      '</div></div>';
+  document.body.appendChild(overlay);
+  const close = () => overlay.remove();
+  overlay.querySelector('#memo-no').addEventListener('click', close);
+  overlay.addEventListener('click', e => { if(e.target === overlay) close(); });
+  overlay.querySelector('#memo-yes').addEventListener('click', () => {
+    const now = Date.now(), DAY = 86400000;
+    const list = getMemorized().filter(m => !(m.s1 === info.s1 && m.a1 === info.a1 && m.a2 === info.a2));
+    list.push({ id: 'm' + now.toString(36), s1: info.s1, a1: info.a1, a2: info.a2, name: info.name, ts: now,
+      rev: [{ due: now + DAY, done: false }, { due: now + 7 * DAY, done: false }] });
+    saveMemorized(list);
+    close();
+    renderMemoReviewBanner();
+    const fmt = d => new Date(d).toLocaleDateString(document.documentElement.getAttribute('data-lang') === 'en' ? 'en' : 'ar-EG', { day:'numeric', month:'short' });
+    showShortcutToast(offT('تم التسجيل ✅ مراجعة أولى ' + fmt(now + DAY) + '، وثانية ' + fmt(now + 7 * DAY),
+      'Saved ✅ First review ' + fmt(now + DAY) + ', second ' + fmt(now + 7 * DAY)), 6000);
+  });
+}
+function renderMemoReviewBanner(){
+  const box = document.getElementById('memo-review-banner');
+  if(!box) return;
+  const now = Date.now();
+  const due = [];
+  getMemorized().forEach(m => (m.rev || []).forEach((r, i) => { if(!r.done && r.due <= now && !due.some(d => d.m.id === m.id)) due.push({ m, i }); }));
+  if(!due.length){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  box.style.display = 'block';
+  box.innerHTML = due.slice(0, 3).map(d => `
+    <div class="continue-card">
+      <div class="cc-info">
+        <div class="cc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="cc-text">
+          <div class="cc-label">${offT('مراجعة محفوظ', 'Review memorized')} (${d.i === 0 ? offT('بعد يوم', '1 day') : offT('بعد أسبوع', '1 week')})</div>
+          <div class="cc-title">${escapeHtml(memoLabel(d.m))}</div>
+        </div>
+      </div>
+      <div class="cc-actions"><div class="cc-row">
+        <button class="cc-go" onclick="openSurah(${d.m.s1}, ${d.m.a1})">${offT('افتح', 'Open')}</button>
+        <button class="cc-go" onclick="markMemoReviewed('${d.m.id}', ${d.i})">${offT('تمت المراجعة', 'Reviewed')}</button>
+      </div></div>
+    </div>`).join('');
+}
+function markMemoReviewed(id, i){
+  const list = getMemorized();
+  const m = list.find(x => x.id === id);
+  if(m && m.rev && m.rev[i]) m.rev[i].done = true;
+  saveMemorized(list);
+  renderMemoReviewBanner();
 }
 
 function updateRepeatStatus(text){
@@ -9477,7 +9585,7 @@ function buildProgressiveQueue(from, to, times, seg){
   }
   return q;
 }
-function openRepeatDialog(mode, surahId, ayahId){
+function openRepeatDialog(mode, surahId, ayahId, pre){
   const reciter = RECITERS[selectedReciter] || RECITERS.husary;
   if(reciter.type === 'surah'){ showShortcutToast(t('repeat_unsupported_reciter')); return; }
   if(!currentVerseList.length){ showShortcutToast(t('no_ayat_to_repeat')); return; }
@@ -9487,8 +9595,19 @@ function openRepeatDialog(mode, surahId, ayahId){
   try{ saved = JSON.parse(localStorage.getItem('repeat_dialog_prefs') || '{}') || {}; }catch(e){ saved = {}; }
   const panelTimes = parseInt(saved.times, 10) || parseInt((document.getElementById('repeat-times') || {}).value, 10) || 3;
   const panelSeg = parseInt(saved.seg, 10) || parseInt((document.getElementById('repeat-segment-times') || {}).value, 10) || 1;
-  const initFrom = mode === 'single' ? idx : 1;
-  const initTo = mode === 'single' ? idx : total;
+  let initFrom = mode === 'single' ? idx : 1;
+  let initTo = mode === 'single' ? idx : total;
+  // قيم جاهزة قادمة من رابط مشاركة
+  let preTimes = panelTimes, preSeg = panelSeg;
+  if(pre){
+    const pf = currentVerseList.findIndex(v => v.surahId === pre.s && v.ayahId === pre.a1) + 1;
+    const pt = currentVerseList.findIndex(v => v.surahId === pre.s && v.ayahId === pre.a2) + 1;
+    if(pf > 0){ initFrom = pf; initTo = pt >= pf ? pt : pf; }
+    if(pre.times) preTimes = pre.times;
+    if(pre.seg) preSeg = pre.seg;
+    saved = Object.assign({}, saved, { progressive: !!pre.prog, pauseRecite: !!pre.pause, hideProgressive: !!pre.hide });
+  }
+  let curSpeed = (pre && pre.speed && [0.75, 1, 1.25].indexOf(pre.speed) >= 0) ? pre.speed : playbackSpeed;
 
   const old = document.getElementById('repeat-dialog-overlay');
   if(old) old.remove();
@@ -9507,9 +9626,9 @@ function openRepeatDialog(mode, surahId, ayahId){
           '<input type="number" id="rd-to" inputmode="numeric" min="1" max="' + total + '" value="' + initTo + '">' +
           '<small id="rd-to-lbl"></small></label>' +
         '<label>' + offT('تكرار كل آية', 'Repeats per ayah') +
-          '<input type="number" id="rd-times" inputmode="numeric" min="1" max="50" value="' + panelTimes + '"></label>' +
+          '<input type="number" id="rd-times" inputmode="numeric" min="1" max="50" value="' + preTimes + '"></label>' +
         '<label>' + offT('تكرار الفقرة كاملة', 'Repeats of the whole passage') +
-          '<input type="number" id="rd-seg" inputmode="numeric" min="1" max="50" value="' + panelSeg + '"></label>' +
+          '<input type="number" id="rd-seg" inputmode="numeric" min="1" max="50" value="' + preSeg + '"></label>' +
       '</div>' +
       '<div class="rd-options">' +
         '<label class="rd-check"><input type="checkbox" id="rd-progressive"' + (saved.progressive ? ' checked' : '') + '>' +
@@ -9519,7 +9638,12 @@ function openRepeatDialog(mode, surahId, ayahId){
         '<label class="rd-check"><input type="checkbox" id="rd-hide"' + (saved.hideProgressive ? ' checked' : '') + '>' +
           '<span>' + offT('إخفاء النص تدريجيًا مع زيادة التكرار', 'Gradually hide the text as repeats increase') + '</span></label>' +
       '</div>' +
+      '<label class="rd-speed">' + offT('سرعة التشغيل', 'Playback speed') +
+        '<select id="rd-speed">' +
+          [0.75, 1, 1.25].map(v => '<option value="' + v + '"' + (v === curSpeed ? ' selected' : '') + '>' + v + '×</option>').join('') +
+        '</select></label>' +
       '<div class="rd-summary" id="rd-summary"></div>' +
+      '<button type="button" class="rd-share" id="rd-share">🔗 ' + offT('نسخ رابط هذا المقطع', 'Copy link to this passage') + '</button>' +
       '<div class="rd-actions">' +
         '<button type="button" class="rd-start" id="rd-start">▶ ' + offT('ابدأ التكرار', 'Start') + '</button>' +
         '<button type="button" class="rd-cancel" id="rd-cancel">' + offT('إلغاء', 'Cancel') + '</button>' +
@@ -9573,6 +9697,11 @@ function openRepeatDialog(mode, surahId, ayahId){
     if(tEl) tEl.value = r.times;
     if(sEl) sEl.value = r.seg;
     const opts = { pauseRecite: !!pauseEl.checked, hideProgressive: !!hideEl.checked };
+    const spdEl = overlay.querySelector('#rd-speed');
+    if(spdEl && parseFloat(spdEl.value) !== playbackSpeed){
+      changePlaybackSpeed(spdEl.value);
+      const gs = document.getElementById('playback-speed-select'); if(gs) gs.value = playbackSpeed;
+    }
     try{ localStorage.setItem('repeat_dialog_prefs', JSON.stringify({ times: r.times, seg: r.seg, progressive: !!progEl.checked, pauseRecite: opts.pauseRecite, hideProgressive: opts.hideProgressive })); }catch(e){}
     if(progEl.checked){
       const q = buildProgressiveQueue(r.from, r.to, r.times, r.seg);
@@ -9598,6 +9727,23 @@ function openRepeatDialog(mode, surahId, ayahId){
   };
   progEl.addEventListener('change', refresh);
   [fromEl, toEl, timesEl, segEl].forEach(el => { el.addEventListener('input', refresh); el.addEventListener('focus', () => el.select()); });
+  $('rd-share').addEventListener('click', () => {
+    const r = read();
+    const a = currentVerseList[r.from - 1], b = currentVerseList[r.to - 1];
+    if(!a || !b) return;
+    if(a.surahId !== b.surahId){
+      showShortcutToast(offT('المشاركة بالرابط لمقطع داخل سورة واحدة فقط', 'Link sharing works for a passage inside one surah only'));
+      return;
+    }
+    const spd = parseFloat((overlay.querySelector('#rd-speed') || {}).value) || 1;
+    const url = location.origin + location.pathname +
+      '#rep=' + a.surahId + ':' + a.ayahId + '-' + b.ayahId +
+      '&t=' + r.times + '&g=' + r.seg + '&pr=' + (progEl.checked ? 1 : 0) +
+      '&pa=' + (pauseEl.checked ? 1 : 0) + '&hd=' + (hideEl.checked ? 1 : 0) + '&sp=' + spd;
+    copyTextToClipboard(url).then(ok => {
+      showShortcutToast(ok ? offT('🔗 تم نسخ الرابط', '🔗 Link copied') : offT('تعذر النسخ: ' + url, 'Copy failed: ' + url), ok ? 2500 : 9000);
+    });
+  });
   $('rd-start').addEventListener('click', go);
   $('rd-cancel').addEventListener('click', close);
   // نتجاهل النقرة التي تلي رفع الإصبع من الضغطة الطويلة مباشرة حتى لا تغلق النافذة
@@ -11496,6 +11642,7 @@ function showList(){
   document.getElementById('khatma-view').style.display = 'none';
   document.getElementById('surah-side-nav').classList.add('side-nav-hidden');
   renderContinueBanner();
+  renderMemoReviewBanner();
   renderAyahOfDayCard();
   window.scrollTo(0,0);
   updateReadingProgress();
@@ -14522,7 +14669,17 @@ window.addEventListener('DOMContentLoaded', () => {
     const hizbHash = location.hash.match(/^#hizb-(\d+)$/);
     const rubHash = location.hash.match(/^#rub-(\d+)-(\d+)$/);
     const pageHash = location.hash.match(/^#page-(\d+)$/);
-    if(surahHash) openSurah(parseInt(surahHash[1]));
+    const repHash = location.hash.match(/^#rep=(\d+):(\d+)-(\d+)((?:&[a-z]+=[\d.]+)*)$/);
+    if(repHash){
+      const q = {}; (repHash[4] || '').split('&').forEach(p => { const m = p.split('='); if(m[1] !== undefined) q[m[0]] = parseFloat(m[1]); });
+      const sid = parseInt(repHash[1], 10);
+      openSurah(sid);
+      setTimeout(() => openRepeatDialog('all', sid, parseInt(repHash[2], 10), {
+        s: sid, a1: parseInt(repHash[2], 10), a2: parseInt(repHash[3], 10),
+        times: q.t, seg: q.g, prog: q.pr === 1, pause: q.pa === 1, hide: q.hd === 1, speed: q.sp
+      }), 700);
+    }
+    else if(surahHash) openSurah(parseInt(surahHash[1]));
     else if(juzHash) openJuz(parseInt(juzHash[1]));
     else if(hizbHash) openHizb(parseInt(hizbHash[1]));
     else if(rubHash) openRub(parseInt(rubHash[1]), parseInt(rubHash[2]));
