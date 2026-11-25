@@ -336,6 +336,12 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     .count-pill{ order:3; flex-shrink:0; }
   }
   .tab-short{ display:none; }
+  @media (max-width:700px){
+    .toolbar-actions{ flex-wrap:wrap; }
+    .search-box{ flex:1 1 100%; order:1; }
+    .count-pill{ order:2; }
+    .go-btn{ order:3; width:150px; min-width:0; flex:0 0 150px; padding:0 10px; margin-inline-start:auto; margin-inline-end:13px; }
+  }
   @media (max-width:480px){
     .browse-tab{ padding:0 4px; font-size:12.5px; }
     .toolbar-actions{ gap:6px; }
