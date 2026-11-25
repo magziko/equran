@@ -478,12 +478,12 @@ window.quranDataPromise = new Promise(function(resolve, reject){
 
   /* ---------- Continue reading banner ---------- */
   .continue-card{
-    display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap;
+    display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:nowrap;
     background:linear-gradient(135deg, var(--accent-bg), transparent);
     border:1px solid var(--ring); border-radius:var(--radius-md);
     padding:16px 20px;
   }
-  .continue-card .cc-info{ display:flex; align-items:center; gap:14px; }
+  .continue-card .cc-info{ display:flex; align-items:center; gap:14px; flex:1 1 auto; min-width:0; }
   .continue-card .cc-icon{
     width:40px; height:40px; border-radius:10px; background:var(--accent); color:#fff;
     display:flex; align-items:center; justify-content:center; flex-shrink:0;
@@ -491,12 +491,12 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .continue-card .cc-icon svg{ width:19px; height:19px; }
   .continue-card .cc-text .cc-label{ font-size:12.5px; color:var(--text-muted); font-weight:600; margin-bottom:2px; }
   .continue-card .cc-text .cc-title{ font-size:15.5px; font-weight:800; }
-  .continue-card .cc-actions{ display:flex; flex-direction:column; align-items:stretch; gap:8px; }
+  .continue-card .cc-actions{ display:flex; flex-direction:column; align-items:stretch; gap:8px; flex-shrink:0; }
   .continue-card .cc-row{ display:flex; align-items:center; gap:8px; }
   .continue-card .cc-row .cc-go{ flex:1; }
   .continue-card .cc-go{
     background:var(--accent); color:#fff; border:none; font-weight:700; font-size:13.5px;
-    padding:9px 18px; border-radius:9px; min-width:110px; text-align:center;
+    padding:9px 18px; border-radius:9px; width:190px; box-sizing:border-box; text-align:center;
   }
   .continue-card .cc-dismiss{
     background:transparent; border:1px solid var(--border); color:var(--text-muted);
@@ -506,28 +506,11 @@ window.quranDataPromise = new Promise(function(resolve, reject){
 
   .continue-card .cc-more{
     background:var(--accent); color:#fff; border:none;
-    font-weight:700; font-size:13.5px; padding:9px 18px; border-radius:9px; min-width:110px;
+    font-weight:700; font-size:13.5px; padding:9px 18px; border-radius:9px; width:190px; box-sizing:border-box;
     text-align:center; white-space:nowrap;
     margin-inline-end:42px; /* نفس عرض زر أكمل من هنا (عرض زر × 34 + المسافة 8) */
   }
   .continue-card .cc-more:hover{ filter:brightness(1.08); }
-
-  /* ---------- بطاقات الواجهة: أزرار الإجراءات مرتبة رأسيًا بعرض موحّد (شاشات الكمبيوتر) ---------- */
-  @media (min-width:769px){
-    body .continue-card{ position:relative; }
-    body .continue-card .cc-info{ flex:1 1 100%; }
-    body .continue-card .cc-actions{ width:auto; align-items:flex-start; }
-    body .continue-card .cc-row{ width:auto; flex-direction:column; align-items:flex-start; gap:8px; }
-    body .continue-card .cc-go, body .continue-card .cc-more, body .continue-card .cc-row .cc-go{ flex:none; width:190px; min-width:190px; box-sizing:border-box; margin-inline-end:0; text-align:center; }
-    body .continue-card .cc-dismiss{ position:absolute; top:10px; inset-inline-end:10px; }
-    body .aod-footer{ flex-direction:column; align-items:flex-start; }
-    body .aod-footer-actions{ width:auto; }
-    body .aod-footer-actions .aod-go{ flex:none; width:190px; min-width:190px; box-sizing:border-box; text-align:center; }
-    body .radio-promo-banner{ position:relative; flex-wrap:wrap; }
-    body .radio-promo-banner__text{ order:2; flex-basis:100%; }
-    body .radio-promo-banner__btn{ order:3; flex:none; width:190px; box-sizing:border-box; text-align:center; }
-    body .radio-promo-banner__close{ position:absolute; top:8px; inset-inline-end:8px; }
-  }
 
   /* ---------- Reading trail (قائمة مواضع القراءة المتعددة) ---------- */
   .trail-fab{
@@ -640,11 +623,11 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .aod-nav:hover{ background:var(--surface-2); color:var(--text); }
   .aod-nav svg{ width:16px; height:16px; }
   .aod-footer{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; padding-top:10px; border-top:1px dashed var(--border); }
-  .aod-ref{ font-size:13px; font-weight:700; color:var(--text-muted); }
-  .aod-footer-actions{ display:flex; align-items:center; gap:8px; }
+  .aod-ref{ font-size:13px; font-weight:700; color:var(--text-muted); min-width:0; }
+  .aod-footer-actions{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
   .aod-go{
     background:var(--accent); color:#fff; border:none; font-weight:700; font-size:13.5px;
-    padding:8px 16px; border-radius:9px; min-width:110px; text-align:center;
+    padding:8px 16px; border-radius:9px; width:190px; box-sizing:border-box; text-align:center;
   }
   .aod-close{
     flex-shrink:0; width:26px; height:26px; border-radius:50%; border:none;
@@ -2253,7 +2236,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .radio-promo-banner__btn{
     flex-shrink:0; background:var(--accent); color:#fff; font-weight:700; font-size:13.5px;
     padding:9px 18px; border-radius:10px; text-decoration:none; white-space:nowrap;
-    transition:filter .15s ease; min-width:110px; text-align:center;
+    transition:filter .15s ease; width:190px; box-sizing:border-box; text-align:center;
   }
   .radio-promo-banner__btn:hover{ filter:brightness(1.08); }
   .radio-promo-banner__close{
@@ -2677,9 +2660,11 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     .continue-card .cc-text{ min-width:0; }
     .continue-card .cc-text .cc-label{ display:none; }
     .continue-card .cc-text .cc-title{ font-size:13px; line-height:1.4; }
-    .continue-card .cc-actions{ flex-direction:row; flex-shrink:0; }
-    .continue-card .cc-more{ display:none; }
-    .continue-card .cc-go{ padding:8px 10px; white-space:nowrap; font-size:13px; }
+    .continue-card .cc-actions{ flex-direction:column; flex-shrink:0; }
+    .continue-card .cc-go, .continue-card .cc-more{ padding:8px 10px; white-space:nowrap; font-size:13px; width:150px; }
+    .continue-card .cc-dismiss{ width:30px; height:30px; }
+    .continue-card .cc-more{ margin-inline-end:38px; }
+    .aod-go{ width:150px; padding:8px 10px; font-size:13px; }
     .aod-card{ padding:10px 12px; }
     .aod-head{ margin-bottom:4px; }
     .aod-text{ line-height:2; padding:2px 2px 8px; }
@@ -2695,9 +2680,8 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .repeat-dialog .rd-memo-text{ font-size:14px; line-height:1.8; margin:0 0 12px; }
   #memo-review-banner:empty{ display:none; }
   #memo-review-banner .continue-card + .continue-card{ margin-top:8px; }
+  #memo-review-banner .cc-row{ flex-direction:column; align-items:stretch; }
   @media (max-width:768px){
-    #memo-review-banner .continue-card{ flex-wrap:wrap; }
-    #memo-review-banner .cc-actions, #memo-review-banner .cc-row{ width:100%; }
     #memo-review-banner .cc-text .cc-label{ display:block; font-size:11.5px; }
   }
   /* ---------- Settings: memorization tab ---------- */
