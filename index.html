@@ -514,21 +514,19 @@ window.quranDataPromise = new Promise(function(resolve, reject){
 
   /* ---------- بطاقات الواجهة: أزرار الإجراءات مرتبة رأسيًا بعرض موحّد (شاشات الكمبيوتر) ---------- */
   @media (min-width:769px){
-    .continue-card{ position:relative; }
-    .continue-card .cc-info{ flex:1 1 100%; }
-    .continue-card .cc-actions{ width:100%; }
-    .continue-card .cc-row{ width:100%; }
-    .continue-card .cc-go, .continue-card .cc-more{ width:100%; min-width:0; margin-inline-end:0; }
-    .continue-card .cc-dismiss{ position:absolute; top:10px; inset-inline-end:10px; }
-    #memo-review-banner .cc-actions .cc-row{ flex-direction:column; align-items:stretch; }
-    #memo-review-banner .cc-actions .cc-row .cc-go{ flex:none; }
-    .aod-footer{ flex-direction:column; align-items:stretch; }
-    .aod-footer-actions{ width:100%; }
-    .aod-footer-actions .aod-go{ flex:1; }
-    .radio-promo-banner{ position:relative; flex-wrap:wrap; }
-    .radio-promo-banner__text{ order:2; flex-basis:100%; }
-    .radio-promo-banner__btn{ order:3; flex:1 1 100%; text-align:center; }
-    .radio-promo-banner__close{ position:absolute; top:8px; inset-inline-end:8px; }
+    body .continue-card{ position:relative; }
+    body .continue-card .cc-info{ flex:1 1 100%; }
+    body .continue-card .cc-actions{ width:auto; align-items:flex-start; }
+    body .continue-card .cc-row{ width:auto; flex-direction:column; align-items:flex-start; gap:8px; }
+    body .continue-card .cc-go, body .continue-card .cc-more, body .continue-card .cc-row .cc-go{ flex:none; width:190px; min-width:190px; box-sizing:border-box; margin-inline-end:0; text-align:center; }
+    body .continue-card .cc-dismiss{ position:absolute; top:10px; inset-inline-end:10px; }
+    body .aod-footer{ flex-direction:column; align-items:flex-start; }
+    body .aod-footer-actions{ width:auto; }
+    body .aod-footer-actions .aod-go{ flex:none; width:190px; min-width:190px; box-sizing:border-box; text-align:center; }
+    body .radio-promo-banner{ position:relative; flex-wrap:wrap; }
+    body .radio-promo-banner__text{ order:2; flex-basis:100%; }
+    body .radio-promo-banner__btn{ order:3; flex:none; width:190px; box-sizing:border-box; text-align:center; }
+    body .radio-promo-banner__close{ position:absolute; top:8px; inset-inline-end:8px; }
   }
 
   /* ---------- Reading trail (قائمة مواضع القراءة المتعددة) ---------- */
@@ -7489,7 +7487,7 @@ function renderMemoList(){
       '<div class="memo-entry-meta">' + offT('حُفظ ', 'Memorized ') + memoFmtDate(m.ts) + '<br>' + revs + '</div>' +
       '<div class="memo-entry-actions">' +
         '<button type="button" data-act="open" data-id="' + m.id + '">' + offT('افتح', 'Open') + '</button>' +
-        (hasPending ? '<button type="button" data-act="done" data-id="' + m.id + '">' + offT('تمت المراجعة', 'Reviewed') + '</button>' : '') +
+        (hasPending ? '<button type="button" data-act="done" data-id="' + m.id + '">' + offT('تمت المراجعة', 'Done reviewing') + '</button>' : '') +
         '<button type="button" data-act="link" data-id="' + m.id + '">🔗 ' + offT('رابط', 'Link') + '</button>' +
         '<button type="button" class="danger" data-act="del" data-id="' + m.id + '">' + offT('حذف', 'Remove') + '</button>' +
       '</div></div>';
@@ -9572,7 +9570,7 @@ function renderMemoReviewBanner(){
       </div>
       <div class="cc-actions"><div class="cc-row">
         <button class="cc-go" onclick="openSurah(${d.m.s1}, ${d.m.a1})">${offT('افتح', 'Open')}</button>
-        <button class="cc-go" onclick="markMemoReviewed('${d.m.id}', ${d.i})">${offT('تمت المراجعة', 'Reviewed')}</button>
+        <button class="cc-go" onclick="markMemoReviewed('${d.m.id}', ${d.i})">${offT('تمت المراجعة', 'Done reviewing')}</button>
       </div></div>
     </div>`).join('');
 }
@@ -14719,6 +14717,7 @@ function refreshDynamicContent(){
     onSideNavSearchInput(sideSearch.value);
   }
   if(typeof renderContinueBanner === 'function') renderContinueBanner();
+  if(typeof renderMemoReviewBanner === 'function') renderMemoReviewBanner();
   if(typeof renderTrailSheet === 'function') renderTrailSheet();
   if(typeof renderAyahOfDayCard === 'function') renderAyahOfDayCard();
   if(typeof updateAutoScrollSpeedLabel === 'function') updateAutoScrollSpeedLabel();
