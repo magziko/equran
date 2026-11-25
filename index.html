@@ -492,7 +492,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   .continue-card .cc-text .cc-label{ font-size:12.5px; color:var(--text-muted); font-weight:600; margin-bottom:2px; }
   .continue-card .cc-text .cc-title{ font-size:15.5px; font-weight:800; }
   .continue-card .cc-actions{ display:flex; flex-direction:column; align-items:stretch; gap:8px; flex-shrink:0; }
-  .continue-card .cc-row{ display:flex; align-items:center; gap:8px; }
+  .continue-card .cc-row{ display:flex; align-items:center; gap:8px; flex-direction:row-reverse; }
   .continue-card .cc-row .cc-go{ flex:1; }
   .continue-card .cc-go{
     background:var(--accent); color:#fff; border:none; font-weight:700; font-size:13.5px;
@@ -508,7 +508,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     background:var(--accent); color:#fff; border:none;
     font-weight:700; font-size:13.5px; padding:9px 18px; border-radius:9px; width:190px; box-sizing:border-box;
     text-align:center; white-space:nowrap;
-    margin-inline-end:42px; /* نفس عرض زر أكمل من هنا (عرض زر × 34 + المسافة 8) */
+    margin-inline-start:42px; /* زر × بقى جنب النص، فالإزاحة من جهة البداية عشان كل الأزرار على نفس الحافة */
   }
   .continue-card .cc-more:hover{ filter:brightness(1.08); }
 
@@ -2221,7 +2221,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     display:none; align-items:center; gap:14px;
     background:linear-gradient(135deg, var(--accent-bg), transparent), var(--surface);
     border:1px solid var(--border); border-radius:var(--radius-md);
-    padding:14px 16px;
+    padding:14px 20px;
     animation:radioPromoIn .35s ease;
   }
   @keyframes radioPromoIn{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:translateY(0); } }
@@ -2663,7 +2663,7 @@ window.quranDataPromise = new Promise(function(resolve, reject){
     .continue-card .cc-actions{ flex-direction:column; flex-shrink:0; }
     .continue-card .cc-go, .continue-card .cc-more{ padding:8px 10px; white-space:nowrap; font-size:13px; width:150px; }
     .continue-card .cc-dismiss{ width:30px; height:30px; }
-    .continue-card .cc-more{ margin-inline-end:38px; }
+    .continue-card .cc-more{ margin-inline-start:38px; }
     .aod-go{ width:150px; padding:8px 10px; font-size:13px; }
     .aod-card{ padding:10px 12px; }
     .aod-head{ margin-bottom:4px; }
@@ -2916,8 +2916,8 @@ window.quranDataPromise = new Promise(function(resolve, reject){
           <strong data-i18n="radio_banner_title">استمتع بإذاعة القرآن الكريم المباشرة 🎧</strong>
           <span data-i18n="radio_banner_subtitle">بث مباشر بأصوات نخبة القراء، وأذكار وتلاوات على مدار الساعة</span>
         </div>
-        <a class="radio-promo-banner__btn" href="https://magziko.github.io/Radio/" target="_blank" rel="noopener" onclick="dismissRadioPromoBanner()" data-i18n="listen_now">استمع الآن</a>
         <button class="radio-promo-banner__close" onclick="dismissRadioPromoBanner()" title="إغلاق" aria-label="إغلاق" data-i18n-title="close">×</button>
+        <a class="radio-promo-banner__btn" href="https://magziko.github.io/Radio/" target="_blank" rel="noopener" onclick="dismissRadioPromoBanner()" data-i18n="listen_now">استمع الآن</a>
       </div>
 
       <div id="continue-banner" style="display:none;"></div>
@@ -10302,8 +10302,8 @@ function renderAyahOfDayCard(){
       <div class="aod-footer">
         <div class="aod-ref">${t('surah_word')} ${surahRefName(a.surahId, a.surahName)} — ${t('ayah_word')} ${a.ayahId}</div>
         <div class="aod-footer-actions">
-          <button class="aod-go" onclick="readAyahOfDayFromHere()">${t('ayah_of_day_read_here')}</button>
           <button class="aod-close" onclick="dismissAyahOfDay()" title="${t('close')}" aria-label="${t('close')}">×</button>
+          <button class="aod-go" onclick="readAyahOfDayFromHere()">${t('ayah_of_day_read_here')}</button>
         </div>
       </div>
     </div>
