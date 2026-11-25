@@ -16049,9 +16049,19 @@ if('serviceWorker' in navigator){
 function openIntroVideo(){
   try { document.querySelectorAll('audio').forEach(function(a){ try{ a.pause(); }catch(e){} }); } catch(e){}
   var h=document.getElementById('introVideoHolder');
+  var isEn=(document.documentElement.getAttribute('data-lang')==='en');
+  var isMob=false;
+  try{ isMob=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'') || window.innerWidth<=600 || (window.matchMedia('(pointer:coarse)').matches && window.innerWidth<=900); }catch(e){}
+  var vid=isEn?(isMob?'cnL2cpafyDQ':'T4o9MXTSPaE'):'3NcSpzdrwsI';
+  var vert=(vid==='cnL2cpafyDQ');
+  var box=h.parentNode;
+  if(vert){ box.style.aspectRatio='9/16'; box.style.width='min(100%, calc(80vh * 9 / 16))'; box.style.margin='0 auto'; }
+  else { box.style.aspectRatio='16/9'; box.style.width='100%'; box.style.margin=''; }
+  if(h.firstChild && h.getAttribute('data-vid')!==vid) h.innerHTML='';
   if(!h.firstChild){
+    h.setAttribute('data-vid',vid);
     var f=document.createElement('iframe');
-    f.src='https://www.youtube-nocookie.com/embed/3NcSpzdrwsI?rel=0&autoplay=1';
+    f.src='https://www.youtube-nocookie.com/embed/'+vid+'?rel=0&autoplay=1';
     f.title='The Holy Quran intro video';
     f.loading='lazy'; f.allow='accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; fullscreen';
     f.allowFullscreen=true; f.referrerPolicy='strict-origin-when-cross-origin';
