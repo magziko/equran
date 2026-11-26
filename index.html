@@ -13874,6 +13874,7 @@ const I18N_STRINGS = {
     radio_video_btn: '🎬 شاهد فيديو تطبيق الراديو',
     radio_app_btn: '⬇️ تحميل تطبيق إذاعة القرآن',
     apk_install_btn: '⬇️ تحميل ملف APK',
+    radio_app_median_btn: '⬇️ تحميل الإصدار القديم (تطبيق ويب)',
     sister_label: '📻 تطبيق إذاعة القرآن الكريم',
     radio_app_note: 'إذاعة القرآن الكريم على مدار الساعة: شاهد الفيديو أو حمّل التطبيق مباشرة.',
     install_ios_note: 'لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».',
@@ -14348,6 +14349,7 @@ const I18N_STRINGS = {
     radio_video_btn: '🎬 Watch the Radio app video',
     radio_app_btn: '⬇️ Download the Quran Radio app',
     apk_install_btn: '⬇️ Download APK',
+    radio_app_median_btn: '⬇️ Download the old version (web app)',
     sister_label: '📻 Quran Radio app',
     radio_app_note: 'The 24/7 Quran radio: watch the video or download the app directly.',
     install_ios_note: 'To install: tap the Share button in Safari, then "Add to Home Screen".',
@@ -15777,8 +15779,8 @@ if('serviceWorker' in navigator){
           <button type="button" class="offline-dl-btn primary" onclick="window.open((/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'')||window.innerWidth<=600)?'https://youtube.com/shorts/KRtlOcptDZY':'https://youtu.be/uEQQd8h-ViY','_blank','noopener');">
             <span data-i18n="radio_video_btn">🎬 شاهد فيديو تطبيق الراديو</span>
           </button>
-          <button type="button" class="offline-dl-btn primary" onclick="var a=document.createElement('a');a.href='https://raw.githubusercontent.com/magziko/Radio-media/main/Quran%20Radio%20Ma.apk';a.download='Quran Radio Ma.apk';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();" style="margin-top:6px;">
-            <span data-i18n="radio_app_btn">⬇️ تحميل تطبيق إذاعة القرآن</span>
+          <button type="button" class="offline-dl-btn primary" onclick="var a=document.createElement('a');a.href='https://raw.githubusercontent.com/magziko/Radio-media/main/Quran%20Radio%20Ma%20-%20Median.apk';a.download='Quran Radio Ma - Median.apk';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();" style="margin-top:6px;">
+            <span data-i18n="radio_app_median_btn">⬇️ تحميل الإصدار القديم (تطبيق ويب)</span>
           </button>
           <div class="settings-modal-note" data-i18n="radio_app_note">إذاعة القرآن الكريم على مدار الساعة: شاهد الفيديو أو حمّل التطبيق مباشرة.</div>
         </div>
