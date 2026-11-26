@@ -13861,6 +13861,9 @@ const I18N_STRINGS = {
     audio_dl_clear_all: 'حذف كل التلاوات المحمّلة',
     install_btn: 'تثبيت التطبيق',
     install_note: 'يفتح أسرع ويعمل بدون إنترنت مثل أي تطبيق على جهازك.',
+    app_video_btn: '🎬 شاهد فيديو التطبيق',
+    app_video_short_btn: '📱 فيديو قصير (شورت)',
+    app_video_note: 'شاهد فيديو تعريفي بتطبيق القرآن الكريم قراءة واستماع على يوتيوب.',
     install_ios_note: 'لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».',
     startup_btn: 'فتح صفحة التطبيقات',
     settings_sec_backup: 'النسخ الاحتياطي والبيانات',
@@ -14322,6 +14325,9 @@ const I18N_STRINGS = {
     audio_dl_clear_all: 'Delete all downloaded audio',
     install_btn: 'Install the app',
     install_note: 'Opens faster and works offline like any app on your device.',
+    app_video_btn: '🎬 Watch the app video',
+    app_video_short_btn: '📱 Short video (Shorts)',
+    app_video_note: 'Watch an intro video of the Quran read & listen app on YouTube.',
     install_ios_note: 'To install: tap the Share button in Safari, then "Add to Home Screen".',
     startup_btn: 'Open apps page',
     settings_sec_backup: 'Backup and data',
@@ -15718,6 +15724,15 @@ if('serviceWorker' in navigator){
           </button>
           <div class="settings-modal-note" data-i18n="sister_note">ثبّت تطبيق إذاعة القرآن الكريم أيضًا على جهازك. سيُفتح في تبويب جديد مع زر التثبيت.</div>
           <div class="settings-modal-note kbd-chip" dir="ltr">⌨️ Alt + Shift + R</div>
+        </div>
+        <div data-tab="more" class="control-group settings-card" id="app-video-group">
+          <button type="button" class="offline-dl-btn primary" onclick="window.open('https://youtu.be/Z0ybrG-O-gQ','_blank','noopener');">
+            <span data-i18n="app_video_btn">🎬 شاهد فيديو التطبيق</span>
+          </button>
+          <button type="button" class="offline-dl-btn primary" onclick="window.open('https://youtube.com/shorts/rmDcX_H9Wms','_blank','noopener');" style="margin-top:6px;">
+            <span data-i18n="app_video_short_btn">📱 فيديو قصير (شورت)</span>
+          </button>
+          <div class="settings-modal-note" data-i18n="app_video_note">شاهد فيديو تعريفي بتطبيق القرآن الكريم قراءة واستماع على يوتيوب.</div>
         </div>
         <div data-tab="more" class="control-group settings-section-heading settings-more-heading" id="tools-section-heading"><span class="label" data-i18n="settings_sec_tools">الطباعة والاختصارات</span></div>
         <div data-tab="more" class="control-group settings-card" id="print-group">
