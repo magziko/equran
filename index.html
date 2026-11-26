@@ -13860,10 +13860,18 @@ const I18N_STRINGS = {
     audio_dl_clear_one: 'حذف تلاوة هذه السورة',
     audio_dl_clear_all: 'حذف كل التلاوات المحمّلة',
     install_btn: 'تثبيت التطبيق',
-    install_note: 'يفتح أسرع ويعمل بدون إنترنت مثل أي تطبيق على جهازك.',
+    install_note: 'نسخة الويب: تُضاف من المتصفح مباشرة بدون تحميل أي ملف، وتعمل بدون إنترنت مثل أي تطبيق على جهازك.',
+    pwa_install_label: '٢) تثبيت التطبيق من المتصفح (نسخة الويب)',
+    web_use_label: '١) استخدام الموقع مباشرة (بدون تثبيت)',
+    web_use_note: 'افتح الموقع واستخدمه كما هو في أي وقت ومن أي جهاز، بدون تحميل أو تثبيت أي شيء.',
+    apk_install_label: '٣) تحميل تطبيق أندرويد (ملف APK)',
+    apk_install_note: 'النسخة الأصلية الكاملة: ملف APK يُحمَّل ويُثبَّت مباشرة على هاتفك، بنفس مزايا الموقع.',
     app_video_btn: '🎬 شاهد فيديو التطبيق',
     app_video_short_btn: '📱 فيديو قصير (شورت)',
     app_video_note: 'شاهد فيديو تعريفي بتطبيق القرآن الكريم قراءة واستماع على يوتيوب.',
+    radio_video_btn: '🎬 شاهد فيديو تطبيق الراديو',
+    radio_app_btn: '⬇️ تحميل تطبيق إذاعة القرآن',
+    radio_app_note: 'إذاعة القرآن الكريم على مدار الساعة: شاهد الفيديو أو حمّل التطبيق مباشرة.',
     install_ios_note: 'لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».',
     startup_btn: 'فتح صفحة التطبيقات',
     settings_sec_backup: 'النسخ الاحتياطي والبيانات',
@@ -14324,10 +14332,18 @@ const I18N_STRINGS = {
     audio_dl_clear_one: 'Delete this surah\'s audio',
     audio_dl_clear_all: 'Delete all downloaded audio',
     install_btn: 'Install the app',
-    install_note: 'Opens faster and works offline like any app on your device.',
+    install_note: 'Web version: added straight from the browser, no file to download, and works offline like any app on your device.',
+    pwa_install_label: '2) Install from the browser (web version)',
+    web_use_label: '1) Use the site directly (no install)',
+    web_use_note: 'Open the site and use it as it is, anytime and on any device, with nothing to download or install.',
+    apk_install_label: '3) Download the Android app (APK file)',
+    apk_install_note: 'The full native app: an APK file you download and install directly on your phone, with the same features as the site.',
     app_video_btn: '🎬 Watch the app video',
     app_video_short_btn: '📱 Short video (Shorts)',
     app_video_note: 'Watch an intro video of the Quran read & listen app on YouTube.',
+    radio_video_btn: '🎬 Watch the Radio app video',
+    radio_app_btn: '⬇️ Download the Quran Radio app',
+    radio_app_note: 'The 24/7 Quran radio: watch the video or download the app directly.',
     install_ios_note: 'To install: tap the Share button in Safari, then "Add to Home Screen".',
     startup_btn: 'Open apps page',
     settings_sec_backup: 'Backup and data',
@@ -15701,13 +15717,28 @@ if('serviceWorker' in navigator){
           <div class="settings-modal-note" id="data-backup-status" style="display:none;"></div>
         </div>
         <div data-tab="more" class="control-group settings-section-heading settings-more-heading" id="install-section-heading"><span class="label" data-i18n="settings_sec_install">التثبيت والتطبيقات</span></div>
+        <div data-tab="more" class="control-group settings-card" id="web-use-group">
+          <span class="label" data-i18n="web_use_label">١) استخدام الموقع مباشرة (بدون تثبيت)</span>
+          <div class="settings-modal-note" data-i18n="web_use_note">افتح الموقع واستخدمه كما هو في أي وقت ومن أي جهاز، بدون تحميل أو تثبيت أي شيء.</div>
+        </div>
         <div data-tab="more" class="control-group settings-card" id="install-group" style="display:none;">
+          <span class="label" data-i18n="pwa_install_label">تثبيت التطبيق من المتصفح (نسخة الويب)</span>
           <button type="button" class="offline-dl-btn primary" id="install-app-btn" onclick="promptInstall()" style="display:none;">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-inline-end:6px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span data-i18n="install_btn">تثبيت التطبيق</span>
           </button>
           <div class="settings-modal-note" id="install-note" style="display:none;" data-i18n="install_note">يفتح أسرع ويعمل بدون إنترنت مثل أي تطبيق على جهازك.</div>
           <div class="settings-modal-note kbd-chip" id="install-kbd-hint" dir="ltr" style="display:none;">⌨️ Alt + Shift + E / I</div>
           <div class="settings-modal-note" id="install-ios-note" style="display:none;" data-i18n="install_ios_note">لتثبيت التطبيق: اضغط زر المشاركة في سفاري ثم «إضافة إلى الشاشة الرئيسية».</div>
+        </div>
+        <div data-tab="more" class="control-group settings-card" id="apk-install-group">
+          <span class="label" data-i18n="apk_install_label">تحميل تطبيق أندرويد (ملف APK)</span>
+          <button type="button" class="offline-dl-btn primary" onclick="var a=document.createElement('a');a.href='https://raw.githubusercontent.com/magziko/Radio-media/main/eQuran.apk';a.download='eQuran.apk';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();">
+            <span data-i18n="apk_install_label">تحميل تطبيق أندرويد (ملف APK)</span>
+          </button>
+          <button type="button" class="offline-dl-btn primary" onclick="var a=document.createElement('a');a.href='https://raw.githubusercontent.com/magziko/Radio-media/main/Quran%20Radio%20Ma.apk';a.download='Quran Radio Ma.apk';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();" style="margin-top:6px;">
+            <span data-i18n="radio_app_btn">⬇️ تحميل تطبيق إذاعة القرآن</span>
+          </button>
+          <div class="settings-modal-note" data-i18n="apk_install_note">النسخة الأصلية الكاملة: ملف APK يُحمَّل ويُثبَّت مباشرة على هاتفك، بنفس مزايا الموقع.</div>
         </div>
         <div data-tab="more" class="control-group settings-card" id="startup-group">
           <span class="label" data-i18n="startup_label">تشغيل التطبيق عند بدء تشغيل ويندوز</span>
@@ -15733,6 +15764,15 @@ if('serviceWorker' in navigator){
             <span data-i18n="app_video_short_btn">📱 فيديو قصير (شورت)</span>
           </button>
           <div class="settings-modal-note" data-i18n="app_video_note">شاهد فيديو تعريفي بتطبيق القرآن الكريم قراءة واستماع على يوتيوب.</div>
+        </div>
+        <div data-tab="more" class="control-group settings-card" id="radio-video-group">
+          <button type="button" class="offline-dl-btn primary" onclick="window.open((/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'')||window.innerWidth<=600)?'https://youtube.com/shorts/KHA3eHrCxqE':'https://youtu.be/doERxtzA8NE','_blank','noopener');">
+            <span data-i18n="radio_video_btn">🎬 شاهد فيديو تطبيق الراديو</span>
+          </button>
+          <button type="button" class="offline-dl-btn primary" onclick="var a=document.createElement('a');a.href='https://raw.githubusercontent.com/magziko/Radio-media/main/Quran%20Radio%20Ma.apk';a.download='Quran Radio Ma.apk';a.rel='noopener';document.body.appendChild(a);a.click();a.remove();" style="margin-top:6px;">
+            <span data-i18n="radio_app_btn">⬇️ تحميل تطبيق إذاعة القرآن</span>
+          </button>
+          <div class="settings-modal-note" data-i18n="radio_app_note">إذاعة القرآن الكريم على مدار الساعة: شاهد الفيديو أو حمّل التطبيق مباشرة.</div>
         </div>
         <div data-tab="more" class="control-group settings-section-heading settings-more-heading" id="tools-section-heading"><span class="label" data-i18n="settings_sec_tools">الطباعة والاختصارات</span></div>
         <div data-tab="more" class="control-group settings-card" id="print-group">
