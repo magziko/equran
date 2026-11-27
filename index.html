@@ -2718,6 +2718,19 @@ window.quranDataPromise = new Promise(function(resolve, reject){
   #settings-overlay .settings-card .repeat-actions .repeat-btn{ flex:1 1 180px; justify-content:center; }
   #settings-overlay #data-backup-group, #settings-overlay #reset-settings-group{ grid-column:1 / -1; }
   #settings-overlay #reset-settings-group .offline-dl-btn{ width:auto; align-self:flex-start; }
+  /* بطاقات تحميل نسخ الويندوز في الإعدادات (سطح المكتب فقط) */
+  .win-dl-card{ grid-column:1 / -1; }
+  .win-dl-card a.offline-dl-btn{ text-decoration:none; }
+  .win-btn-row{ display:flex; flex-direction:column; gap:6px; }
+  @media (min-width:600px){
+    .win-btn-row{ flex-direction:row; }
+    .win-btn-row .offline-dl-btn{ width:auto !important; flex:1 1 0; margin-top:0 !important; }
+    #sister-group, #app-video-group, #radio-video-group{ display:flex; flex-direction:row; flex-wrap:wrap; }
+    #sister-group > .label, #sister-group > .settings-modal-note, #sister-group > .kbd-chip,
+    #app-video-group > .settings-modal-note, #radio-video-group > .settings-modal-note{ flex:0 0 100%; }
+    #sister-group .offline-dl-btn, #app-video-group .offline-dl-btn, #radio-video-group .offline-dl-btn{ width:auto !important; flex:1 1 0; margin-top:0 !important; }
+  }
+  @media (max-width:600px){ .win-dl-card{ display:none !important; } }
   .startup-url-row{ display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; }
   .startup-url-row code{ padding:3px 12px; border-radius:8px; background:rgba(127,127,127,0.18); font-family:Consolas,Menlo,monospace; font-size:13px; user-select:all; -webkit-user-select:all; }
   .startup-copy-only{ background:transparent; border:none; color:var(--accent-soft); font:inherit; font-size:12.5px; font-weight:700; cursor:pointer; text-decoration:underline; padding:4px 2px; }
@@ -13868,6 +13881,16 @@ const I18N_STRINGS = {
     web_use_note: 'افتح الموقع واستخدمه كما هو في أي وقت ومن أي جهاز، بدون تحميل أو تثبيت أي شيء.',
     apk_install_label: '٣) تحميل تطبيق أندرويد (ملف APK)',
     apk_install_note: 'النسخة الأصلية الكاملة: ملف APK يُحمَّل ويُثبَّت مباشرة على هاتفك، بنفس مزايا الموقع.',
+    win_eq_label: '٤) تحميل تطبيق القرآن الكريم للويندوز 🪟',
+    win_eq_setup: '⬇️ نسخة التثبيت',
+    win_eq_portable: '⬇️ النسخة المحمولة',
+    win_eq_legacy: '⬇️ ويندوز ٧ و٨',
+    win_eq_note: 'نسخة التثبيت والمحمولة: ويندوز ١٠ و١١ — التثبيت للاستخدام الدائم، والمحمولة تعمل مباشرة بدون تثبيت. بنفس مزايا الموقع.',
+    win_radio_label: '🪟 تطبيق إذاعة القرآن الكريم للويندوز',
+    win_radio_setup: '⬇️ نسخة التثبيت',
+    win_radio_portable: '⬇️ النسخة المحمولة',
+    win_radio_legacy: '⬇️ ويندوز ٧ و٨',
+    win_radio_note: 'نسخة التثبيت والمحمولة: ويندوز ١٠ و١١ — التثبيت للاستخدام الدائم، والمحمولة تعمل مباشرة بدون تثبيت. إذاعة القرآن على مدار الساعة.',
     app_video_btn: '🎬 شاهد فيديو التطبيق',
     app_video_short_btn: '📱 فيديو قصير (شورت)',
     app_video_note: 'شاهد فيديو تعريفي بتطبيق القرآن الكريم قراءة واستماع على يوتيوب.',
@@ -14343,6 +14366,16 @@ const I18N_STRINGS = {
     web_use_note: 'Open the site and use it as it is, anytime and on any device, with nothing to download or install.',
     apk_install_label: '3) Download the Android app (APK file)',
     apk_install_note: 'The full native app: an APK file you download and install directly on your phone, with the same features as the site.',
+    win_eq_label: '4) Download the Quran app for Windows 🪟',
+    win_eq_setup: '⬇️ Installer',
+    win_eq_portable: '⬇️ Portable',
+    win_eq_legacy: '⬇️ Windows 7/8',
+    win_eq_note: 'Installer and portable: Windows 10 & 11 — the installer is for permanent use; the portable runs directly with no install. Same features as the site.',
+    win_radio_label: '🪟 Quran Radio app for Windows',
+    win_radio_setup: '⬇️ Installer',
+    win_radio_portable: '⬇️ Portable',
+    win_radio_legacy: '⬇️ Windows 7/8',
+    win_radio_note: 'Installer and portable: Windows 10 & 11 — the installer is for permanent use; the portable runs directly with no install. Quran Radio around the clock.',
     app_video_btn: '🎬 Watch the app video',
     app_video_short_btn: '📱 Short video (Shorts)',
     app_video_note: 'Watch an intro video of the Quran read & listen app on YouTube.',
@@ -15746,6 +15779,15 @@ if('serviceWorker' in navigator){
           </button>
           <div class="settings-modal-note" data-i18n="apk_install_note">النسخة الأصلية الكاملة: ملف APK يُحمَّل ويُثبَّت مباشرة على هاتفك، بنفس مزايا الموقع.</div>
         </div>
+        <div data-tab="more" class="control-group settings-card win-dl-card" id="win-eq-install-group">
+          <span class="label" data-i18n="win_eq_label">٤) تحميل تطبيق القرآن الكريم للويندوز 🪟</span>
+          <div class="win-btn-row">
+            <a class="offline-dl-btn primary" href="https://github.com/magziko/Radio-du-Coran-FR/releases/download/equran-windows-v1/eQuran-Setup-1.0.0-x64.exe" target="_blank" rel="noopener"><span data-i18n="win_eq_setup">⬇️ نسخة التثبيت</span></a>
+            <a class="offline-dl-btn primary" href="https://github.com/magziko/Radio-du-Coran-FR/releases/download/equran-windows-v1/eQuran-Portable-1.0.0-x64.exe" target="_blank" rel="noopener"><span data-i18n="win_eq_portable">⬇️ النسخة المحمولة</span></a>
+            <a class="offline-dl-btn primary" href="https://github.com/magziko/Radio-du-Coran-FR/releases/download/equran-windows-v1/eQuran-Legacy-Portable-1.0.0-ia32.exe" target="_blank" rel="noopener"><span data-i18n="win_eq_legacy">⬇️ ويندوز ٧ و٨</span></a>
+          </div>
+          <div class="settings-modal-note" data-i18n="win_eq_note">نسخة التثبيت والمحمولة: ويندوز ١٠ و١١ — التثبيت للاستخدام الدائم، والمحمولة تعمل مباشرة بدون تثبيت. بنفس مزايا الموقع.</div>
+        </div>
         <div data-tab="more" class="control-group settings-card" id="startup-group" style="grid-column: 1 / -1;">
           <span class="label" data-i18n="startup_label">تشغيل التطبيق عند بدء تشغيل ويندوز</span>
           <button type="button" class="offline-dl-btn primary" id="startup-copy-btn" onclick="copyAppsAddress()">
@@ -15783,6 +15825,15 @@ if('serviceWorker' in navigator){
             <span data-i18n="radio_app_median_btn">⬇️ تحميل الإصدار القديم (تطبيق ويب)</span>
           </button>
           <div class="settings-modal-note" data-i18n="radio_app_note">إذاعة القرآن الكريم على مدار الساعة: شاهد الفيديو أو حمّل التطبيق مباشرة.</div>
+        </div>
+        <div data-tab="more" class="control-group settings-card win-dl-card" id="win-radio-install-group">
+          <span class="label" data-i18n="win_radio_label">🪟 تطبيق إذاعة القرآن الكريم للويندوز</span>
+          <div class="win-btn-row">
+            <a class="offline-dl-btn primary" href="https://github.com/magziko/Radio-media/releases/download/windows-v1/QuranRadio-Setup-1.0.0.exe" target="_blank" rel="noopener"><span data-i18n="win_radio_setup">⬇️ نسخة التثبيت</span></a>
+            <a class="offline-dl-btn primary" href="https://github.com/magziko/Radio-media/releases/download/windows-v1/QuranRadio-Portable-1.0.0.exe" target="_blank" rel="noopener"><span data-i18n="win_radio_portable">⬇️ النسخة المحمولة</span></a>
+            <a class="offline-dl-btn primary" href="https://github.com/magziko/Radio-media/releases/download/windows-v1/QuranRadio-Legacy-Portable-1.0.0-ia32.exe" target="_blank" rel="noopener"><span data-i18n="win_radio_legacy">⬇️ ويندوز ٧ و٨</span></a>
+          </div>
+          <div class="settings-modal-note" data-i18n="win_radio_note">نسخة التثبيت والمحمولة: ويندوز ١٠ و١١ — التثبيت للاستخدام الدائم، والمحمولة تعمل مباشرة بدون تثبيت. إذاعة القرآن على مدار الساعة.</div>
         </div>
         <div data-tab="more" class="control-group settings-section-heading settings-more-heading" id="tools-section-heading"><span class="label" data-i18n="settings_sec_tools">الطباعة والاختصارات</span></div>
         <div data-tab="more" class="control-group settings-card" id="print-group">
